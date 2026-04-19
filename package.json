@@ -1,4 +1,14 @@
 {
+	"type": "module",
+	"scripts": {
+		"start:backend": "cd backend && pnpm start:dev",
+		"start:frontend": "cd frontend && pnpm dev",
+		"start:all": "concurrently -n backend,frontend -c blue,green \"pnpm start:backend\" \"pnpm start:frontend\"",
+		"migrate": "node --env-file=.env scripts/migrate-run.js",
+		"migrate:new": "node scripts/migrate-new.js",
+		"rollback": "node --env-file=.env scripts/migrate-rollback.js",
+		"studio": "pnpm prisma studio"
+	},
 	"dependencies": {
 		"@apollo/server": "^5.5.0",
 		"@nestjs/apollo": "^13.2.5",
@@ -14,6 +24,10 @@
 	},
 	"devDependencies": {
 		"@types/bcrypt": "^6.0.0",
+		"@types/pg": "^8.20.0",
+		"concurrently": "^9.1.2",
+		"dotenv": "^17.4.2",
+		"pg": "^8.20.0",
 		"prisma": "^7.7.0"
 	}
 }

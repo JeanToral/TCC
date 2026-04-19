@@ -24,3 +24,6 @@ lerna-debug.log*
 .tmp
 
 /generated/prisma
+
+# Claude Code local configs
+.claude/
