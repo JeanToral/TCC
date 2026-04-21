@@ -1,0 +1,99 @@
+/* ── Overlay ──────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 200;
+  animation: modal-fade-in 0.15s ease;
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Modal card ───────────────────────────────────────────── */
+.modal {
+  background: var(--surface-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: calc(100vh - 3rem);
+  animation: modal-slide-in 0.15s ease;
+}
+
+@keyframes modal-slide-in {
+  from { transform: translateY(-8px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── Sizes ────────────────────────────────────────────────── */
+.modal--sm { max-width: 400px; }
+.modal--md { max-width: 560px; }
+.modal--lg { max-width: 760px; }
+
+/* ── Header ───────────────────────────────────────────────── */
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.modal__title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+  transition: color 0.15s, background-color 0.15s;
+}
+
+.modal__close:hover {
+  color: var(--text-primary);
+  background: var(--surface-muted);
+}
+
+.modal__close svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* ── Body ─────────────────────────────────────────────────── */
+.modal__body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}

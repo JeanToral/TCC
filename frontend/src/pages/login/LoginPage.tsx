@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import type { ChangeEvent } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useMutation } from '@apollo/client/react'
+
 import { AlertIcon, CheckIcon, EyeIcon, EyeOffIcon, GearIcon, SpinnerIcon } from '../../components/icons'
+import { useAuth } from '../../contexts/AuthContext'
+import { LOGIN } from '../../graphql/auth/Login.gql'
+import type { LoginMutationResult, LoginMutationVariables } from '../../graphql/auth/Login.gql'
 import './LoginPage.css'
 
 interface LoginFormState {
@@ -31,7 +37,23 @@ export default function LoginPage() {
   const [values, setValues] = useState<LoginFormState>({ email: '', password: '' })
   const [errors, setErrors] = useState<FormErrors>({})
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
+
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/dashboard'
+
+  const [loginMutation, { loading }] = useMutation<LoginMutationResult, LoginMutationVariables>(LOGIN, {
+    onCompleted(data) {
+      login(data.login.accessToken)
+      navigate(from, { replace: true })
+    },
+    onError(error) {
+      const message = error.graphQLErrors[0]?.message ?? 'Erro ao conectar com o servidor.'
+      const isCredentials = message.toLowerCase().includes('credenciais') || message.toLowerCase().includes('unauthorized')
+      setErrors({ general: isCredentials ? 'E-mail ou senha incorretos.' : message })
+    },
+  })
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target
@@ -49,10 +71,8 @@ export default function LoginPage() {
       return
     }
 
-    setLoading(true)
     setErrors({})
-    // TODO: conectar mutation GraphQL de login
-    setTimeout(() => setLoading(false), 1500)
+    void loginMutation({ variables: { input: { email: values.email, password: values.password } } })
   }
 
   return (

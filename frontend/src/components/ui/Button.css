@@ -1,0 +1,111 @@
+/* ── Base ─────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4375rem;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.1s;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Icons ────────────────────────────────────────────────── */
+.btn__icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.btn__icon svg {
+  width: 1em;
+  height: 1em;
+}
+
+.btn__spinner {
+  width: 1em;
+  height: 1em;
+  animation: btn-spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Sizes ────────────────────────────────────────────────── */
+.btn--sm {
+  height: 2rem;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.btn--md {
+  height: 2.5rem;
+  padding: 0 1rem;
+  font-size: 0.9375rem;
+}
+
+.btn--lg {
+  height: 2.875rem;
+  padding: 0 1.375rem;
+  font-size: 1rem;
+}
+
+/* ── Variants ─────────────────────────────────────────────── */
+.btn--primary {
+  background: var(--primary);
+  color: var(--text-inverse);
+  border-color: var(--primary);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn--secondary {
+  background: var(--surface-white);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--surface-muted);
+  border-color: #d1d5db;
+}
+
+.btn--danger {
+  background: var(--surface-white);
+  color: var(--error);
+  border-color: rgba(220, 38, 38, 0.35);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--error-bg);
+  border-color: var(--error);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}

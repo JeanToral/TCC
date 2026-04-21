@@ -1,0 +1,67 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AuthPayload {
+  accessToken: String!
+}
+
+input CreateUserInput {
+  email: String!
+  name: String!
+  password: String!
+  roleId: Int!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): UserType!
+  login(input: LoginInput!): AuthPayload!
+  logout: Boolean!
+  refreshToken: AuthPayload!
+  removeUser(id: Int!): UserType!
+  updateUser(id: Int!, input: UpdateUserInput!): UserType!
+}
+
+type Query {
+  roles: [RoleType!]!
+  user(id: Int!): UserType!
+  users: [UserType!]!
+}
+
+type RoleType {
+  description: String
+  id: Int!
+  isSystem: Boolean!
+  name: String!
+  permissions: [String!]!
+}
+
+input UpdateUserInput {
+  email: String
+  isActive: Boolean
+  name: String
+  password: String
+  roleId: Int
+}
+
+type UserType {
+  createdAt: DateTime!
+  deletedAt: DateTime
+  email: String!
+  id: Int!
+  isActive: Boolean!
+  name: String!
+  role: RoleType!
+  roleId: Int!
+  updatedAt: DateTime!
+}

@@ -12,7 +12,10 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const graphql_1 = require("@nestjs/graphql");
 const apollo_1 = require("@nestjs/apollo");
+const throttler_1 = require("@nestjs/throttler");
 const prisma_module_1 = require("./prisma/prisma.module");
+const auth_module_1 = require("./modules/auth/auth.module");
+const users_module_1 = require("./modules/users/users.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -23,6 +26,13 @@ exports.AppModule = AppModule = __decorate([
                 isGlobal: true,
                 envFilePath: '../.env',
             }),
+            throttler_1.ThrottlerModule.forRoot([
+                {
+                    name: 'default',
+                    ttl: 60000,
+                    limit: 100,
+                },
+            ]),
             graphql_1.GraphQLModule.forRoot({
                 driver: apollo_1.ApolloDriver,
                 autoSchemaFile: (0, node_path_1.join)(process.cwd(), 'src/schema.gql'),
@@ -31,6 +41,8 @@ exports.AppModule = AppModule = __decorate([
                 context: ({ req, res }) => ({ req, res }),
             }),
             prisma_module_1.PrismaModule,
+            auth_module_1.AuthModule,
+            users_module_1.UsersModule,
         ],
     })
 ], AppModule);

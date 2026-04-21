@@ -1,0 +1,172 @@
+/* ── Page header ──────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.page-header__info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.page-header__title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.page-header__count {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.users-list-page__search {
+  width: 260px;
+}
+
+/* ── States ───────────────────────────────────────────────── */
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+}
+
+.page-error {
+  padding: 1rem 1.25rem;
+  background: var(--error-bg);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--error);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.page-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+/* ── Table card ───────────────────────────────────────────── */
+.users-table-card {
+  background: var(--surface-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Table ────────────────────────────────────────────────── */
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.users-table__th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.users-table__row {
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.users-table__row:hover {
+  background: #f9fafb;
+}
+
+.users-table__row:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.users-table__row + .users-table__row {
+  border-top: 1px solid var(--border);
+}
+
+.users-table__cell {
+  padding: 0.875rem 1rem;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.users-table__cell--name {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.users-table__cell--date {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.users-table__cell--actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ── Avatar ───────────────────────────────────────────────── */
+.users-table__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(209, 60, 38, 0.15);
+}
+
+.users-table__name-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.users-table__name {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.users-table__email {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

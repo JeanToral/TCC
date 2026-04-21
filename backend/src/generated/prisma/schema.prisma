@@ -9,7 +9,7 @@ datasource db {
 }
 
 model Role {
-  id          String   @id @default(uuid())
+  id          Int      @id @default(autoincrement())
   name        String   @unique
   description String?
   permissions Json
@@ -20,13 +20,13 @@ model Role {
 }
 
 model User {
-  id               String    @id @default(uuid())
+  id               Int       @id @default(autoincrement())
   name             String
   email            String    @unique
   passwordHash     String
   refreshTokenHash String?
   isActive         Boolean   @default(true)
-  roleId           String
+  roleId           Int
   role             Role      @relation(fields: [roleId], references: [id])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
