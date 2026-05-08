@@ -1,6 +1,6 @@
 // ─────────────────────── Imports ────────────────────────
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 import { type UserRecord, UsersRepository } from './users.repository';
 import type { CreateUserInput } from './dto/create-user.input';
