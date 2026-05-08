@@ -169,6 +169,14 @@ const config = {
         "fromEnvVar": null,
         "value": "debian-openssl-3.0.x",
         "native": true
+      },
+      {
+        "fromEnvVar": null,
+        "value": "windows"
+      },
+      {
+        "fromEnvVar": null,
+        "value": "debian-openssl-3.0.x"
       }
     ],
     "previewFeatures": [],
@@ -186,6 +194,7 @@ const config = {
     "db"
   ],
   "activeProvider": "postgresql",
+  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {
@@ -194,8 +203,8 @@ const config = {
       }
     }
   },
-  "inlineSchema": "generator client {\n  provider = \"prisma-client-js\"\n  output   = \"../backend/src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel Role {\n  id          Int      @id @default(autoincrement())\n  name        String   @unique\n  description String?\n  permissions Json\n  isSystem    Boolean  @default(false)\n  users       User[]\n  createdAt   DateTime @default(now())\n  updatedAt   DateTime @updatedAt\n}\n\nmodel User {\n  id               Int       @id @default(autoincrement())\n  name             String\n  email            String    @unique\n  passwordHash     String\n  refreshTokenHash String?\n  isActive         Boolean   @default(true)\n  roleId           Int\n  role             Role      @relation(fields: [roleId], references: [id])\n  createdAt        DateTime  @default(now())\n  updatedAt        DateTime  @updatedAt\n  deletedAt        DateTime?\n}\n",
-  "inlineSchemaHash": "e84deca21399fe741cbe0e5b4e23f30988355caa5897e9fdd289a5227c22b524",
+  "inlineSchema": "generator client {\n  provider      = \"prisma-client-js\"\n  output        = \"../backend/src/generated/prisma\"\n  binaryTargets = [\"native\", \"windows\", \"debian-openssl-3.0.x\"]\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel Role {\n  id          Int      @id @default(autoincrement())\n  name        String   @unique\n  description String?\n  permissions Json\n  isSystem    Boolean  @default(false)\n  users       User[]\n  createdAt   DateTime @default(now())\n  updatedAt   DateTime @updatedAt\n}\n\nmodel User {\n  id               Int       @id @default(autoincrement())\n  name             String\n  email            String    @unique\n  passwordHash     String\n  refreshTokenHash String?\n  isActive         Boolean   @default(true)\n  roleId           Int\n  role             Role      @relation(fields: [roleId], references: [id])\n  createdAt        DateTime  @default(now())\n  updatedAt        DateTime  @updatedAt\n  deletedAt        DateTime?\n}\n",
+  "inlineSchemaHash": "2b01cb32ea87cade206d28c8ded182c061f578096375337daad11360e6085140",
   "copyEngine": true
 }
 
@@ -236,6 +245,10 @@ Object.assign(exports, Prisma)
 // file annotations for bundling tools to include these files
 path.join(__dirname, "libquery_engine-debian-openssl-3.0.x.so.node");
 path.join(process.cwd(), "backend/src/generated/prisma/libquery_engine-debian-openssl-3.0.x.so.node")
+
+// file annotations for bundling tools to include these files
+path.join(__dirname, "query_engine-windows.dll.node");
+path.join(process.cwd(), "backend/src/generated/prisma/query_engine-windows.dll.node")
 // file annotations for bundling tools to include these files
 path.join(__dirname, "schema.prisma");
 path.join(process.cwd(), "backend/src/generated/prisma/schema.prisma")
