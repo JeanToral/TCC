@@ -9,6 +9,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum WorkOrderType {
+  CORRECTIVE
+  PREVENTIVE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum WorkOrderStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 model Role {
   id          Int      @id @default(autoincrement())
   name        String   @unique
@@ -21,15 +43,52 @@ model Role {
 }
 
 model User {
-  id               Int      @id @default(autoincrement())
-  name             String
-  email            String   @unique
-  passwordHash     String
-  refreshTokenHash String?
-  isActive         Boolean  @default(true)
-  roleId           Int
-  role             Role     @relation(fields: [roleId], references: [id])
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  deletedAt        DateTime?
+  id                  Int         @id @default(autoincrement())
+  name                String
+  email               String      @unique
+  passwordHash        String
+  refreshTokenHash    String?
+  isActive            Boolean     @default(true)
+  roleId              Int
+  role                Role        @relation(fields: [roleId], references: [id])
+  requestedWorkOrders WorkOrder[] @relation("RequestedWorkOrders")
+  assignedWorkOrders  WorkOrder[] @relation("AssignedWorkOrders")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  deletedAt           DateTime?
+}
+
+model Asset {
+  id         Int         @id @default(autoincrement())
+  name       String
+  tag        String      @unique
+  location   String?
+  workOrders WorkOrder[]
+  deletedAt  DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model WorkOrder {
+  id              Int             @id @default(autoincrement())
+  title           String
+  description     String
+  type            WorkOrderType
+  priority        Priority
+  status          WorkOrderStatus @default(REQUESTED)
+  asset           Asset           @relation(fields: [assetId], references: [id])
+  assetId         Int
+  requestedBy     User            @relation("RequestedWorkOrders", fields: [requestedById], references: [id])
+  requestedById   Int
+  assignedTo      User?           @relation("AssignedWorkOrders", fields: [assignedToId], references: [id])
+  assignedToId    Int?
+  scheduledStart  DateTime?
+  scheduledEnd    DateTime?
+  rejectionReason String?
+  closingNotes    String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 }

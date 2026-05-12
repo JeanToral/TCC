@@ -1,0 +1,118 @@
+/* ── Back button ──────────────────────────────────────────── */
+.wo-create-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+
+.wo-create-page__back:hover {
+  color: var(--primary);
+}
+
+/* ── Form layout ──────────────────────────────────────────── */
+.wo-create-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 720px;
+}
+
+/* ── Form card ────────────────────────────────────────────── */
+.form-card {
+  background: var(--surface-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.form-card__title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.form-card__body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Row (two columns) ────────────────────────────────────── */
+.wo-create-page__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* ── Field ────────────────────────────────────────────────── */
+.wo-create-page__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.wo-create-page__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.wo-create-page__textarea,
+.wo-create-page__select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  background: var(--surface-white);
+  transition: border-color 0.15s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.wo-create-page__textarea:focus,
+.wo-create-page__select:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.wo-create-page__textarea {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.5;
+}
+
+.wo-create-page__textarea--error,
+.wo-create-page__select--error {
+  border-color: var(--error);
+}
+
+.wo-create-page__error {
+  font-size: 0.8125rem;
+  color: var(--error);
+  font-weight: 500;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.wo-create-page__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}

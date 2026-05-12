@@ -1,0 +1,119 @@
+/* ── Filter select ────────────────────────────────────────── */
+.wo-list-page__filter {
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  background: var(--surface-white);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.wo-list-page__filter:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+/* ── Table card ───────────────────────────────────────────── */
+.wo-table-card {
+  background: var(--surface-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Table ────────────────────────────────────────────────── */
+.wo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.wo-table__th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.wo-table__row {
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.wo-table__row:hover {
+  background: #f9fafb;
+}
+
+.wo-table__row:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.wo-table__row + .wo-table__row {
+  border-top: 1px solid var(--border);
+}
+
+.wo-table__cell {
+  padding: 0.875rem 1rem;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.wo-table__cell--title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 180px;
+}
+
+.wo-table__title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.wo-table__type {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.wo-table__cell--muted {
+  color: var(--text-secondary);
+}
+
+.wo-table__cell--date {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.wo-table__cell--actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.wo-table__asset-tag {
+  display: block;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--primary);
+  font-family: monospace;
+}
+
+.wo-table__asset-name {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}

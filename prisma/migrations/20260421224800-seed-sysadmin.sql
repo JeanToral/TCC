@@ -14,7 +14,7 @@ ON CONFLICT ("name") DO NOTHING;
 INSERT INTO "User" ("name", "email", "passwordHash", "isActive", "roleId", "createdAt", "updatedAt")
 SELECT
   'Administrador',
-  [EMAIL_ADDRESS]',
+  'admin@cmms.local',
   '$2b$10$tQGJM5uHAInTBApGzvYonOFAQUGnfRM9fTo4dTRpoKeqRemMZpRq2',
   true,
   r."id",

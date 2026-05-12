@@ -1,16 +1,17 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import {
   BellIcon,
   ChevronDownIcon,
+  ClipboardListIcon,
   DashboardIcon,
   GearIcon,
-  KeyIcon,
   LogOutIcon,
   UserCircleIcon,
   UserGroupIcon,
 } from '../icons'
+import { useAuth } from '../../contexts/AuthContext'
 import './DashboardShell.css'
 
 interface NavItem {
@@ -21,12 +22,12 @@ interface NavItem {
 }
 
 const mainNav: readonly NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: <DashboardIcon />, end: true },
+  { label: 'Dashboard',         path: '/dashboard',             icon: <DashboardIcon />,      end: true },
+  { label: 'Ordens de Serviço', path: '/dashboard/work-orders', icon: <ClipboardListIcon /> },
 ]
 
 const adminNav: readonly NavItem[] = [
-  { label: 'Usuários',    path: '/dashboard/users', icon: <UserGroupIcon /> },
-  { label: 'Permissões',  path: '/dashboard/roles', icon: <KeyIcon /> },
+  { label: 'Usuários', path: '/dashboard/users', icon: <UserGroupIcon /> },
 ]
 
 const adminPaths = adminNav.map((i) => i.path)
@@ -48,9 +49,16 @@ function SidebarNavItem({ item }: { readonly item: NavItem }) {
 
 export default function DashboardShell() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const { logout } = useAuth()
   const [adminOpen, setAdminOpen] = useState(() =>
     adminPaths.some((p) => pathname.startsWith(p)),
   )
+
+  function handleLogout() {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div className="shell">
@@ -102,15 +110,12 @@ export default function DashboardShell() {
             <span className="shell__sidebar-user-avatar">
               <UserCircleIcon />
             </span>
-            <div className="shell__sidebar-user-info">
-              <span className="shell__sidebar-user-name">Usuário</span>
-              <span className="shell__sidebar-user-role">Sysadmin</span>
-            </div>
           </div>
           <button
             type="button"
             className="shell__sidebar-logout"
             aria-label="Sair do sistema"
+            onClick={handleLogout}
           >
             <LogOutIcon />
           </button>

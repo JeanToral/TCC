@@ -2,6 +2,13 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type AssetType {
+  id: Int!
+  location: String
+  name: String!
+  tag: String!
+}
+
 type AuthPayload {
   accessToken: String!
 }
@@ -11,6 +18,14 @@ input CreateUserInput {
   name: String!
   password: String!
   roleId: Int!
+}
+
+input CreateWorkOrderInput {
+  assetId: Int!
+  description: String!
+  priority: Priority!
+  title: String!
+  type: WorkOrderType!
 }
 
 """
@@ -24,18 +39,37 @@ input LoginInput {
 }
 
 type Mutation {
+  approveWorkOrder(id: Int!): WorkOrder!
   createUser(input: CreateUserInput!): UserType!
+  createWorkOrder(input: CreateWorkOrderInput!): WorkOrder!
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
   refreshToken: AuthPayload!
+  rejectWorkOrder(id: Int!, input: RejectWorkOrderInput!): WorkOrder!
   removeUser(id: Int!): UserType!
+  scheduleWorkOrder(id: Int!, input: ScheduleWorkOrderInput!): WorkOrder!
   updateUser(id: Int!, input: UpdateUserInput!): UserType!
 }
 
+"""Prioridade da ordem de serviço"""
+enum Priority {
+  CRITICAL
+  HIGH
+  LOW
+  MEDIUM
+}
+
 type Query {
+  assets: [AssetType!]!
   roles: [RoleType!]!
   user(id: Int!): UserType!
   users: [UserType!]!
+  workOrder(id: Int!): WorkOrder!
+  workOrders(filter: WorkOrdersFilterInput): [WorkOrder!]!
+}
+
+input RejectWorkOrderInput {
+  rejectionReason: String!
 }
 
 type RoleType {
@@ -44,6 +78,12 @@ type RoleType {
   isSystem: Boolean!
   name: String!
   permissions: [String!]!
+}
+
+input ScheduleWorkOrderInput {
+  assignedToId: Int!
+  scheduledEnd: DateTime
+  scheduledStart: DateTime!
 }
 
 input UpdateUserInput {
@@ -64,4 +104,51 @@ type UserType {
   role: RoleType!
   roleId: Int!
   updatedAt: DateTime!
+}
+
+type WorkOrder {
+  asset: AssetType!
+  assetId: Int!
+  assignedTo: UserType
+  assignedToId: Int
+  closingNotes: String
+  completedAt: DateTime
+  createdAt: DateTime!
+  deletedAt: DateTime
+  description: String!
+  id: Int!
+  priority: Priority!
+  rejectionReason: String
+  requestedBy: UserType!
+  requestedById: Int!
+  scheduledEnd: DateTime
+  scheduledStart: DateTime
+  startedAt: DateTime
+  status: WorkOrderStatus!
+  title: String!
+  type: WorkOrderType!
+  updatedAt: DateTime!
+}
+
+"""Status da ordem de serviço"""
+enum WorkOrderStatus {
+  APPROVED
+  CANCELLED
+  COMPLETED
+  IN_PROGRESS
+  REJECTED
+  REQUESTED
+  SCHEDULED
+}
+
+"""Tipo da ordem de serviço"""
+enum WorkOrderType {
+  CORRECTIVE
+  PREVENTIVE
+}
+
+input WorkOrdersFilterInput {
+  assetId: Int
+  assignedToId: Int
+  status: WorkOrderStatus
 }

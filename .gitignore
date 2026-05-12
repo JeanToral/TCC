@@ -23,7 +23,16 @@ lerna-debug.log*
 .temp
 .tmp
 
-/generated/prisma
+# Test coverage
+coverage/
+
+# Editor directories
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
 
 # Claude Code local configs
 .claude/
