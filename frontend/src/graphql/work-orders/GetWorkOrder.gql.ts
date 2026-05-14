@@ -19,6 +19,7 @@ export const GET_WORK_ORDER = gql`
       scheduledEnd
       rejectionReason
       closingNotes
+      cancellationReason
       startedAt
       completedAt
       createdAt

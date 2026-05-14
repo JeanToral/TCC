@@ -136,3 +136,16 @@
   color: var(--error);
   font-size: 0.875rem;
 }
+
+/* ── Priority border indicator ────────────────────────────── */
+.wo-view-page__priority--medium {
+  border-top: 3px solid #3b82f6;
+}
+
+.wo-view-page__priority--high {
+  border-top: 3px solid #f59e0b;
+}
+
+.wo-view-page__priority--critical {
+  border-top: 3px solid #ef4444;
+}

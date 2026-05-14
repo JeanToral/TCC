@@ -10,6 +10,8 @@ import type { JwtUser } from '../auth/jwt.strategy';
 import { AssetType } from './dto/asset.type';
 import { CreateWorkOrderInput } from './dto/create-work-order.input';
 import { RejectWorkOrderInput } from './dto/reject-work-order.input';
+import { CompleteWorkOrderInput } from './dto/complete-work-order.input';
+import { CancelWorkOrderInput } from './dto/cancel-work-order.input';
 import { ScheduleWorkOrderInput } from './dto/schedule-work-order.input';
 import { WorkOrdersFilterInput } from './dto/work-orders-filter.input';
 import { WorkOrderType } from './dto/work-order.type';
@@ -73,5 +75,29 @@ export class WorkOrdersResolver {
     @Args('input') input: ScheduleWorkOrderInput,
   ): Promise<WorkOrderRecord> {
     return this.workOrdersService.schedule(id, input);
+  }
+
+  @Mutation(() => WorkOrderType)
+  @RequiresPermission('workorder.update')
+  startWorkOrder(@Args('id', { type: () => Int }) id: number): Promise<WorkOrderRecord> {
+    return this.workOrdersService.start(id);
+  }
+
+  @Mutation(() => WorkOrderType)
+  @RequiresPermission('workorder.update')
+  completeWorkOrder(
+    @Args('id', { type: () => Int }) id: number,
+    @Args('input') input: CompleteWorkOrderInput,
+  ): Promise<WorkOrderRecord> {
+    return this.workOrdersService.complete(id, input);
+  }
+
+  @Mutation(() => WorkOrderType)
+  @RequiresPermission('workorder.approve')
+  cancelWorkOrder(
+    @Args('id', { type: () => Int }) id: number,
+    @Args('input') input: CancelWorkOrderInput,
+  ): Promise<WorkOrderRecord> {
+    return this.workOrdersService.cancel(id, input);
   }
 }

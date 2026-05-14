@@ -9,16 +9,22 @@ import Spinner from '../../components/ui/Spinner'
 import { GET_USERS } from '../../graphql/users/GetUsers.gql'
 import type { GetUsersData } from '../../graphql/users/types'
 import { APPROVE_WORK_ORDER } from '../../graphql/work-orders/ApproveWorkOrder.gql'
+import { CANCEL_WORK_ORDER } from '../../graphql/work-orders/CancelWorkOrder.gql'
+import { COMPLETE_WORK_ORDER } from '../../graphql/work-orders/CompleteWorkOrder.gql'
 import { GET_WORK_ORDER } from '../../graphql/work-orders/GetWorkOrder.gql'
 import { GET_WORK_ORDERS } from '../../graphql/work-orders/GetWorkOrders.gql'
 import { REJECT_WORK_ORDER } from '../../graphql/work-orders/RejectWorkOrder.gql'
 import { SCHEDULE_WORK_ORDER } from '../../graphql/work-orders/ScheduleWorkOrder.gql'
+import { START_WORK_ORDER } from '../../graphql/work-orders/StartWorkOrder.gql'
 import type {
   ApproveWorkOrderData,
+  CancelWorkOrderData,
+  CompleteWorkOrderData,
   GetWorkOrderData,
   Priority,
   RejectWorkOrderData,
   ScheduleWorkOrderData,
+  StartWorkOrderData,
   WorkOrderStatus,
 } from '../../graphql/work-orders/types'
 import './WorkOrderViewPage.css'
@@ -58,6 +64,13 @@ const PRIORITY_VARIANT: Record<Priority, BadgeVariant> = {
   MEDIUM: 'info',
   HIGH: 'warning',
   CRITICAL: 'error',
+}
+
+const PRIORITY_BORDER: Record<Priority, string> = {
+  LOW: '',
+  MEDIUM: 'wo-view-page__priority--medium',
+  HIGH: 'wo-view-page__priority--high',
+  CRITICAL: 'wo-view-page__priority--critical',
 }
 
 function formatDateTime(iso: string | null): string {
@@ -256,6 +269,155 @@ function ScheduleModal({
   )
 }
 
+// ── StartModal ─────────────────────────────────────────────
+function StartModal({
+  open,
+  title,
+  loading,
+  error,
+  onClose,
+  onConfirm,
+}: {
+  readonly open: boolean
+  readonly title: string
+  readonly loading: boolean
+  readonly error: string
+  readonly onClose: () => void
+  readonly onConfirm: () => void
+}) {
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Iniciar ordem de serviço"
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button loading={loading} onClick={onConfirm}>
+            Confirmar início
+          </Button>
+        </>
+      }
+    >
+      <p className="wo-view-page__modal-msg">
+        Confirmar início da OS <strong>{title}</strong>?
+      </p>
+      {error && <p className="wo-view-page__modal-error">{error}</p>}
+    </Modal>
+  )
+}
+
+// ── CompleteModal ──────────────────────────────────────────
+function CompleteModal({
+  open,
+  loading,
+  error,
+  notes,
+  onNotesChange,
+  onClose,
+  onConfirm,
+}: {
+  readonly open: boolean
+  readonly loading: boolean
+  readonly error: string
+  readonly notes: string
+  readonly onNotesChange: (v: string) => void
+  readonly onClose: () => void
+  readonly onConfirm: () => void
+}) {
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Concluir ordem de serviço"
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button loading={loading} onClick={onConfirm} disabled={!notes.trim()}>
+            Confirmar conclusão
+          </Button>
+        </>
+      }
+    >
+      <div className="wo-view-page__field">
+        <label className="wo-view-page__label" htmlFor="closing-notes">
+          Notas de conclusão <span aria-hidden="true">*</span>
+        </label>
+        <textarea
+          id="closing-notes"
+          className="wo-view-page__textarea"
+          value={notes}
+          onChange={(e) => onNotesChange(e.target.value)}
+          rows={4}
+          placeholder="Descreva o que foi feito…"
+          maxLength={2000}
+        />
+      </div>
+      {error && <p className="wo-view-page__modal-error">{error}</p>}
+    </Modal>
+  )
+}
+
+// ── CancelModal ────────────────────────────────────────────
+function CancelModal({
+  open,
+  loading,
+  error,
+  reason,
+  onReasonChange,
+  onClose,
+  onConfirm,
+}: {
+  readonly open: boolean
+  readonly loading: boolean
+  readonly error: string
+  readonly reason: string
+  readonly onReasonChange: (v: string) => void
+  readonly onClose: () => void
+  readonly onConfirm: () => void
+}) {
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Cancelar ordem de serviço"
+      size="sm"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
+            Voltar
+          </Button>
+          <Button variant="danger" loading={loading} onClick={onConfirm} disabled={!reason.trim()}>
+            Confirmar cancelamento
+          </Button>
+        </>
+      }
+    >
+      <div className="wo-view-page__field">
+        <label className="wo-view-page__label" htmlFor="cancel-reason">
+          Motivo do cancelamento <span aria-hidden="true">*</span>
+        </label>
+        <textarea
+          id="cancel-reason"
+          className="wo-view-page__textarea"
+          value={reason}
+          onChange={(e) => onReasonChange(e.target.value)}
+          rows={4}
+          placeholder="Descreva o motivo do cancelamento…"
+          maxLength={1000}
+        />
+      </div>
+      {error && <p className="wo-view-page__modal-error">{error}</p>}
+    </Modal>
+  )
+}
+
 // ── Page ───────────────────────────────────────────────────
 export default function WorkOrderViewPage() {
   const { id } = useParams<{ id: string }>()
@@ -264,7 +426,12 @@ export default function WorkOrderViewPage() {
   const [approveOpen, setApproveOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [startOpen, setStartOpen] = useState(false)
+  const [completeOpen, setCompleteOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [closingNotes, setClosingNotes] = useState('')
+  const [cancelReason, setCancelReason] = useState('')
   const [scheduleForm, setScheduleForm] = useState({ assignedToId: '', scheduledStart: '', scheduledEnd: '' })
   const [actionError, setActionError] = useState('')
 
@@ -295,6 +462,25 @@ export default function WorkOrderViewPage() {
   const [scheduleWorkOrder, { loading: scheduling }] = useMutation<ScheduleWorkOrderData>(SCHEDULE_WORK_ORDER, {
     refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
     onCompleted: () => { setScheduleOpen(false); setScheduleForm({ assignedToId: '', scheduledStart: '', scheduledEnd: '' }) },
+    onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
+  })
+
+  const [startWorkOrder, { loading: starting }] = useMutation<StartWorkOrderData>(START_WORK_ORDER, {
+    variables: { id: Number(id) },
+    refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
+    onCompleted: () => setStartOpen(false),
+    onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
+  })
+
+  const [completeWorkOrder, { loading: completing }] = useMutation<CompleteWorkOrderData>(COMPLETE_WORK_ORDER, {
+    refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
+    onCompleted: () => { setCompleteOpen(false); setClosingNotes('') },
+    onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
+  })
+
+  const [cancelWorkOrder, { loading: cancelling }] = useMutation<CancelWorkOrderData>(CANCEL_WORK_ORDER, {
+    refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
+    onCompleted: () => { setCancelOpen(false); setCancelReason('') },
     onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
   })
 
@@ -329,8 +515,10 @@ export default function WorkOrderViewPage() {
   }
   const users = usersData?.users ?? []
 
+  const canCancel = ['REQUESTED', 'APPROVED', 'SCHEDULED', 'IN_PROGRESS'].includes(wo.status)
+
   return (
-    <div className="wo-view-page">
+    <div className={`wo-view-page ${PRIORITY_BORDER[wo.priority]}`}>
       {/* Header */}
       <header className="page-header">
         <div className="page-header__info">
@@ -354,6 +542,21 @@ export default function WorkOrderViewPage() {
           {wo.status === 'APPROVED' && (
             <Button onClick={openSchedule}>
               Agendar
+            </Button>
+          )}
+          {wo.status === 'SCHEDULED' && (
+            <Button onClick={() => { setActionError(''); setStartOpen(true) }}>
+              Iniciar
+            </Button>
+          )}
+          {wo.status === 'IN_PROGRESS' && (
+            <Button onClick={() => { setActionError(''); setCompleteOpen(true) }}>
+              Concluir
+            </Button>
+          )}
+          {canCancel && (
+            <Button variant="danger" onClick={() => { setActionError(''); setCancelReason(''); setCancelOpen(true) }}>
+              Cancelar
             </Button>
           )}
         </div>
@@ -385,6 +588,18 @@ export default function WorkOrderViewPage() {
               <div className="detail-list__item">
                 <dt className="detail-list__label">Motivo da rejeição</dt>
                 <dd className="detail-list__value wo-view-page__rejection">{wo.rejectionReason}</dd>
+              </div>
+            )}
+            {wo.cancellationReason && (
+              <div className="detail-list__item">
+                <dt className="detail-list__label">Motivo do cancelamento</dt>
+                <dd className="detail-list__value wo-view-page__rejection">{wo.cancellationReason}</dd>
+              </div>
+            )}
+            {wo.closingNotes && (
+              <div className="detail-list__item">
+                <dt className="detail-list__label">Notas de conclusão</dt>
+                <dd className="detail-list__value wo-view-page__description">{wo.closingNotes}</dd>
               </div>
             )}
           </dl>
@@ -503,6 +718,43 @@ export default function WorkOrderViewPage() {
                 ...(scheduleForm.scheduledEnd ? { scheduledEnd: new Date(scheduleForm.scheduledEnd).toISOString() } : {}),
               },
             },
+          })
+        }
+      />
+
+      <StartModal
+        open={startOpen}
+        title={wo.title}
+        loading={starting}
+        error={actionError}
+        onClose={() => setStartOpen(false)}
+        onConfirm={() => startWorkOrder()}
+      />
+
+      <CompleteModal
+        open={completeOpen}
+        loading={completing}
+        error={actionError}
+        notes={closingNotes}
+        onNotesChange={(v) => { setClosingNotes(v); setActionError('') }}
+        onClose={() => setCompleteOpen(false)}
+        onConfirm={() =>
+          completeWorkOrder({
+            variables: { id: Number(id), input: { closingNotes } },
+          })
+        }
+      />
+
+      <CancelModal
+        open={cancelOpen}
+        loading={cancelling}
+        error={actionError}
+        reason={cancelReason}
+        onReasonChange={(v) => { setCancelReason(v); setActionError('') }}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={() =>
+          cancelWorkOrder({
+            variables: { id: Number(id), input: { cancellationReason: cancelReason } },
           })
         }
       />

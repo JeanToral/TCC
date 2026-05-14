@@ -43,6 +43,7 @@ export interface WorkOrderDetail extends WorkOrderListItem {
   readonly scheduledEnd: string | null
   readonly rejectionReason: string | null
   readonly closingNotes: string | null
+  readonly cancellationReason: string | null
   readonly startedAt: string | null
   readonly completedAt: string | null
   readonly updatedAt: string
@@ -71,4 +72,16 @@ export interface RejectWorkOrderData {
 
 export interface ScheduleWorkOrderData {
   readonly scheduleWorkOrder: WorkOrderDetail
+}
+
+export interface StartWorkOrderData {
+  readonly startWorkOrder: WorkOrderDetail
+}
+
+export interface CompleteWorkOrderData {
+  readonly completeWorkOrder: WorkOrderDetail
+}
+
+export interface CancelWorkOrderData {
+  readonly cancelWorkOrder: WorkOrderDetail
 }

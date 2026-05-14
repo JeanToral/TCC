@@ -5,6 +5,8 @@ import { WorkOrderStatus } from '../../generated/prisma';
 import { type WorkOrderRecord, WorkOrdersRepository } from './work-orders.repository';
 import type { CreateWorkOrderInput } from './dto/create-work-order.input';
 import type { RejectWorkOrderInput } from './dto/reject-work-order.input';
+import type { CompleteWorkOrderInput } from './dto/complete-work-order.input';
+import type { CancelWorkOrderInput } from './dto/cancel-work-order.input';
 import type { ScheduleWorkOrderInput } from './dto/schedule-work-order.input';
 import type { WorkOrdersFilterInput } from './dto/work-orders-filter.input';
 
@@ -72,6 +74,34 @@ export class WorkOrdersService {
       assignedToId: input.assignedToId,
       scheduledStart: input.scheduledStart,
       scheduledEnd: input.scheduledEnd ?? null,
+    });
+  }
+
+  async start(id: number): Promise<WorkOrderRecord> {
+    const workOrder = await this.findById(id);
+    this.assertValidTransition(workOrder.status, WorkOrderStatus.IN_PROGRESS);
+    return this.repo.update(id, {
+      status: WorkOrderStatus.IN_PROGRESS,
+      startedAt: new Date(),
+    });
+  }
+
+  async complete(id: number, input: CompleteWorkOrderInput): Promise<WorkOrderRecord> {
+    const workOrder = await this.findById(id);
+    this.assertValidTransition(workOrder.status, WorkOrderStatus.COMPLETED);
+    return this.repo.update(id, {
+      status: WorkOrderStatus.COMPLETED,
+      closingNotes: input.closingNotes,
+      completedAt: new Date(),
+    });
+  }
+
+  async cancel(id: number, input: CancelWorkOrderInput): Promise<WorkOrderRecord> {
+    const workOrder = await this.findById(id);
+    this.assertValidTransition(workOrder.status, WorkOrderStatus.CANCELLED);
+    return this.repo.update(id, {
+      status: WorkOrderStatus.CANCELLED,
+      cancellationReason: input.cancellationReason,
     });
   }
 

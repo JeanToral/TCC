@@ -77,6 +77,9 @@ export class WorkOrderType {
   readonly closingNotes?: string;
 
   @Field({ nullable: true })
+  readonly cancellationReason?: string;
+
+  @Field({ nullable: true })
   readonly startedAt?: Date;
 
   @Field({ nullable: true })

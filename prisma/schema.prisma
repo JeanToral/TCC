@@ -84,8 +84,9 @@ model WorkOrder {
   assignedToId    Int?
   scheduledStart  DateTime?
   scheduledEnd    DateTime?
-  rejectionReason String?
-  closingNotes    String?
+  rejectionReason    String?
+  closingNotes       String?
+  cancellationReason String?
   startedAt       DateTime?
   completedAt     DateTime?
   deletedAt       DateTime?

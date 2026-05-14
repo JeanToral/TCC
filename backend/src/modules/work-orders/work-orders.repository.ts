@@ -48,6 +48,7 @@ export interface WorkOrderRecord {
   readonly scheduledEnd: Date | null;
   readonly rejectionReason: string | null;
   readonly closingNotes: string | null;
+  readonly cancellationReason: string | null;
   readonly startedAt: Date | null;
   readonly completedAt: Date | null;
   readonly deletedAt: Date | null;
@@ -71,6 +72,7 @@ export interface UpdateWorkOrderData {
   scheduledEnd?: Date | null;
   rejectionReason?: string;
   closingNotes?: string;
+  cancellationReason?: string;
   startedAt?: Date;
   completedAt?: Date;
 }
@@ -115,6 +117,7 @@ const WORK_ORDER_SELECT = {
   scheduledEnd: true,
   rejectionReason: true,
   closingNotes: true,
+  cancellationReason: true,
   startedAt: true,
   completedAt: true,
   deletedAt: true,
