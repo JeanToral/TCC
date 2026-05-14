@@ -26,10 +26,6 @@ const VALID_TRANSITIONS: Record<WorkOrderStatus, WorkOrderStatus[]> = {
 export class WorkOrdersService {
   constructor(private readonly repo: WorkOrdersRepository) {}
 
-  findAllAssets(): Promise<import('./work-orders.repository').AssetRecord[]> {
-    return this.repo.findAllAssets();
-  }
-
   findAll(filter?: WorkOrdersFilterInput): Promise<WorkOrderRecord[]> {
     return this.repo.findAll(filter);
   }

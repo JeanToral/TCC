@@ -3,14 +3,39 @@
 # ------------------------------------------------------
 
 type AssetType {
+  createdAt: DateTime!
+  deletedAt: DateTime
   id: Int!
+  installDate: DateTime
   location: String
+  manufacturer: String
+  model: String
   name: String!
+  serialNumber: String
   tag: String!
+  updatedAt: DateTime!
 }
 
 type AuthPayload {
   accessToken: String!
+}
+
+input CancelWorkOrderInput {
+  cancellationReason: String!
+}
+
+input CompleteWorkOrderInput {
+  closingNotes: String!
+}
+
+input CreateAssetInput {
+  installDate: DateTime
+  location: String
+  manufacturer: String
+  model: String
+  name: String!
+  serialNumber: String
+  tag: String!
 }
 
 input CreateUserInput {
@@ -40,14 +65,20 @@ input LoginInput {
 
 type Mutation {
   approveWorkOrder(id: Int!): WorkOrder!
+  cancelWorkOrder(id: Int!, input: CancelWorkOrderInput!): WorkOrder!
+  completeWorkOrder(id: Int!, input: CompleteWorkOrderInput!): WorkOrder!
+  createAsset(input: CreateAssetInput!): AssetType!
   createUser(input: CreateUserInput!): UserType!
   createWorkOrder(input: CreateWorkOrderInput!): WorkOrder!
+  deleteAsset(id: Int!): AssetType!
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
   refreshToken: AuthPayload!
   rejectWorkOrder(id: Int!, input: RejectWorkOrderInput!): WorkOrder!
   removeUser(id: Int!): UserType!
   scheduleWorkOrder(id: Int!, input: ScheduleWorkOrderInput!): WorkOrder!
+  startWorkOrder(id: Int!): WorkOrder!
+  updateAsset(id: Int!, input: UpdateAssetInput!): AssetType!
   updateUser(id: Int!, input: UpdateUserInput!): UserType!
 }
 
@@ -60,6 +91,7 @@ enum Priority {
 }
 
 type Query {
+  asset(id: Int!): AssetType!
   assets: [AssetType!]!
   roles: [RoleType!]!
   user(id: Int!): UserType!
@@ -84,6 +116,16 @@ input ScheduleWorkOrderInput {
   assignedToId: Int!
   scheduledEnd: DateTime
   scheduledStart: DateTime!
+}
+
+input UpdateAssetInput {
+  installDate: DateTime
+  location: String
+  manufacturer: String
+  model: String
+  name: String
+  serialNumber: String
+  tag: String
 }
 
 input UpdateUserInput {
@@ -111,6 +153,7 @@ type WorkOrder {
   assetId: Int!
   assignedTo: UserType
   assignedToId: Int
+  cancellationReason: String
   closingNotes: String
   completedAt: DateTime
   createdAt: DateTime!

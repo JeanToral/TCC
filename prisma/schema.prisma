@@ -60,11 +60,15 @@ model User {
 
 model Asset {
   id         Int         @id @default(autoincrement())
-  name       String
-  tag        String      @unique
-  location   String?
-  workOrders WorkOrder[]
-  deletedAt  DateTime?
+  name         String
+  tag          String      @unique
+  location     String?
+  manufacturer String?
+  model        String?
+  serialNumber String?
+  installDate  DateTime?
+  workOrders   WorkOrder[]
+  deletedAt    DateTime?
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 }

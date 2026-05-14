@@ -7,7 +7,6 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import type { JwtUser } from '../auth/jwt.strategy';
-import { AssetType } from './dto/asset.type';
 import { CreateWorkOrderInput } from './dto/create-work-order.input';
 import { RejectWorkOrderInput } from './dto/reject-work-order.input';
 import { CompleteWorkOrderInput } from './dto/complete-work-order.input';
@@ -15,7 +14,7 @@ import { CancelWorkOrderInput } from './dto/cancel-work-order.input';
 import { ScheduleWorkOrderInput } from './dto/schedule-work-order.input';
 import { WorkOrdersFilterInput } from './dto/work-orders-filter.input';
 import { WorkOrderType } from './dto/work-order.type';
-import type { AssetRecord, WorkOrderRecord } from './work-orders.repository';
+import type { WorkOrderRecord } from './work-orders.repository';
 import { WorkOrdersService } from './work-orders.service';
 
 // ─────────────────────── Resolver ────────────────────────
@@ -23,12 +22,6 @@ import { WorkOrdersService } from './work-orders.service';
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class WorkOrdersResolver {
   constructor(private readonly workOrdersService: WorkOrdersService) {}
-
-  @Query(() => [AssetType])
-  @RequiresPermission('asset.read')
-  assets(): Promise<AssetRecord[]> {
-    return this.workOrdersService.findAllAssets();
-  }
 
   @Query(() => [WorkOrderType])
   @RequiresPermission('workorder.read')

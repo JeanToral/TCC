@@ -164,14 +164,6 @@ export class WorkOrdersRepository {
     }) as Promise<WorkOrderRecord>;
   }
 
-  findAllAssets(): Promise<AssetRecord[]> {
-    return this.prisma.asset.findMany({
-      where: { deletedAt: null },
-      select: { id: true, name: true, tag: true, location: true },
-      orderBy: { name: 'asc' },
-    }) as Promise<AssetRecord[]>;
-  }
-
   update(id: number, data: UpdateWorkOrderData): Promise<WorkOrderRecord> {
     const { assignedToId, ...rest } = data;
     return this.prisma.workOrder.update({

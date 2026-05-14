@@ -1,8 +1,8 @@
 import { gql } from '@apollo/client'
 
-export const GET_ASSETS = gql`
-  query GetAssets {
-    assets {
+export const GET_ASSET = gql`
+  query GetAsset($id: Int!) {
+    asset(id: $id) {
       id
       name
       tag
@@ -12,6 +12,8 @@ export const GET_ASSETS = gql`
       serialNumber
       installDate
       createdAt
+      updatedAt
+      deletedAt
     }
   }
 `

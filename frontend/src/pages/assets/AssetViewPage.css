@@ -1,0 +1,75 @@
+.asset-view-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+
+.asset-view-page__back:hover {
+  color: var(--primary);
+}
+
+.asset-view-page__back-btn {
+  margin-top: 1rem;
+}
+
+.asset-view-page__tag {
+  font-family: monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 0.125rem 0.625rem;
+  border-radius: var(--radius-sm);
+}
+
+.asset-view-page__tag-value {
+  font-family: monospace;
+  font-size: 1rem;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.asset-view-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.asset-view-page__card--wide {
+  grid-column: 1 / -1;
+}
+
+.asset-view-page__row {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.asset-view-page__modal-msg {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.asset-view-page__modal-msg strong {
+  color: var(--text-primary);
+}
+
+.asset-view-page__modal-error {
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--error-bg);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--error);
+  font-size: 0.875rem;
+}

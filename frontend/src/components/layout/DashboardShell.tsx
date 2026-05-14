@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import {
   BellIcon,
+  BuildingIcon,
   ChevronDownIcon,
   ClipboardListIcon,
   DashboardIcon,
@@ -23,6 +24,7 @@ interface NavItem {
 
 const mainNav: readonly NavItem[] = [
   { label: 'Dashboard',         path: '/dashboard',             icon: <DashboardIcon />,      end: true },
+  { label: 'Ativos',            path: '/dashboard/assets',      icon: <BuildingIcon /> },
   { label: 'Ordens de Serviço', path: '/dashboard/work-orders', icon: <ClipboardListIcon /> },
 ]
 
