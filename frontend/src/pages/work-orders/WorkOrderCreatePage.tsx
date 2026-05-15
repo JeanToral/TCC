@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
+import { Input } from '../../components/ui/input'
+import { NativeSelect } from '../../components/ui/select'
+import { Textarea } from '../../components/ui/textarea'
 import Spinner from '../../components/ui/Spinner'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import type { GetAssetsData } from '../../graphql/assets/types'
@@ -122,81 +124,59 @@ export default function WorkOrderCreatePage() {
               maxLength={200}
             />
 
-            <div className="wo-create-page__field">
-              <label className="wo-create-page__label" htmlFor="wo-description">
-                Descrição
-              </label>
-              <textarea
-                id="wo-description"
-                className={`wo-create-page__textarea${errors.description ? ' wo-create-page__textarea--error' : ''}`}
-                value={form.description}
-                onChange={(e) => handleChange('description', e.target.value)}
-                rows={4}
-                placeholder="Descreva o problema ou a necessidade de manutenção…"
-                maxLength={2000}
-              />
-              {errors.description && (
-                <span className="wo-create-page__error">{errors.description}</span>
-              )}
-            </div>
+            <Textarea
+              id="wo-description"
+              label="Descrição"
+              value={form.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              rows={4}
+              placeholder="Descreva o problema ou a necessidade de manutenção…"
+              maxLength={2000}
+              error={errors.description}
+            />
 
             <div className="wo-create-page__row">
-              <div className="wo-create-page__field">
-                <label className="wo-create-page__label" htmlFor="wo-type">
-                  Tipo
-                </label>
-                <select
-                  id="wo-type"
-                  className={`wo-create-page__select${errors.type ? ' wo-create-page__select--error' : ''}`}
-                  value={form.type}
-                  onChange={(e) => handleChange('type', e.target.value)}
-                >
-                  <option value="">Selecionar tipo…</option>
-                  <option value="CORRECTIVE">Corretiva</option>
-                  <option value="PREVENTIVE">Preventiva</option>
-                </select>
-                {errors.type && <span className="wo-create-page__error">{errors.type}</span>}
-              </div>
-
-              <div className="wo-create-page__field">
-                <label className="wo-create-page__label" htmlFor="wo-priority">
-                  Prioridade
-                </label>
-                <select
-                  id="wo-priority"
-                  className={`wo-create-page__select${errors.priority ? ' wo-create-page__select--error' : ''}`}
-                  value={form.priority}
-                  onChange={(e) => handleChange('priority', e.target.value)}
-                >
-                  <option value="">Selecionar prioridade…</option>
-                  <option value="LOW">Baixa</option>
-                  <option value="MEDIUM">Média</option>
-                  <option value="HIGH">Alta</option>
-                  <option value="CRITICAL">Crítica</option>
-                </select>
-                {errors.priority && <span className="wo-create-page__error">{errors.priority}</span>}
-              </div>
-            </div>
-
-            <div className="wo-create-page__field">
-              <label className="wo-create-page__label" htmlFor="wo-asset">
-                Ativo
-              </label>
-              <select
-                id="wo-asset"
-                className={`wo-create-page__select${errors.assetId ? ' wo-create-page__select--error' : ''}`}
-                value={form.assetId}
-                onChange={(e) => handleChange('assetId', e.target.value)}
+              <NativeSelect
+                id="wo-type"
+                label="Tipo"
+                value={form.type}
+                onChange={(e) => handleChange('type', e.target.value)}
+                error={errors.type}
               >
-                <option value="">Selecionar ativo…</option>
-                {assets.map((a) => (
-                  <option key={a.id} value={String(a.id)}>
-                    {a.tag} — {a.name}{a.location ? ` (${a.location})` : ''}
-                  </option>
-                ))}
-              </select>
-              {errors.assetId && <span className="wo-create-page__error">{errors.assetId}</span>}
+                <option value="">Selecionar tipo…</option>
+                <option value="CORRECTIVE">Corretiva</option>
+                <option value="PREVENTIVE">Preventiva</option>
+              </NativeSelect>
+
+              <NativeSelect
+                id="wo-priority"
+                label="Prioridade"
+                value={form.priority}
+                onChange={(e) => handleChange('priority', e.target.value)}
+                error={errors.priority}
+              >
+                <option value="">Selecionar prioridade…</option>
+                <option value="LOW">Baixa</option>
+                <option value="MEDIUM">Média</option>
+                <option value="HIGH">Alta</option>
+                <option value="CRITICAL">Crítica</option>
+              </NativeSelect>
             </div>
+
+            <NativeSelect
+              id="wo-asset"
+              label="Ativo"
+              value={form.assetId}
+              onChange={(e) => handleChange('assetId', e.target.value)}
+              error={errors.assetId}
+            >
+              <option value="">Selecionar ativo…</option>
+              {assets.map((a) => (
+                <option key={a.id} value={String(a.id)}>
+                  {a.tag} — {a.name}{a.location ? ` (${a.location})` : ''}
+                </option>
+              ))}
+            </NativeSelect>
           </div>
         </div>
 

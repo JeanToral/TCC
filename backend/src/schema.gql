@@ -2,6 +2,19 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type AssetKpi {
+  assetId: Int!
+  assetName: String!
+  completedWorkOrders: Int!
+
+  """Mean Time Between Failures em horas"""
+  mtbf: Float
+
+  """Mean Time To Repair em horas"""
+  mttr: Float
+  totalWorkOrders: Int!
+}
+
 type AssetType {
   createdAt: DateTime!
   deletedAt: DateTime
@@ -53,6 +66,12 @@ input CreateWorkOrderInput {
   type: WorkOrderType!
 }
 
+input DashboardFilterInput {
+  assetId: Int
+  from: DateTime
+  to: DateTime
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -93,6 +112,7 @@ enum Priority {
 type Query {
   asset(id: Int!): AssetType!
   assets: [AssetType!]!
+  dashboardKpis(filter: DashboardFilterInput): [AssetKpi!]!
   roles: [RoleType!]!
   user(id: Int!): UserType!
   users: [UserType!]!

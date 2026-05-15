@@ -12,14 +12,7 @@ import AssetEditPage from './pages/assets/AssetEditPage'
 import WorkOrdersListPage from './pages/work-orders/WorkOrdersListPage'
 import WorkOrderViewPage from './pages/work-orders/WorkOrderViewPage'
 import WorkOrderCreatePage from './pages/work-orders/WorkOrderCreatePage'
-
-function DashboardPage() {
-  return (
-    <div style={{ padding: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-      Dashboard em construção.
-    </div>
-  )
-}
+import DashboardPage from './pages/dashboard/DashboardPage'
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },

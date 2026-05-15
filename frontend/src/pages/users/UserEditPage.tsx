@@ -3,7 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
+import { Checkbox } from '../../components/ui/checkbox'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { NativeSelect } from '../../components/ui/select'
 import Spinner from '../../components/ui/Spinner'
 import { CREATE_USER } from '../../graphql/users/CreateUser.gql'
 import { GET_USER } from '../../graphql/users/GetUser.gql'
@@ -88,16 +91,16 @@ export default function UserEditPage() {
   const submitting = creating || updating
 
   function handleChange(e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    const { name, value, type } = e.target
-    const checked = (e.target as HTMLInputElement).checked
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }))
+    const { name, value } = e.target
+    setForm((prev) => ({ ...prev, [name]: value }))
     if (errors[name as keyof FormState]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }))
     }
     if (submitError) setSubmitError('')
+  }
+
+  function handleCheckboxChange(checked: boolean) {
+    setForm((prev) => ({ ...prev, isActive: checked }))
   }
 
   function validate(): boolean {
@@ -226,53 +229,37 @@ export default function UserEditPage() {
           <div className="user-edit-page__section">
             <h2 className="user-edit-page__section-title">Função e status</h2>
             <div className="user-edit-page__fields">
-              <div className="field">
-                <label className="field__label" htmlFor="roleId">
-                  Função
-                </label>
-                <select
-                  id="roleId"
-                  name="roleId"
-                  className={`user-edit-page__select${errors.roleId ? ' user-edit-page__select--error' : ''}`}
-                  value={form.roleId}
-                  onChange={handleChange}
-                  disabled={submitting || rolesLoading}
-                  aria-invalid={!!errors.roleId}
-                >
-                  <option value="">
-                    {rolesLoading ? 'Carregando funções…' : 'Selecione uma função'}
+              <NativeSelect
+                id="roleId"
+                name="roleId"
+                label="Função"
+                value={form.roleId}
+                onChange={handleChange}
+                disabled={submitting || rolesLoading}
+                error={errors.roleId}
+              >
+                <option value="">
+                  {rolesLoading ? 'Carregando funções…' : 'Selecione uma função'}
+                </option>
+                {rolesData?.roles.map((role) => (
+                  <option key={role.id} value={String(role.id)}>
+                    {role.name}
                   </option>
-                  {rolesData?.roles.map((role) => (
-                    <option key={role.id} value={String(role.id)}>
-                      {role.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.roleId && (
-                  <span className="field__error" role="alert">
-                    {errors.roleId}
-                  </span>
-                )}
-              </div>
+                ))}
+              </NativeSelect>
 
               {isEdit && (
                 <div className="user-edit-page__toggle-row">
-                  <label
-                    className="user-edit-page__toggle-label"
-                    htmlFor="isActive"
-                  >
-                    <span>Usuário ativo</span>
+                  <div className="user-edit-page__toggle-label">
+                    <Label htmlFor="isActive">Usuário ativo</Label>
                     <span className="user-edit-page__toggle-hint">
                       Usuários inativos não conseguem fazer login.
                     </span>
-                  </label>
-                  <input
+                  </div>
+                  <Checkbox
                     id="isActive"
-                    name="isActive"
-                    type="checkbox"
-                    className="user-edit-page__toggle"
                     checked={form.isActive}
-                    onChange={handleChange}
+                    onCheckedChange={handleCheckboxChange}
                     disabled={submitting}
                   />
                 </div>

@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
+import { Input } from '../../components/ui/input'
+import { DatePicker } from '../../components/ui/date-picker'
 import Spinner from '../../components/ui/Spinner'
 import { CREATE_ASSET } from '../../graphql/assets/CreateAsset.gql'
 import { GET_ASSET } from '../../graphql/assets/GetAsset.gql'
@@ -19,7 +20,6 @@ interface FormState {
   manufacturer: string
   model: string
   serialNumber: string
-  installDate: string
 }
 
 interface FormErrors {
@@ -34,12 +34,6 @@ const EMPTY_FORM: FormState = {
   manufacturer: '',
   model: '',
   serialNumber: '',
-  installDate: '',
-}
-
-function toDateInput(iso: string | null): string {
-  if (!iso) return ''
-  return new Date(iso).toISOString().slice(0, 10)
 }
 
 export default function AssetEditPage() {
@@ -48,6 +42,7 @@ export default function AssetEditPage() {
   const isEdit = !!id
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [installDate, setInstallDate] = useState<Date | undefined>(undefined)
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitError, setSubmitError] = useState('')
 
@@ -66,8 +61,8 @@ export default function AssetEditPage() {
         manufacturer: asset.manufacturer ?? '',
         model: asset.model ?? '',
         serialNumber: asset.serialNumber ?? '',
-        installDate: toDateInput(asset.installDate),
       })
+      setInstallDate(asset.installDate ? new Date(asset.installDate) : undefined)
     }
   }, [assetData])
 
@@ -113,7 +108,7 @@ export default function AssetEditPage() {
       manufacturer: form.manufacturer.trim() || undefined,
       model: form.model.trim() || undefined,
       serialNumber: form.serialNumber.trim() || undefined,
-      installDate: form.installDate ? new Date(form.installDate).toISOString() : undefined,
+      installDate: installDate ? installDate.toISOString() : undefined,
     }
 
     if (isEdit) {
@@ -212,12 +207,10 @@ export default function AssetEditPage() {
                 placeholder="Ex.: SN-2024-00123"
                 disabled={submitting}
               />
-              <Input
+              <DatePicker
                 label="Data de instalação"
-                name="installDate"
-                type="date"
-                value={form.installDate}
-                onChange={handleChange}
+                value={installDate}
+                onSelect={setInstallDate}
                 disabled={submitting}
               />
             </div>

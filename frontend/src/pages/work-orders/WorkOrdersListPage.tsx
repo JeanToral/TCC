@@ -4,6 +4,7 @@ import { useQuery } from '@apollo/client/react'
 
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import { NativeSelect } from '../../components/ui/select'
 import Spinner from '../../components/ui/Spinner'
 import { GET_WORK_ORDERS } from '../../graphql/work-orders/GetWorkOrders.gql'
 import type { GetWorkOrdersData, Priority, WorkOrderListItem, WorkOrderStatus } from '../../graphql/work-orders/types'
@@ -118,7 +119,7 @@ export default function WorkOrdersListPage() {
           )}
         </div>
         <div className="page-header__actions">
-          <select
+          <NativeSelect
             className="wo-list-page__filter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as WorkOrderStatus | '')}
@@ -128,7 +129,7 @@ export default function WorkOrdersListPage() {
             {(Object.keys(STATUS_LABELS) as WorkOrderStatus[]).map((s) => (
               <option key={s} value={s}>{STATUS_LABELS[s]}</option>
             ))}
-          </select>
+          </NativeSelect>
           <Button onClick={() => navigate('/dashboard/work-orders/new')}>
             Nova OS
           </Button>

@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { AssetsModule } from './modules/assets/assets.module';
 import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 // ─────────────────────── Module ─────────────────────────
 @Module({
@@ -39,6 +40,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
     UsersModule,
     AssetsModule,
     WorkOrdersModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}

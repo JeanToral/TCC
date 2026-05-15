@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
+import { Input } from '../../components/ui/input'
 import Spinner from '../../components/ui/Spinner'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import type { Asset, GetAssetsData } from '../../graphql/assets/types'

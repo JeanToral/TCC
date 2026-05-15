@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@apollo/client/react'
 
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import { DateTimePicker } from '../../components/ui/date-time-picker'
 import Modal from '../../components/ui/Modal'
 import Spinner from '../../components/ui/Spinner'
 import { GET_USERS } from '../../graphql/users/GetUsers.gql'
@@ -79,11 +80,6 @@ function formatDateTime(iso: string | null): string {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(iso))
-}
-
-function toDatetimeLocal(iso: string | null): string {
-  if (!iso) return ''
-  return new Date(iso).toISOString().slice(0, 16)
 }
 
 // ── ApproveModal ───────────────────────────────────────────
@@ -188,7 +184,9 @@ function ScheduleModal({
   error,
   users,
   form,
-  onFormChange,
+  onAssigneeChange,
+  onScheduledStartChange,
+  onScheduledEndChange,
   onClose,
   onConfirm,
 }: {
@@ -196,12 +194,14 @@ function ScheduleModal({
   readonly loading: boolean
   readonly error: string
   readonly users: readonly { id: number; name: string }[]
-  readonly form: { assignedToId: string; scheduledStart: string; scheduledEnd: string }
-  readonly onFormChange: (field: string, value: string) => void
+  readonly form: { assignedToId: string; scheduledStart: Date | undefined; scheduledEnd: Date | undefined }
+  readonly onAssigneeChange: (value: string) => void
+  readonly onScheduledStartChange: (date: Date | undefined) => void
+  readonly onScheduledEndChange: (date: Date | undefined) => void
   readonly onClose: () => void
   readonly onConfirm: () => void
 }) {
-  const canConfirm = form.assignedToId && form.scheduledStart
+  const canConfirm = !!form.assignedToId && !!form.scheduledStart
 
   return (
     <Modal
@@ -229,7 +229,7 @@ function ScheduleModal({
             id="sched-assignee"
             className="wo-view-page__select"
             value={form.assignedToId}
-            onChange={(e) => onFormChange('assignedToId', e.target.value)}
+            onChange={(e) => onAssigneeChange(e.target.value)}
           >
             <option value="">Selecionar técnico…</option>
             {users.map((u) => (
@@ -239,30 +239,18 @@ function ScheduleModal({
             ))}
           </select>
         </div>
-        <div className="wo-view-page__field">
-          <label className="wo-view-page__label" htmlFor="sched-start">
-            Início previsto <span aria-hidden="true">*</span>
-          </label>
-          <input
-            id="sched-start"
-            type="datetime-local"
-            className="wo-view-page__input"
-            value={form.scheduledStart}
-            onChange={(e) => onFormChange('scheduledStart', e.target.value)}
-          />
-        </div>
-        <div className="wo-view-page__field">
-          <label className="wo-view-page__label" htmlFor="sched-end">
-            Fim previsto <span className="wo-view-page__optional">(opcional)</span>
-          </label>
-          <input
-            id="sched-end"
-            type="datetime-local"
-            className="wo-view-page__input"
-            value={form.scheduledEnd}
-            onChange={(e) => onFormChange('scheduledEnd', e.target.value)}
-          />
-        </div>
+        <DateTimePicker
+          label="Início previsto"
+          value={form.scheduledStart}
+          onSelect={onScheduledStartChange}
+          required
+        />
+        <DateTimePicker
+          label="Fim previsto"
+          value={form.scheduledEnd}
+          onSelect={onScheduledEndChange}
+          placeholder="Selecionar data e hora (opcional)"
+        />
       </div>
       {error && <p className="wo-view-page__modal-error">{error}</p>}
     </Modal>
@@ -432,7 +420,11 @@ export default function WorkOrderViewPage() {
   const [rejectReason, setRejectReason] = useState('')
   const [closingNotes, setClosingNotes] = useState('')
   const [cancelReason, setCancelReason] = useState('')
-  const [scheduleForm, setScheduleForm] = useState({ assignedToId: '', scheduledStart: '', scheduledEnd: '' })
+  const [scheduleForm, setScheduleForm] = useState<{
+    assignedToId: string
+    scheduledStart: Date | undefined
+    scheduledEnd: Date | undefined
+  }>({ assignedToId: '', scheduledStart: undefined, scheduledEnd: undefined })
   const [actionError, setActionError] = useState('')
 
   const refetchList = [{ query: GET_WORK_ORDERS }]
@@ -461,7 +453,7 @@ export default function WorkOrderViewPage() {
 
   const [scheduleWorkOrder, { loading: scheduling }] = useMutation<ScheduleWorkOrderData>(SCHEDULE_WORK_ORDER, {
     refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
-    onCompleted: () => { setScheduleOpen(false); setScheduleForm({ assignedToId: '', scheduledStart: '', scheduledEnd: '' }) },
+    onCompleted: () => { setScheduleOpen(false); setScheduleForm({ assignedToId: '', scheduledStart: undefined, scheduledEnd: undefined }) },
     onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
   })
 
@@ -508,8 +500,8 @@ export default function WorkOrderViewPage() {
     setActionError('')
     setScheduleForm({
       assignedToId: wo.assignedToId ? String(wo.assignedToId) : '',
-      scheduledStart: toDatetimeLocal(wo.scheduledStart),
-      scheduledEnd: toDatetimeLocal(wo.scheduledEnd),
+      scheduledStart: wo.scheduledStart ? new Date(wo.scheduledStart) : undefined,
+      scheduledEnd: wo.scheduledEnd ? new Date(wo.scheduledEnd) : undefined,
     })
     setScheduleOpen(true)
   }
@@ -706,7 +698,9 @@ export default function WorkOrderViewPage() {
         error={actionError}
         users={users}
         form={scheduleForm}
-        onFormChange={(field, value) => { setScheduleForm((f) => ({ ...f, [field]: value })); setActionError('') }}
+        onAssigneeChange={(v) => { setScheduleForm((f) => ({ ...f, assignedToId: v })); setActionError('') }}
+        onScheduledStartChange={(d) => { setScheduleForm((f) => ({ ...f, scheduledStart: d })); setActionError('') }}
+        onScheduledEndChange={(d) => { setScheduleForm((f) => ({ ...f, scheduledEnd: d })); setActionError('') }}
         onClose={() => setScheduleOpen(false)}
         onConfirm={() =>
           scheduleWorkOrder({
@@ -714,8 +708,8 @@ export default function WorkOrderViewPage() {
               id: Number(id),
               input: {
                 assignedToId: Number(scheduleForm.assignedToId),
-                scheduledStart: new Date(scheduleForm.scheduledStart).toISOString(),
-                ...(scheduleForm.scheduledEnd ? { scheduledEnd: new Date(scheduleForm.scheduledEnd).toISOString() } : {}),
+                scheduledStart: scheduleForm.scheduledStart!.toISOString(),
+                ...(scheduleForm.scheduledEnd ? { scheduledEnd: scheduleForm.scheduledEnd.toISOString() } : {}),
               },
             },
           })
