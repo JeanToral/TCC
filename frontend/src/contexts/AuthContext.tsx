@@ -1,8 +1,9 @@
 // ─────────────────────── Imports ────────────────────────
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { setAccessToken } from '../lib/apollo'
+import { apolloClient, setAccessToken } from '../lib/apollo'
+import { REFRESH_TOKEN } from '../graphql/auth/RefreshToken.gql'
 
 // ─────────────────────── Types ───────────────────────────
 interface AuthContextValue {
@@ -11,11 +12,31 @@ interface AuthContextValue {
   readonly logout: () => void
 }
 
+interface RefreshTokenResult {
+  refreshToken: { accessToken: string }
+}
+
 // ─────────────────────── Context ─────────────────────────
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { readonly children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [initializing, setInitializing] = useState(true)
+
+  useEffect(() => {
+    apolloClient
+      .mutate<RefreshTokenResult>({ mutation: REFRESH_TOKEN })
+      .then(({ data }) => {
+        if (data?.refreshToken?.accessToken) {
+          setAccessToken(data.refreshToken.accessToken)
+          setIsAuthenticated(true)
+        }
+      })
+      .catch(() => {
+        // cookie ausente ou expirado — permanece deslogado
+      })
+      .finally(() => setInitializing(false))
+  }, [])
 
   function login(accessToken: string) {
     setAccessToken(accessToken)
@@ -26,6 +47,8 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
     setAccessToken('')
     setIsAuthenticated(false)
   }
+
+  if (initializing) return null
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
