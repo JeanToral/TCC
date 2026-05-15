@@ -14,6 +14,7 @@ import { CancelWorkOrderInput } from './dto/cancel-work-order.input';
 import { ScheduleWorkOrderInput } from './dto/schedule-work-order.input';
 import { WorkOrdersFilterInput } from './dto/work-orders-filter.input';
 import { WorkOrderType } from './dto/work-order.type';
+import { WorkOrderConnection } from './dto/work-order-connection.type';
 import type { WorkOrderRecord } from './work-orders.repository';
 import { WorkOrdersService } from './work-orders.service';
 
@@ -23,12 +24,14 @@ import { WorkOrdersService } from './work-orders.service';
 export class WorkOrdersResolver {
   constructor(private readonly workOrdersService: WorkOrdersService) {}
 
-  @Query(() => [WorkOrderType])
+  @Query(() => WorkOrderConnection)
   @RequiresPermission('workorder.read')
   workOrders(
     @Args('filter', { nullable: true }) filter?: WorkOrdersFilterInput,
-  ): Promise<WorkOrderRecord[]> {
-    return this.workOrdersService.findAll(filter);
+    @Args('first', { type: () => Int, nullable: true, defaultValue: 20 }) first: number = 20,
+    @Args('after', { nullable: true }) after?: string,
+  ) {
+    return this.workOrdersService.findPaginated(filter, first, after);
   }
 
   @Query(() => WorkOrderType)

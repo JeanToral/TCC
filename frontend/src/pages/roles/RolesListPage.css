@@ -1,0 +1,175 @@
+/* ── Page header ──────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.page-header__info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.page-header__title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.page-header__count {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ── States ───────────────────────────────────────────────── */
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+}
+
+.page-error {
+  padding: 1rem 1.25rem;
+  background: var(--error-bg);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--error);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.page-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+/* ── Table card ───────────────────────────────────────────── */
+.roles-table-card {
+  background: var(--surface-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Table ────────────────────────────────────────────────── */
+.roles-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.roles-table__th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.roles-table__row {
+  transition: background-color 0.1s;
+}
+
+.roles-table__row:hover {
+  background: #f9fafb;
+}
+
+.roles-table__row + .roles-table__row {
+  border-top: 1px solid var(--border);
+}
+
+.roles-table__cell {
+  padding: 0.875rem 1rem;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.roles-table__cell--name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.roles-table__cell--muted {
+  color: var(--text-muted);
+}
+
+.roles-table__cell--actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.roles-table__name {
+  font-weight: 600;
+}
+
+.roles-table__system-badge {
+  font-size: 0.7rem;
+}
+
+.roles-table__perm-count {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* ── Delete dialog ────────────────────────────────────────── */
+.roles-list-page__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.roles-list-page__dialog {
+  background: var(--surface-white);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-lg);
+}
+
+.roles-list-page__dialog-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.roles-list-page__dialog-body {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.roles-list-page__dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}

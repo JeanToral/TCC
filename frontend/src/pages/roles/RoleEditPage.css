@@ -1,0 +1,156 @@
+/* ── Page header ──────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.page-header__info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.page-header__title {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ── Back button ──────────────────────────────────────────── */
+.role-edit-page__back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.role-edit-page__back:hover {
+  color: var(--text-primary);
+}
+
+/* ── System notice ────────────────────────────────────────── */
+.role-edit-page__system-notice {
+  padding: 0.875rem 1.25rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  color: #92400e;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 1.25rem;
+}
+
+/* ── Alert ────────────────────────────────────────────────── */
+.role-edit-page__alert {
+  padding: 0.875rem 1.25rem;
+  background: var(--error-bg);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--error);
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 1.25rem;
+}
+
+/* ── Card ─────────────────────────────────────────────────── */
+.role-edit-page__card {
+  background: var(--surface-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1.25rem;
+}
+
+/* ── Section ──────────────────────────────────────────────── */
+.role-edit-page__section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 1.25rem;
+}
+
+.role-edit-page__section-hint {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+  margin-top: -0.75rem;
+}
+
+.role-edit-page__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── Permission groups ────────────────────────────────────── */
+.role-edit-page__perm-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.role-edit-page__perm-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.role-edit-page__perm-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.role-edit-page__perm-group-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.role-edit-page__perm-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.role-edit-page__perm-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 1rem;
+  width: 50%;
+  min-width: 180px;
+}
+
+.role-edit-page__perm-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.role-edit-page__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+/* ── Loading ──────────────────────────────────────────────── */
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+}

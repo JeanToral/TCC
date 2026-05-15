@@ -69,7 +69,4 @@ export class UsersService {
     return this.repo.softDelete(id);
   }
 
-  roles(): Promise<import('./users.repository').RoleRecord[]> {
-    return this.repo.findAllRoles();
-  }
 }

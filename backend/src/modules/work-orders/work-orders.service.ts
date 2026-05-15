@@ -2,6 +2,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { WorkOrderStatus } from '../../generated/prisma';
 
+import { encodeCursor } from '../../common/pagination/page-args';
 import { type WorkOrderRecord, WorkOrdersRepository } from './work-orders.repository';
 import type { CreateWorkOrderInput } from './dto/create-work-order.input';
 import type { RejectWorkOrderInput } from './dto/reject-work-order.input';
@@ -28,6 +29,18 @@ export class WorkOrdersService {
 
   findAll(filter?: WorkOrdersFilterInput): Promise<WorkOrderRecord[]> {
     return this.repo.findAll(filter);
+  }
+
+  async findPaginated(filter: WorkOrdersFilterInput | undefined, first: number, after?: string) {
+    const { items, hasNextPage } = await this.repo.findPaginated(filter, first, after);
+    const edges = items.map((item) => ({ node: item, cursor: encodeCursor(item.id) }));
+    return {
+      edges,
+      pageInfo: {
+        hasNextPage,
+        endCursor: edges.length > 0 ? edges[edges.length - 1].cursor : null,
+      },
+    };
   }
 
   async findById(id: number): Promise<WorkOrderRecord> {

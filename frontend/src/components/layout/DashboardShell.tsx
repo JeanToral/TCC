@@ -8,6 +8,7 @@ import {
   ClipboardListIcon,
   DashboardIcon,
   GearIcon,
+  KeyIcon,
   LogOutIcon,
   UserCircleIcon,
   UserGroupIcon,
@@ -29,7 +30,8 @@ const mainNav: readonly NavItem[] = [
 ]
 
 const adminNav: readonly NavItem[] = [
-  { label: 'Usuários', path: '/dashboard/users', icon: <UserGroupIcon /> },
+  { label: 'Usuários',    path: '/dashboard/users', icon: <UserGroupIcon /> },
+  { label: 'Permissões',  path: '/dashboard/roles', icon: <KeyIcon /> },
 ]
 
 const adminPaths = adminNav.map((i) => i.path)

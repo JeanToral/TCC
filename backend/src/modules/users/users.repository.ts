@@ -2,15 +2,9 @@
 import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import type { RoleRecord } from '../roles/roles.repository';
 
-// ─────────────────────── Types ───────────────────────────
-export interface RoleRecord {
-  readonly id: number;
-  readonly name: string;
-  readonly description: string | null;
-  readonly permissions: unknown;
-  readonly isSystem: boolean;
-}
+export type { RoleRecord };
 
 export interface UserRecord {
   readonly id: number;
@@ -126,16 +120,4 @@ export class UsersRepository {
     }) as Promise<UserRecord>;
   }
 
-  findAllRoles(): Promise<RoleRecord[]> {
-    return this.prisma.role.findMany({
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        permissions: true,
-        isSystem: true,
-      },
-      orderBy: { name: 'asc' },
-    }) as Promise<RoleRecord[]>;
-  }
 }

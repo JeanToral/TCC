@@ -7,10 +7,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
-import { RoleType } from './dto/role.type';
 import { UserType } from './dto/user.type';
 import { UsersService } from './users.service';
-import type { RoleRecord, UserRecord } from './users.repository';
+import type { UserRecord } from './users.repository';
 
 // ─────────────────────── Resolver ────────────────────────
 @Resolver(() => UserType)
@@ -51,9 +50,4 @@ export class UsersResolver {
     return this.usersService.remove(id);
   }
 
-  @Query(() => [RoleType])
-  @RequiresPermission('role.read')
-  roles(): Promise<RoleRecord[]> {
-    return this.usersService.roles();
-  }
 }

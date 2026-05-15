@@ -6,6 +6,8 @@ import LoginPage from './pages/login/LoginPage'
 import UsersListPage from './pages/users/UsersListPage'
 import UserViewPage from './pages/users/UserViewPage'
 import UserEditPage from './pages/users/UserEditPage'
+import RolesListPage from './pages/roles/RolesListPage'
+import RoleEditPage from './pages/roles/RoleEditPage'
 import AssetsListPage from './pages/assets/AssetsListPage'
 import AssetViewPage from './pages/assets/AssetViewPage'
 import AssetEditPage from './pages/assets/AssetEditPage'
@@ -26,6 +28,9 @@ export const router = createBrowserRouter([
       { path: 'users/new',            element: <UserEditPage /> },
       { path: 'users/:id',            element: <UserViewPage /> },
       { path: 'users/:id/edit',       element: <UserEditPage /> },
+      { path: 'roles',                element: <RolesListPage /> },
+      { path: 'roles/new',            element: <RoleEditPage /> },
+      { path: 'roles/:id',            element: <RoleEditPage /> },
       { path: 'assets',               element: <AssetsListPage /> },
       { path: 'assets/new',           element: <AssetEditPage /> },
       { path: 'assets/:id',           element: <AssetViewPage /> },

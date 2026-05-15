@@ -50,8 +50,23 @@ export interface WorkOrderDetail extends WorkOrderListItem {
   readonly deletedAt: string | null
 }
 
+export interface WorkOrderPageInfo {
+  readonly hasNextPage: boolean
+  readonly endCursor: string | null
+}
+
+export interface WorkOrderEdge {
+  readonly cursor: string
+  readonly node: WorkOrderListItem
+}
+
+export interface WorkOrderConnection {
+  readonly edges: readonly WorkOrderEdge[]
+  readonly pageInfo: WorkOrderPageInfo
+}
+
 export interface GetWorkOrdersData {
-  readonly workOrders: readonly WorkOrderListItem[]
+  readonly workOrders: WorkOrderConnection
 }
 
 export interface GetWorkOrderData {

@@ -10,6 +10,8 @@ import { GET_WORK_ORDERS } from '../../graphql/work-orders/GetWorkOrders.gql'
 import type { GetWorkOrdersData, Priority, WorkOrderListItem, WorkOrderStatus } from '../../graphql/work-orders/types'
 import './WorkOrdersListPage.css'
 
+const PAGE_SIZE = 20
+
 // ── Helpers ────────────────────────────────────────────────
 const STATUS_LABELS: Record<WorkOrderStatus, string> = {
   REQUESTED: 'Solicitada',
@@ -99,13 +101,41 @@ function WorkOrderRow({ wo }: { readonly wo: WorkOrderListItem }) {
 export default function WorkOrdersListPage() {
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState<WorkOrderStatus | ''>('')
+  const [loadingMore, setLoadingMore] = useState(false)
 
-  const { data, loading, error } = useQuery<GetWorkOrdersData>(GET_WORK_ORDERS, {
-    variables: statusFilter ? { filter: { status: statusFilter } } : {},
+  const { data, loading, error, fetchMore } = useQuery<GetWorkOrdersData>(GET_WORK_ORDERS, {
+    variables: {
+      first: PAGE_SIZE,
+      ...(statusFilter ? { filter: { status: statusFilter } } : {}),
+    },
     fetchPolicy: 'cache-and-network',
   })
 
-  const workOrders = data?.workOrders ?? []
+  const connection = data?.workOrders
+  const workOrders: readonly WorkOrderListItem[] = connection?.edges.map((e) => e.node) ?? []
+  const hasNextPage = connection?.pageInfo.hasNextPage ?? false
+  const endCursor = connection?.pageInfo.endCursor ?? null
+
+  function handleLoadMore() {
+    if (!endCursor || loadingMore) return
+    setLoadingMore(true)
+    void fetchMore({
+      variables: {
+        first: PAGE_SIZE,
+        after: endCursor,
+        ...(statusFilter ? { filter: { status: statusFilter } } : {}),
+      },
+      updateQuery(prev, { fetchMoreResult }) {
+        if (!fetchMoreResult) return prev
+        return {
+          workOrders: {
+            edges: [...prev.workOrders.edges, ...fetchMoreResult.workOrders.edges],
+            pageInfo: fetchMoreResult.workOrders.pageInfo,
+          },
+        }
+      },
+    }).finally(() => setLoadingMore(false))
+  }
 
   return (
     <div className="wo-list-page">
@@ -178,6 +208,14 @@ export default function WorkOrdersListPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {hasNextPage && (
+        <div className="wo-list-page__load-more">
+          <Button variant="ghost" onClick={handleLoadMore} disabled={loadingMore}>
+            {loadingMore ? <Spinner size="sm" /> : 'Carregar mais'}
+          </Button>
         </div>
       )}
     </div>

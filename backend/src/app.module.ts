@@ -10,6 +10,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { RolesModule } from './modules/roles/roles.module';
 import { AssetsModule } from './modules/assets/assets.module';
 import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -38,6 +39,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     PrismaModule,
     AuthModule,
     UsersModule,
+    RolesModule,
     AssetsModule,
     WorkOrdersModule,
     DashboardModule,

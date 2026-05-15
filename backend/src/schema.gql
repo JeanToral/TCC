@@ -51,6 +51,12 @@ input CreateAssetInput {
   tag: String!
 }
 
+input CreateRoleInput {
+  description: String
+  name: String!
+  permissions: [String!]!
+}
+
 input CreateUserInput {
   email: String!
   name: String!
@@ -87,9 +93,11 @@ type Mutation {
   cancelWorkOrder(id: Int!, input: CancelWorkOrderInput!): WorkOrder!
   completeWorkOrder(id: Int!, input: CompleteWorkOrderInput!): WorkOrder!
   createAsset(input: CreateAssetInput!): AssetType!
+  createRole(input: CreateRoleInput!): RoleType!
   createUser(input: CreateUserInput!): UserType!
   createWorkOrder(input: CreateWorkOrderInput!): WorkOrder!
   deleteAsset(id: Int!): AssetType!
+  deleteRole(id: Int!): RoleType!
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
   refreshToken: AuthPayload!
@@ -98,6 +106,7 @@ type Mutation {
   scheduleWorkOrder(id: Int!, input: ScheduleWorkOrderInput!): WorkOrder!
   startWorkOrder(id: Int!): WorkOrder!
   updateAsset(id: Int!, input: UpdateAssetInput!): AssetType!
+  updateRole(id: Int!, input: UpdateRoleInput!): RoleType!
   updateUser(id: Int!, input: UpdateUserInput!): UserType!
 }
 
@@ -113,11 +122,12 @@ type Query {
   asset(id: Int!): AssetType!
   assets: [AssetType!]!
   dashboardKpis(filter: DashboardFilterInput): [AssetKpi!]!
+  role(id: Int!): RoleType!
   roles: [RoleType!]!
   user(id: Int!): UserType!
   users: [UserType!]!
   workOrder(id: Int!): WorkOrder!
-  workOrders(filter: WorkOrdersFilterInput): [WorkOrder!]!
+  workOrders(after: String, filter: WorkOrdersFilterInput, first: Int = 20): WorkOrderConnection!
 }
 
 input RejectWorkOrderInput {
@@ -146,6 +156,12 @@ input UpdateAssetInput {
   name: String
   serialNumber: String
   tag: String
+}
+
+input UpdateRoleInput {
+  description: String
+  name: String
+  permissions: [String!]
 }
 
 input UpdateUserInput {
@@ -191,6 +207,21 @@ type WorkOrder {
   title: String!
   type: WorkOrderType!
   updatedAt: DateTime!
+}
+
+type WorkOrderConnection {
+  edges: [WorkOrderEdge!]!
+  pageInfo: WorkOrderPageInfo!
+}
+
+type WorkOrderEdge {
+  cursor: String!
+  node: WorkOrder!
+}
+
+type WorkOrderPageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
 }
 
 """Status da ordem de serviço"""

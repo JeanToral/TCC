@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import { Priority, WorkOrderStatus, WorkOrderType as WorkOrderTypeEnum } from '../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
+import { decodeCursor } from '../../common/pagination/page-args';
 
 // ─────────────────────── Types ───────────────────────────
 export interface AssetRecord {
@@ -141,6 +142,32 @@ export class WorkOrdersRepository {
       select: WORK_ORDER_SELECT,
       orderBy: { createdAt: 'desc' },
     }) as Promise<WorkOrderRecord[]>;
+  }
+
+  async findPaginated(
+    filter: { status?: WorkOrderStatus; assetId?: number; assignedToId?: number } | undefined,
+    first: number,
+    after?: string,
+  ): Promise<{ items: WorkOrderRecord[]; hasNextPage: boolean }> {
+    const where = {
+      deletedAt: null,
+      ...(filter?.status ? { status: filter.status } : {}),
+      ...(filter?.assetId ? { assetId: filter.assetId } : {}),
+      ...(filter?.assignedToId ? { assignedToId: filter.assignedToId } : {}),
+    };
+
+    const cursorId = after ? decodeCursor(after) : undefined;
+
+    const rows = await this.prisma.workOrder.findMany({
+      where,
+      select: WORK_ORDER_SELECT,
+      orderBy: { createdAt: 'desc' },
+      take: first + 1,
+      ...(cursorId !== undefined ? { cursor: { id: cursorId }, skip: 1 } : {}),
+    }) as WorkOrderRecord[];
+
+    const hasNextPage = rows.length > first;
+    return { items: hasNextPage ? rows.slice(0, first) : rows, hasNextPage };
   }
 
   findById(id: number): Promise<WorkOrderRecord | null> {
