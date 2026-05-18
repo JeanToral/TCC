@@ -2,9 +2,11 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { CreateRoleInput } from './dto/create-role.input';
 import { UpdateRoleInput } from './dto/update-role.input';
 import { RoleType } from './dto/role.type';
@@ -31,8 +33,11 @@ export class RolesResolver {
 
   @Mutation(() => RoleType)
   @RequiresPermission('role.create')
-  createRole(@Args('input') input: CreateRoleInput): Promise<RoleRecord> {
-    return this.rolesService.create(input);
+  createRole(
+    @Args('input') input: CreateRoleInput,
+    @CurrentUser() actor: JwtUser,
+  ): Promise<RoleRecord> {
+    return this.rolesService.create(input, actor.id);
   }
 
   @Mutation(() => RoleType)
@@ -40,13 +45,17 @@ export class RolesResolver {
   updateRole(
     @Args('id', { type: () => Int }) id: number,
     @Args('input') input: UpdateRoleInput,
+    @CurrentUser() actor: JwtUser,
   ): Promise<RoleRecord> {
-    return this.rolesService.update(id, input);
+    return this.rolesService.update(id, input, actor.id);
   }
 
   @Mutation(() => RoleType)
   @RequiresPermission('role.delete')
-  deleteRole(@Args('id', { type: () => Int }) id: number): Promise<RoleRecord> {
-    return this.rolesService.delete(id);
+  deleteRole(
+    @Args('id', { type: () => Int }) id: number,
+    @CurrentUser() actor: JwtUser,
+  ): Promise<RoleRecord> {
+    return this.rolesService.delete(id, actor.id);
   }
 }

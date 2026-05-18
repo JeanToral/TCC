@@ -29,6 +29,17 @@ type AssetType {
   updatedAt: DateTime!
 }
 
+type AuditLogType {
+  action: String!
+  after: String
+  before: String
+  createdAt: DateTime!
+  id: Int!
+  targetId: Int!
+  targetType: String!
+  userId: Int!
+}
+
 type AuthPayload {
   accessToken: String!
 }
@@ -121,6 +132,7 @@ enum Priority {
 type Query {
   asset(id: Int!): AssetType!
   assets: [AssetType!]!
+  auditLogs(targetId: Int, targetType: String): [AuditLogType!]!
   dashboardKpis(filter: DashboardFilterInput): [AssetKpi!]!
   role(id: Int!): RoleType!
   roles: [RoleType!]!

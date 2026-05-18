@@ -2,9 +2,11 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UserType } from './dto/user.type';
@@ -31,8 +33,11 @@ export class UsersResolver {
 
   @Mutation(() => UserType)
   @RequiresPermission('user.create')
-  createUser(@Args('input') input: CreateUserInput): Promise<UserRecord> {
-    return this.usersService.create(input);
+  createUser(
+    @Args('input') input: CreateUserInput,
+    @CurrentUser() actor: JwtUser,
+  ): Promise<UserRecord> {
+    return this.usersService.create(input, actor.id);
   }
 
   @Mutation(() => UserType)
@@ -40,14 +45,17 @@ export class UsersResolver {
   updateUser(
     @Args('id', { type: () => Int }) id: number,
     @Args('input') input: UpdateUserInput,
+    @CurrentUser() actor: JwtUser,
   ): Promise<UserRecord> {
-    return this.usersService.update(id, input);
+    return this.usersService.update(id, input, actor.id);
   }
 
   @Mutation(() => UserType)
   @RequiresPermission('user.delete')
-  removeUser(@Args('id', { type: () => Int }) id: number): Promise<UserRecord> {
-    return this.usersService.remove(id);
+  removeUser(
+    @Args('id', { type: () => Int }) id: number,
+    @CurrentUser() actor: JwtUser,
+  ): Promise<UserRecord> {
+    return this.usersService.remove(id, actor.id);
   }
-
 }

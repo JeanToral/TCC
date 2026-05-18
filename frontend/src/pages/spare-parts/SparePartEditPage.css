@@ -1,0 +1,57 @@
+.spare-part-edit-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.spare-part-form__card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.spare-part-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.spare-part-form__row--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.spare-part-form__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.spare-part-form__error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #dc2626;
+}
+
+.spare-part-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .spare-part-form__row,
+  .spare-part-form__row--3 {
+    grid-template-columns: 1fr;
+  }
+}

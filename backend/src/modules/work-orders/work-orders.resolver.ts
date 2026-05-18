@@ -17,6 +17,9 @@ import { WorkOrderType } from './dto/work-order.type';
 import { WorkOrderConnection } from './dto/work-order-connection.type';
 import type { WorkOrderRecord } from './work-orders.repository';
 import { WorkOrdersService } from './work-orders.service';
+import { WorkOrderPartType } from '../spare-parts/dto/work-order-part.type';
+import { AddWorkOrderPartInput } from '../spare-parts/dto/add-work-order-part.input';
+import type { WorkOrderPartRecord } from '../spare-parts/spare-parts.repository';
 
 // ─────────────────────── Resolver ────────────────────────
 @Resolver(() => WorkOrderType)
@@ -51,8 +54,11 @@ export class WorkOrdersResolver {
 
   @Mutation(() => WorkOrderType)
   @RequiresPermission('workorder.approve')
-  approveWorkOrder(@Args('id', { type: () => Int }) id: number): Promise<WorkOrderRecord> {
-    return this.workOrdersService.approve(id);
+  approveWorkOrder(
+    @Args('id', { type: () => Int }) id: number,
+    @CurrentUser() actor: JwtUser,
+  ): Promise<WorkOrderRecord> {
+    return this.workOrdersService.approve(id, actor.id);
   }
 
   @Mutation(() => WorkOrderType)
@@ -60,8 +66,9 @@ export class WorkOrdersResolver {
   rejectWorkOrder(
     @Args('id', { type: () => Int }) id: number,
     @Args('input') input: RejectWorkOrderInput,
+    @CurrentUser() actor: JwtUser,
   ): Promise<WorkOrderRecord> {
-    return this.workOrdersService.reject(id, input);
+    return this.workOrdersService.reject(id, input, actor.id);
   }
 
   @Mutation(() => WorkOrderType)
@@ -69,14 +76,18 @@ export class WorkOrdersResolver {
   scheduleWorkOrder(
     @Args('id', { type: () => Int }) id: number,
     @Args('input') input: ScheduleWorkOrderInput,
+    @CurrentUser() actor: JwtUser,
   ): Promise<WorkOrderRecord> {
-    return this.workOrdersService.schedule(id, input);
+    return this.workOrdersService.schedule(id, input, actor.id);
   }
 
   @Mutation(() => WorkOrderType)
   @RequiresPermission('workorder.update')
-  startWorkOrder(@Args('id', { type: () => Int }) id: number): Promise<WorkOrderRecord> {
-    return this.workOrdersService.start(id);
+  startWorkOrder(
+    @Args('id', { type: () => Int }) id: number,
+    @CurrentUser() actor: JwtUser,
+  ): Promise<WorkOrderRecord> {
+    return this.workOrdersService.start(id, actor.id);
   }
 
   @Mutation(() => WorkOrderType)
@@ -84,8 +95,9 @@ export class WorkOrdersResolver {
   completeWorkOrder(
     @Args('id', { type: () => Int }) id: number,
     @Args('input') input: CompleteWorkOrderInput,
+    @CurrentUser() actor: JwtUser,
   ): Promise<WorkOrderRecord> {
-    return this.workOrdersService.complete(id, input);
+    return this.workOrdersService.complete(id, input, actor.id);
   }
 
   @Mutation(() => WorkOrderType)
@@ -93,7 +105,28 @@ export class WorkOrdersResolver {
   cancelWorkOrder(
     @Args('id', { type: () => Int }) id: number,
     @Args('input') input: CancelWorkOrderInput,
+    @CurrentUser() actor: JwtUser,
   ): Promise<WorkOrderRecord> {
-    return this.workOrdersService.cancel(id, input);
+    return this.workOrdersService.cancel(id, input, actor.id);
+  }
+
+  @Mutation(() => WorkOrderPartType)
+  @RequiresPermission('workorder.update')
+  addWorkOrderPart(@Args('input') input: AddWorkOrderPartInput): Promise<WorkOrderPartRecord> {
+    return this.workOrdersService.addWorkOrderPart(
+      input.workOrderId,
+      input.sparePartId,
+      input.quantityUsed,
+    );
+  }
+
+  @Mutation(() => Boolean)
+  @RequiresPermission('workorder.update')
+  async removeWorkOrderPart(
+    @Args('workOrderId', { type: () => Int }) workOrderId: number,
+    @Args('sparePartId', { type: () => Int }) sparePartId: number,
+  ): Promise<boolean> {
+    await this.workOrdersService.removeWorkOrderPart(workOrderId, sparePartId);
+    return true;
   }
 }

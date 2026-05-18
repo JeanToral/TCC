@@ -14,6 +14,11 @@ enum WorkOrderType {
   PREVENTIVE
 }
 
+enum NotificationType {
+  OVERDUE_WORK_ORDER
+  LOW_STOCK
+}
+
 enum Priority {
   LOW
   MEDIUM
@@ -43,57 +48,129 @@ model Role {
 }
 
 model User {
-  id                  Int         @id @default(autoincrement())
+  id                  Int            @id @default(autoincrement())
   name                String
-  email               String      @unique
+  email               String         @unique
   passwordHash        String
   refreshTokenHash    String?
-  isActive            Boolean     @default(true)
+  isActive            Boolean        @default(true)
   roleId              Int
-  role                Role        @relation(fields: [roleId], references: [id])
-  requestedWorkOrders WorkOrder[] @relation("RequestedWorkOrders")
-  assignedWorkOrders  WorkOrder[] @relation("AssignedWorkOrders")
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  role                Role           @relation(fields: [roleId], references: [id])
+  requestedWorkOrders WorkOrder[]    @relation("RequestedWorkOrders")
+  assignedWorkOrders  WorkOrder[]    @relation("AssignedWorkOrders")
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
   deletedAt           DateTime?
 }
 
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  targetType String
+  targetId   Int
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+}
+
 model Asset {
-  id         Int         @id @default(autoincrement())
-  name         String
-  tag          String      @unique
-  location     String?
-  manufacturer String?
-  model        String?
-  serialNumber String?
-  installDate  DateTime?
-  workOrders   WorkOrder[]
-  deletedAt    DateTime?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id              Int              @id @default(autoincrement())
+  name            String
+  tag             String           @unique
+  location        String?
+  manufacturer    String?
+  model           String?
+  serialNumber    String?
+  installDate     DateTime?
+  workOrders      WorkOrder[]
+  preventivePlans PreventivePlan[]
+  deletedAt       DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 model WorkOrder {
-  id              Int             @id @default(autoincrement())
-  title           String
-  description     String
-  type            WorkOrderType
-  priority        Priority
-  status          WorkOrderStatus @default(REQUESTED)
-  asset           Asset           @relation(fields: [assetId], references: [id])
-  assetId         Int
-  requestedBy     User            @relation("RequestedWorkOrders", fields: [requestedById], references: [id])
-  requestedById   Int
-  assignedTo      User?           @relation("AssignedWorkOrders", fields: [assignedToId], references: [id])
-  assignedToId    Int?
-  scheduledStart  DateTime?
-  scheduledEnd    DateTime?
+  id                 Int             @id @default(autoincrement())
+  title              String
+  description        String
+  type               WorkOrderType
+  priority           Priority
+  status             WorkOrderStatus @default(REQUESTED)
+  asset              Asset           @relation(fields: [assetId], references: [id])
+  assetId            Int
+  requestedBy        User            @relation("RequestedWorkOrders", fields: [requestedById], references: [id])
+  requestedById      Int
+  assignedTo         User?           @relation("AssignedWorkOrders", fields: [assignedToId], references: [id])
+  assignedToId       Int?
+  scheduledStart     DateTime?
+  scheduledEnd       DateTime?
   rejectionReason    String?
   closingNotes       String?
   cancellationReason String?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  deletedAt       DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  startedAt          DateTime?
+  completedAt        DateTime?
+  parts              WorkOrderPart[]
+  notifications      Notification[]
+  deletedAt          DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model SparePart {
+  id             Int             @id @default(autoincrement())
+  name           String
+  partNumber     String          @unique
+  description    String?
+  quantity       Int             @default(0)
+  minimumStock   Int             @default(0)
+  unitCost       Float?
+  workOrderParts WorkOrderPart[]
+  notifications  Notification[]
+  deletedAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model WorkOrderPart {
+  id           Int       @id @default(autoincrement())
+  workOrder    WorkOrder @relation(fields: [workOrderId], references: [id])
+  workOrderId  Int
+  sparePart    SparePart @relation(fields: [sparePartId], references: [id])
+  sparePartId  Int
+  quantityUsed Int
+  createdAt    DateTime  @default(now())
+
+  @@unique([workOrderId, sparePartId])
+}
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  type        NotificationType
+  message     String
+  isRead      Boolean          @default(false)
+  userId      Int
+  user        User             @relation(fields: [userId], references: [id])
+  workOrderId Int?
+  workOrder   WorkOrder?       @relation(fields: [workOrderId], references: [id])
+  sparePartId Int?
+  sparePart   SparePart?       @relation(fields: [sparePartId], references: [id])
+  createdAt   DateTime         @default(now())
+}
+
+model PreventivePlan {
+  id              Int       @id @default(autoincrement())
+  name            String
+  description     String?
+  asset           Asset     @relation(fields: [assetId], references: [id])
+  assetId         Int
+  intervalDays    Int
+  lastGeneratedAt DateTime?
+  nextDueAt       DateTime
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }

@@ -4,10 +4,11 @@ import * as bcrypt from 'bcryptjs';
 
 import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import type { UserRecord } from './users.repository';
 
 const mockRole = {
-  id: 'role-1',
+  id: 1,
   name: 'Engineer',
   description: null,
   permissions: ['user.read'],
@@ -15,17 +16,19 @@ const mockRole = {
 };
 
 const makeUser = (overrides: Partial<UserRecord> = {}): UserRecord => ({
-  id: 'user-1',
+  id: 1,
   name: 'João Silva',
   email: 'joao@example.com',
   isActive: true,
-  roleId: 'role-1',
+  roleId: 1,
   role: mockRole,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
   deletedAt: null,
   ...overrides,
 });
+
+const ACTOR_ID = 99;
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -47,6 +50,10 @@ describe('UsersService', () => {
             softDelete: jest.fn(),
           } satisfies Partial<jest.Mocked<UsersRepository>>,
         },
+        {
+          provide: AuditLogService,
+          useValue: { log: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -57,7 +64,7 @@ describe('UsersService', () => {
   describe('findAll', () => {
     it('deve retornar todos os usuários ativos', async () => {
       // Arrange
-      const users = [makeUser(), makeUser({ id: 'user-2', email: 'outro@example.com' })];
+      const users = [makeUser(), makeUser({ id: 2, email: 'outro@example.com' })];
       repo.findAll.mockResolvedValue(users);
 
       // Act
@@ -76,7 +83,7 @@ describe('UsersService', () => {
       repo.findById.mockResolvedValue(user);
 
       // Act
-      const result = await service.findById('user-1');
+      const result = await service.findById(1);
 
       // Assert
       expect(result).toEqual(user);
@@ -87,7 +94,7 @@ describe('UsersService', () => {
       repo.findById.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.findById('inexistente')).rejects.toThrow(NotFoundException);
+      await expect(service.findById(999)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -98,7 +105,7 @@ describe('UsersService', () => {
       repo.create.mockResolvedValue(makeUser());
 
       // Act
-      await service.create({ name: 'João', email: 'joao@example.com', password: 'senha123', roleId: 'role-1' });
+      await service.create({ name: 'João', email: 'joao@example.com', password: 'senha123', roleId: 1 }, ACTOR_ID);
 
       // Assert
       const callArg = repo.create.mock.calls[0][0];
@@ -113,7 +120,7 @@ describe('UsersService', () => {
 
       // Act & Assert
       await expect(
-        service.create({ name: 'Outro', email: 'joao@example.com', password: 'senha123', roleId: 'role-1' }),
+        service.create({ name: 'Outro', email: 'joao@example.com', password: 'senha123', roleId: 1 }, ACTOR_ID),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -127,20 +134,20 @@ describe('UsersService', () => {
       repo.update.mockResolvedValue(updated);
 
       // Act
-      const result = await service.update('user-1', { name: 'Novo Nome' });
+      const result = await service.update(1, { name: 'Novo Nome' }, ACTOR_ID);
 
       // Assert
       expect(result.name).toBe('Novo Nome');
-      expect(repo.update).toHaveBeenCalledWith('user-1', { name: 'Novo Nome' });
+      expect(repo.update).toHaveBeenCalledWith(1, { name: 'Novo Nome' });
     });
 
     it('deve lançar ConflictException ao atualizar para email já existente de outro usuário', async () => {
       // Arrange
       repo.findById.mockResolvedValue(makeUser());
-      repo.findByEmail.mockResolvedValue(makeUser({ id: 'user-2' }));
+      repo.findByEmail.mockResolvedValue(makeUser({ id: 2 }));
 
       // Act & Assert
-      await expect(service.update('user-1', { email: 'duplicado@example.com' })).rejects.toThrow(
+      await expect(service.update(1, { email: 'duplicado@example.com' }, ACTOR_ID)).rejects.toThrow(
         ConflictException,
       );
     });
@@ -151,7 +158,7 @@ describe('UsersService', () => {
       repo.update.mockResolvedValue(makeUser());
 
       // Act
-      await service.update('user-1', { password: 'novaSenha123' });
+      await service.update(1, { password: 'novaSenha123' }, ACTOR_ID);
 
       // Assert
       const callArg = repo.update.mock.calls[0][1];
@@ -168,11 +175,11 @@ describe('UsersService', () => {
       repo.softDelete.mockResolvedValue(deleted);
 
       // Act
-      const result = await service.remove('user-1');
+      const result = await service.remove(1, ACTOR_ID);
 
       // Assert
       expect(result.deletedAt).not.toBeNull();
-      expect(repo.softDelete).toHaveBeenCalledWith('user-1');
+      expect(repo.softDelete).toHaveBeenCalledWith(1);
     });
 
     it('deve lançar NotFoundException ao remover usuário inexistente', async () => {
@@ -180,7 +187,7 @@ describe('UsersService', () => {
       repo.findById.mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.remove('inexistente')).rejects.toThrow(NotFoundException);
+      await expect(service.remove(999, ACTOR_ID)).rejects.toThrow(NotFoundException);
     });
   });
 });

@@ -2,6 +2,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { type UserRecord, UsersRepository } from './users.repository';
 import type { CreateUserInput } from './dto/create-user.input';
 import type { UpdateUserInput } from './dto/update-user.input';
@@ -9,7 +10,10 @@ import type { UpdateUserInput } from './dto/update-user.input';
 // ─────────────────────── Service ────────────────────────
 @Injectable()
 export class UsersService {
-  constructor(private readonly repo: UsersRepository) {}
+  constructor(
+    private readonly repo: UsersRepository,
+    private readonly audit: AuditLogService,
+  ) {}
 
   findAll(): Promise<UserRecord[]> {
     return this.repo.findAll();
@@ -21,22 +25,30 @@ export class UsersService {
     return user;
   }
 
-  async create(input: CreateUserInput): Promise<UserRecord> {
+  async create(input: CreateUserInput, actorId: number): Promise<UserRecord> {
     const existing = await this.repo.findByEmail(input.email);
     if (existing) throw new ConflictException('E-mail já cadastrado');
 
     const passwordHash = await bcrypt.hash(input.password, 10);
 
-    return this.repo.create({
+    const user = await this.repo.create({
       name: input.name,
       email: input.email,
       passwordHash,
       roleId: input.roleId,
     });
+
+    this.audit.log(actorId, 'user.create', 'User', user.id, null, {
+      name: user.name,
+      email: user.email,
+      roleId: user.roleId,
+    });
+
+    return user;
   }
 
-  async update(id: number, input: UpdateUserInput): Promise<UserRecord> {
-    await this.findById(id);
+  async update(id: number, input: UpdateUserInput, actorId: number): Promise<UserRecord> {
+    const before = await this.findById(id);
 
     if (input.email) {
       const conflict = await this.repo.findByEmail(input.email);
@@ -61,12 +73,25 @@ export class UsersService {
       data.passwordHash = await bcrypt.hash(input.password, 10);
     }
 
-    return this.repo.update(id, data);
+    const after = await this.repo.update(id, data);
+
+    this.audit.log(actorId, 'user.update', 'User', id,
+      { name: before.name, email: before.email, roleId: before.roleId, isActive: before.isActive },
+      { name: after.name, email: after.email, roleId: after.roleId, isActive: after.isActive },
+    );
+
+    return after;
   }
 
-  async remove(id: number): Promise<UserRecord> {
-    await this.findById(id);
-    return this.repo.softDelete(id);
-  }
+  async remove(id: number, actorId: number): Promise<UserRecord> {
+    const user = await this.findById(id);
+    const deleted = await this.repo.softDelete(id);
 
+    this.audit.log(actorId, 'user.delete', 'User', id,
+      { name: user.name, email: user.email, roleId: user.roleId },
+      null,
+    );
+
+    return deleted;
+  }
 }

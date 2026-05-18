@@ -163,9 +163,6 @@ export default function LoginPage() {
                 <label className="login-form__label" htmlFor="password">
                   Senha
                 </label>
-                <a href="#" className="login-form__forgot">
-                  Esqueceu a senha?
-                </a>
               </div>
               <div className="login-form__password-wrapper">
                 <input

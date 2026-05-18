@@ -13,7 +13,11 @@ import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { AssetsModule } from './modules/assets/assets.module';
 import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { SparePartsModule } from './modules/spare-parts/spare-parts.module';
+import { PreventivePlansModule } from './modules/preventive-plans/preventive-plans.module';
 
 // ─────────────────────── Module ─────────────────────────
 @Module({
@@ -42,7 +46,11 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     RolesModule,
     AssetsModule,
     WorkOrdersModule,
+    AuditLogModule,
     DashboardModule,
+    NotificationsModule,
+    SparePartsModule,
+    PreventivePlansModule,
   ],
 })
 export class AppModule {}

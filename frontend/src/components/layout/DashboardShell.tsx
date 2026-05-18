@@ -27,6 +27,7 @@ const mainNav: readonly NavItem[] = [
   { label: 'Dashboard',         path: '/dashboard',             icon: <DashboardIcon />,      end: true },
   { label: 'Ativos',            path: '/dashboard/assets',      icon: <BuildingIcon /> },
   { label: 'Ordens de Serviço', path: '/dashboard/work-orders', icon: <ClipboardListIcon /> },
+  { label: 'Peças de Reposição', path: '/dashboard/spare-parts', icon: <GearIcon /> },
 ]
 
 const adminNav: readonly NavItem[] = [

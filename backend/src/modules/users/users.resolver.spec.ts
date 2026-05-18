@@ -3,9 +3,10 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { UsersResolver } from './users.resolver';
 import { UsersService } from './users.service';
 import type { UserRecord } from './users.repository';
+import type { JwtUser } from '../auth/jwt.strategy';
 
 const mockRole = {
-  id: 'role-1',
+  id: 1,
   name: 'Engineer',
   description: null,
   permissions: ['user.read'],
@@ -13,17 +14,19 @@ const mockRole = {
 };
 
 const makeUser = (overrides: Partial<UserRecord> = {}): UserRecord => ({
-  id: 'user-1',
+  id: 1,
   name: 'João Silva',
   email: 'joao@example.com',
   isActive: true,
-  roleId: 'role-1',
+  roleId: 1,
   role: mockRole,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
   deletedAt: null,
   ...overrides,
 });
+
+const mockActor: JwtUser = { id: 99, email: 'actor@cmms.local', roleId: 1, permissions: ['*'] };
 
 describe('UsersResolver', () => {
   let resolver: UsersResolver;
@@ -69,10 +72,10 @@ describe('UsersResolver', () => {
     service.findById.mockResolvedValue(user);
 
     // Act
-    const result = await resolver.user('user-1');
+    const result = await resolver.user(1);
 
     // Assert
-    expect(service.findById).toHaveBeenCalledWith('user-1');
+    expect(service.findById).toHaveBeenCalledWith(1);
     expect(result).toEqual(user);
   });
 
@@ -80,13 +83,13 @@ describe('UsersResolver', () => {
     // Arrange
     const user = makeUser();
     service.create.mockResolvedValue(user);
-    const input = { name: 'João', email: 'joao@example.com', password: 'senha123', roleId: 'role-1' };
+    const input = { name: 'João', email: 'joao@example.com', password: 'senha123', roleId: 1 };
 
     // Act
-    const result = await resolver.createUser(input);
+    const result = await resolver.createUser(input, mockActor);
 
     // Assert
-    expect(service.create).toHaveBeenCalledWith(input);
+    expect(service.create).toHaveBeenCalledWith(input, mockActor.id);
     expect(result).toEqual(user);
   });
 
@@ -97,10 +100,10 @@ describe('UsersResolver', () => {
     const input = { name: 'Novo Nome' };
 
     // Act
-    const result = await resolver.updateUser('user-1', input);
+    const result = await resolver.updateUser(1, input, mockActor);
 
     // Assert
-    expect(service.update).toHaveBeenCalledWith('user-1', input);
+    expect(service.update).toHaveBeenCalledWith(1, input, mockActor.id);
     expect(result).toEqual(user);
   });
 
@@ -110,10 +113,10 @@ describe('UsersResolver', () => {
     service.remove.mockResolvedValue(user);
 
     // Act
-    const result = await resolver.removeUser('user-1');
+    const result = await resolver.removeUser(1, mockActor);
 
     // Assert
-    expect(service.remove).toHaveBeenCalledWith('user-1');
+    expect(service.remove).toHaveBeenCalledWith(1, mockActor.id);
     expect(result.deletedAt).not.toBeNull();
   });
 });

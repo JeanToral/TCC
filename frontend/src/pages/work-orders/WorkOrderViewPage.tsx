@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@apollo/client/react'
 
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import { useAuth } from '../../contexts/AuthContext'
 import { DateTimePicker } from '../../components/ui/date-time-picker'
 import Modal from '../../components/ui/Modal'
 import Spinner from '../../components/ui/Spinner'
@@ -406,6 +407,32 @@ function CancelModal({
   )
 }
 
+// ── PermButton ─────────────────────────────────────────────
+function PermButton({
+  permission,
+  variant,
+  onClick,
+  children,
+}: {
+  readonly permission: string
+  readonly variant?: 'primary' | 'secondary' | 'danger'
+  readonly onClick: () => void
+  readonly children: React.ReactNode
+}) {
+  const { hasPermission } = useAuth()
+  const allowed = hasPermission(permission)
+  return (
+    <span
+      title={allowed ? undefined : 'Você não tem permissão para esta ação'}
+      style={{ display: 'inline-block', cursor: allowed ? undefined : 'not-allowed' }}
+    >
+      <Button variant={variant} onClick={onClick} disabled={!allowed} style={allowed ? undefined : { pointerEvents: 'none' }}>
+        {children}
+      </Button>
+    </span>
+  )
+}
+
 // ── Page ───────────────────────────────────────────────────
 export default function WorkOrderViewPage() {
   const { id } = useParams<{ id: string }>()
@@ -523,33 +550,33 @@ export default function WorkOrderViewPage() {
         <div className="page-header__actions">
           {wo.status === 'REQUESTED' && (
             <>
-              <Button onClick={() => { setActionError(''); setApproveOpen(true) }}>
+              <PermButton permission="workorder.approve" onClick={() => { setActionError(''); setApproveOpen(true) }}>
                 Aprovar
-              </Button>
-              <Button variant="danger" onClick={openReject}>
+              </PermButton>
+              <PermButton permission="workorder.approve" variant="danger" onClick={openReject}>
                 Rejeitar
-              </Button>
+              </PermButton>
             </>
           )}
           {wo.status === 'APPROVED' && (
-            <Button onClick={openSchedule}>
+            <PermButton permission="workorder.update" onClick={openSchedule}>
               Agendar
-            </Button>
+            </PermButton>
           )}
           {wo.status === 'SCHEDULED' && (
-            <Button onClick={() => { setActionError(''); setStartOpen(true) }}>
+            <PermButton permission="workorder.update" onClick={() => { setActionError(''); setStartOpen(true) }}>
               Iniciar
-            </Button>
+            </PermButton>
           )}
           {wo.status === 'IN_PROGRESS' && (
-            <Button onClick={() => { setActionError(''); setCompleteOpen(true) }}>
+            <PermButton permission="workorder.update" onClick={() => { setActionError(''); setCompleteOpen(true) }}>
               Concluir
-            </Button>
+            </PermButton>
           )}
           {canCancel && (
-            <Button variant="danger" onClick={() => { setActionError(''); setCancelReason(''); setCancelOpen(true) }}>
+            <PermButton permission="workorder.approve" variant="danger" onClick={() => { setActionError(''); setCancelReason(''); setCancelOpen(true) }}>
               Cancelar
-            </Button>
+            </PermButton>
           )}
         </div>
       </header>
