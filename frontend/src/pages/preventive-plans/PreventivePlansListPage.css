@@ -1,0 +1,149 @@
+.prev-plans-list-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.prev-plans-list-page__search {
+  width: 16rem;
+}
+
+.prev-plans-list-page__msg {
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+/* ── Table card ───────────────────────────────────────────── */
+.prev-plans-table-card {
+  background: var(--surface-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.prev-plans-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.prev-plans-table__th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.prev-plans-table__th--center {
+  text-align: center;
+}
+
+.prev-plans-table__row {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.1s;
+}
+
+.prev-plans-table__row:last-child {
+  border-bottom: none;
+}
+
+.prev-plans-table__row[role='link'] {
+  cursor: pointer;
+}
+
+.prev-plans-table__row[role='link']:hover {
+  background: var(--surface-muted);
+}
+
+.prev-plans-table__cell {
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.prev-plans-table__cell--center {
+  text-align: center;
+}
+
+.prev-plans-table__cell--actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.prev-plans-table__name {
+  display: block;
+  font-weight: 500;
+}
+
+.prev-plans-table__desc {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.125rem;
+}
+
+.prev-plans-table__asset {
+  display: block;
+  font-weight: 500;
+}
+
+.prev-plans-table__tag {
+  display: inline-block;
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.125rem 0.375rem;
+  letter-spacing: 0.04em;
+}
+
+/* ── Due badge ────────────────────────────────────────────── */
+.due-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.due-badge--ok {
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+  color: #15803d;
+}
+
+.due-badge--overdue {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+/* ── Status badge ─────────────────────────────────────────── */
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-badge--active {
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+  color: #15803d;
+}
+
+.status-badge--inactive {
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+}

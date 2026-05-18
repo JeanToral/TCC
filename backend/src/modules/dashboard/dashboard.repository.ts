@@ -20,6 +20,13 @@ export interface WorkOrderCountRecord {
   readonly count: number;
 }
 
+export interface SlaWorkOrderRecord {
+  readonly id: number;
+  readonly priority: string;
+  readonly createdAt: Date;
+  readonly startedAt: Date | null;
+}
+
 // ─────────────────────── Constants ──────────────────────
 const CORRECTIVE_WO_SELECT = {
   id: true,
@@ -60,6 +67,26 @@ export class DashboardRepository {
       select: CORRECTIVE_WO_SELECT,
       orderBy: [{ assetId: 'asc' }, { completedAt: 'asc' }],
     }) as Promise<CorrectiveWorkOrderRecord[]>;
+  }
+
+  findCompletedForSla(from?: Date, to?: Date): Promise<SlaWorkOrderRecord[]> {
+    return this.prisma.workOrder.findMany({
+      where: {
+        status: WorkOrderStatus.COMPLETED,
+        startedAt: { not: null },
+        deletedAt: null,
+        AND: [
+          ...(from ? [{ completedAt: { gte: from } }] : []),
+          ...(to ? [{ completedAt: { lte: to } }] : []),
+        ],
+      },
+      select: {
+        id: true,
+        priority: true,
+        createdAt: true,
+        startedAt: true,
+      },
+    }) as Promise<SlaWorkOrderRecord[]>;
   }
 
   async countAllByAsset(assetIds: number[]): Promise<Map<number, number>> {

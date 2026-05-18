@@ -31,52 +31,61 @@ async function main() {
     },
   })
 
+  const managerPermissions = [
+    'asset.create', 'asset.read', 'asset.update', 'asset.delete',
+    'workorder.create', 'workorder.read', 'workorder.update', 'workorder.delete',
+    'workorder.approve',
+    'sparepart.read', 'sparepart.update',
+    'preventiveplan.create', 'preventiveplan.read', 'preventiveplan.update', 'preventiveplan.delete',
+    'user.read',
+    'dashboard.read',
+    'auditlog.read',
+  ]
+
   const managerRole = await prisma.role.upsert({
     where: { name: 'Manager' },
-    update: {},
+    update: { permissions: managerPermissions },
     create: {
       name: 'Manager',
       description: 'Gerente de manutenção',
-      permissions: [
-        'asset.create', 'asset.read', 'asset.update', 'asset.delete',
-        'workorder.create', 'workorder.read', 'workorder.update', 'workorder.delete',
-        'workorder.approve',
-        'sparepart.read', 'sparepart.update',
-        'user.read',
-        'dashboard.read',
-        'auditlog.read',
-      ],
+      permissions: managerPermissions,
       isSystem: true,
     },
   })
+
+  const engineerPermissions = [
+    'asset.read', 'asset.update',
+    'workorder.create', 'workorder.read', 'workorder.update', 'workorder.delete',
+    'sparepart.read', 'sparepart.update',
+    'preventiveplan.create', 'preventiveplan.read', 'preventiveplan.update', 'preventiveplan.delete',
+    'dashboard.read',
+  ]
 
   const engineerRole = await prisma.role.upsert({
     where: { name: 'Engineer' },
-    update: {},
+    update: { permissions: engineerPermissions },
     create: {
       name: 'Engineer',
       description: 'Engenheiro de manutenção',
-      permissions: [
-        'asset.read', 'asset.update',
-        'workorder.create', 'workorder.read', 'workorder.update', 'workorder.delete',
-        'sparepart.read', 'sparepart.update',
-        'dashboard.read',
-      ],
+      permissions: engineerPermissions,
       isSystem: true,
     },
   })
 
+  const techPermissions = [
+    'asset.read',
+    'workorder.read', 'workorder.update',
+    'sparepart.read',
+    'preventiveplan.read',
+  ]
+
   const techRole = await prisma.role.upsert({
     where: { name: 'Technician' },
-    update: {},
+    update: { permissions: techPermissions },
     create: {
       name: 'Technician',
       description: 'Técnico de manutenção',
-      permissions: [
-        'asset.read',
-        'workorder.read', 'workorder.update',
-        'sparepart.read',
-      ],
+      permissions: techPermissions,
       isSystem: true,
     },
   })

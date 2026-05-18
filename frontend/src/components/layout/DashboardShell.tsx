@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import {
-  BellIcon,
   BuildingIcon,
+  CalendarIcon,
   ChevronDownIcon,
   ClipboardListIcon,
   DashboardIcon,
@@ -14,6 +14,7 @@ import {
   UserGroupIcon,
 } from '../icons'
 import { useAuth } from '../../contexts/AuthContext'
+import NotificationDropdown from './NotificationDropdown'
 import './DashboardShell.css'
 
 interface NavItem {
@@ -24,10 +25,11 @@ interface NavItem {
 }
 
 const mainNav: readonly NavItem[] = [
-  { label: 'Dashboard',         path: '/dashboard',             icon: <DashboardIcon />,      end: true },
-  { label: 'Ativos',            path: '/dashboard/assets',      icon: <BuildingIcon /> },
-  { label: 'Ordens de Serviço', path: '/dashboard/work-orders', icon: <ClipboardListIcon /> },
-  { label: 'Peças de Reposição', path: '/dashboard/spare-parts', icon: <GearIcon /> },
+  { label: 'Dashboard',            path: '/dashboard',                  icon: <DashboardIcon />,    end: true },
+  { label: 'Ativos',               path: '/dashboard/assets',           icon: <BuildingIcon /> },
+  { label: 'Ordens de Serviço',    path: '/dashboard/work-orders',      icon: <ClipboardListIcon /> },
+  { label: 'Peças de Reposição',   path: '/dashboard/spare-parts',      icon: <GearIcon /> },
+  { label: 'Planos Preventivos',   path: '/dashboard/preventive-plans', icon: <CalendarIcon /> },
 ]
 
 const adminNav: readonly NavItem[] = [
@@ -132,13 +134,7 @@ export default function DashboardShell() {
         <header className="shell__topbar">
           <div className="shell__topbar-left" />
           <div className="shell__topbar-right">
-            <button
-              type="button"
-              className="shell__topbar-btn"
-              aria-label="Notificações"
-            >
-              <BellIcon />
-            </button>
+            <NotificationDropdown />
           </div>
         </header>
 

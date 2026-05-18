@@ -13,6 +13,20 @@ export interface AssetKpiRecord {
   readonly completedWorkOrders: number;
 }
 
+export interface SlaRateRecord {
+  readonly withinSla: number;
+  readonly total: number;
+  readonly percentage: number;
+}
+
+// SLA deadline in hours per priority
+const SLA_HOURS: Record<string, number> = {
+  CRITICAL: 2,
+  HIGH: 8,
+  MEDIUM: 48,
+  LOW: 168,
+};
+
 // ─────────────────────── Service ────────────────────────
 @Injectable()
 export class DashboardService {
@@ -42,6 +56,28 @@ export class DashboardService {
         completedWorkOrders: wos.length,
       };
     });
+  }
+
+  async getSlaRate(filter?: DashboardFilterInput): Promise<SlaRateRecord> {
+    const wos = await this.repo.findCompletedForSla(
+      filter?.from ? new Date(filter.from) : undefined,
+      filter?.to ? new Date(filter.to) : undefined,
+    );
+
+    if (wos.length === 0) return { withinSla: 0, total: 0, percentage: 0 };
+
+    let withinSla = 0;
+    for (const wo of wos) {
+      if (!wo.startedAt) continue;
+      const limitHours = SLA_HOURS[wo.priority] ?? 168;
+      const limitMs = limitHours * 3_600_000;
+      const elapsed = wo.startedAt.getTime() - wo.createdAt.getTime();
+      if (elapsed <= limitMs) withinSla++;
+    }
+
+    const total = wos.filter((wo) => wo.startedAt !== null).length;
+    const percentage = total > 0 ? Math.round((withinSla / total) * 100) : 0;
+    return { withinSla, total, percentage };
   }
 
   private groupByAsset(

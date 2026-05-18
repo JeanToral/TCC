@@ -7,8 +7,18 @@ export interface AssetKpi {
   readonly completedWorkOrders: number
 }
 
+export interface SlaRate {
+  readonly withinSla: number
+  readonly total: number
+  readonly percentage: number
+}
+
 export interface GetDashboardKpisData {
   readonly dashboardKpis: readonly AssetKpi[]
+}
+
+export interface GetDashboardSlaRateData {
+  readonly dashboardSlaRate: SlaRate
 }
 
 export interface DashboardFilterInput {

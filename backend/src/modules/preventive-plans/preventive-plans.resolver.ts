@@ -20,7 +20,7 @@ export class PreventivePlansResolver {
   constructor(private readonly preventivePlansService: PreventivePlansService) {}
 
   @Query(() => [PreventivePlanType])
-  @RequiresPermission('workorder.read')
+  @RequiresPermission('preventiveplan.read')
   preventivePlans(
     @Args('assetId', { type: () => Int, nullable: true }) assetId?: number,
   ): Promise<PreventivePlanRecord[]> {
@@ -28,7 +28,7 @@ export class PreventivePlansResolver {
   }
 
   @Query(() => PreventivePlanType)
-  @RequiresPermission('workorder.read')
+  @RequiresPermission('preventiveplan.read')
   preventivePlan(
     @Args('id', { type: () => Int }) id: number,
   ): Promise<PreventivePlanRecord> {
@@ -36,7 +36,7 @@ export class PreventivePlansResolver {
   }
 
   @Mutation(() => PreventivePlanType)
-  @RequiresPermission('workorder.create')
+  @RequiresPermission('preventiveplan.create')
   createPreventivePlan(
     @Args('input') input: CreatePreventivePlanInput,
   ): Promise<PreventivePlanRecord> {
@@ -44,7 +44,7 @@ export class PreventivePlansResolver {
   }
 
   @Mutation(() => PreventivePlanType)
-  @RequiresPermission('workorder.update')
+  @RequiresPermission('preventiveplan.update')
   updatePreventivePlan(
     @Args('id', { type: () => Int }) id: number,
     @Args('input') input: UpdatePreventivePlanInput,
@@ -53,7 +53,7 @@ export class PreventivePlansResolver {
   }
 
   @Mutation(() => PreventivePlanType)
-  @RequiresPermission('workorder.delete')
+  @RequiresPermission('preventiveplan.delete')
   deletePreventivePlan(
     @Args('id', { type: () => Int }) id: number,
   ): Promise<PreventivePlanRecord> {

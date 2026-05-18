@@ -6,7 +6,8 @@ import { NativeSelect } from '../../components/ui/select'
 import { DateRangePicker } from '../../components/ui/date-range-picker'
 import Spinner from '../../components/ui/Spinner'
 import { GET_DASHBOARD_KPIS } from '../../graphql/dashboard/GetDashboardKpis.gql'
-import type { AssetKpi, DashboardFilterInput, GetDashboardKpisData } from '../../graphql/dashboard/types'
+import { GET_DASHBOARD_SLA_RATE } from '../../graphql/dashboard/GetDashboardSlaRate.gql'
+import type { AssetKpi, DashboardFilterInput, GetDashboardKpisData, GetDashboardSlaRateData } from '../../graphql/dashboard/types'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import type { GetAssetsData } from '../../graphql/assets/types'
 import './DashboardPage.css'
@@ -84,8 +85,20 @@ export default function DashboardPage() {
     ...(dateRange?.to ? { to: dateRange.to.toISOString() } : {}),
   }
 
+  const filterVars = Object.keys(filter).length > 0 ? filter : undefined
+
   const { data, loading, error } = useQuery<GetDashboardKpisData>(GET_DASHBOARD_KPIS, {
-    variables: { filter: Object.keys(filter).length > 0 ? filter : undefined },
+    variables: { filter: filterVars },
+    fetchPolicy: 'cache-and-network',
+  })
+
+  const slaFilter: DashboardFilterInput = {
+    ...(dateRange?.from ? { from: dateRange.from.toISOString() } : {}),
+    ...(dateRange?.to ? { to: dateRange.to.toISOString() } : {}),
+  }
+
+  const { data: slaData } = useQuery<GetDashboardSlaRateData>(GET_DASHBOARD_SLA_RATE, {
+    variables: { filter: Object.keys(slaFilter).length > 0 ? slaFilter : undefined },
     fetchPolicy: 'cache-and-network',
   })
 
@@ -95,6 +108,7 @@ export default function DashboardPage() {
 
   const kpis = data?.dashboardKpis ?? []
   const summary = computeSummary(kpis)
+  const slaRate = slaData?.dashboardSlaRate
 
   return (
     <div className="dashboard-page">
@@ -146,7 +160,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Cards de resumo ──────────────────────────── */}
-      {!loading && kpis.length > 0 && (
+      {!loading && (kpis.length > 0 || slaRate !== undefined) && (
         <div className="kpi-summary">
           <KpiCard
             label="MTTR médio"
@@ -164,6 +178,16 @@ export default function DashboardPage() {
             label="OS corretivas concluídas"
             value={String(summary.totalCompleted)}
             subtitle={`em ${summary.assetCount} ${summary.assetCount === 1 ? 'ativo' : 'ativos'}`}
+          />
+          <KpiCard
+            label="% dentro do SLA"
+            value={slaRate !== undefined && slaRate.total > 0 ? `${slaRate.percentage}%` : '—'}
+            subtitle={
+              slaRate !== undefined && slaRate.total > 0
+                ? `${slaRate.withinSla} de ${slaRate.total} OS no prazo`
+                : 'Sem OS concluídas no período'
+            }
+            variant="highlight"
           />
           <KpiCard
             label="OEE"
