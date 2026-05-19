@@ -100,7 +100,7 @@ async function main() {
     create: {
       name: 'Administrador',
       email: 'admin@cmms.com',
-      passwordHash: await hashPassword('admin123'),
+      passwordHash: await hashPassword('123123'),
       roleId: sysadminRole.id,
     },
   })

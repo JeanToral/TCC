@@ -2,6 +2,12 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AddWorkOrderPartInput {
+  quantityUsed: Int!
+  sparePartId: Int!
+  workOrderId: Int!
+}
+
 type AssetKpi {
   assetId: Int!
   assetName: String!
@@ -62,10 +68,27 @@ input CreateAssetInput {
   tag: String!
 }
 
+input CreatePreventivePlanInput {
+  assetId: Int!
+  description: String
+  intervalDays: Int!
+  name: String!
+  nextDueAt: String!
+}
+
 input CreateRoleInput {
   description: String
   name: String!
   permissions: [String!]!
+}
+
+input CreateSparePartInput {
+  description: String
+  minimumStock: Int! = 0
+  name: String!
+  partNumber: String!
+  quantity: Int! = 0
+  unitCost: Float
 }
 
 input CreateUserInput {
@@ -100,25 +123,67 @@ input LoginInput {
 }
 
 type Mutation {
+  addWorkOrderPart(input: AddWorkOrderPartInput!): WorkOrderPart!
   approveWorkOrder(id: Int!): WorkOrder!
   cancelWorkOrder(id: Int!, input: CancelWorkOrderInput!): WorkOrder!
   completeWorkOrder(id: Int!, input: CompleteWorkOrderInput!): WorkOrder!
   createAsset(input: CreateAssetInput!): AssetType!
+  createPreventivePlan(input: CreatePreventivePlanInput!): PreventivePlan!
   createRole(input: CreateRoleInput!): RoleType!
+  createSparePart(input: CreateSparePartInput!): SparePart!
   createUser(input: CreateUserInput!): UserType!
   createWorkOrder(input: CreateWorkOrderInput!): WorkOrder!
   deleteAsset(id: Int!): AssetType!
+  deletePreventivePlan(id: Int!): PreventivePlan!
   deleteRole(id: Int!): RoleType!
+  deleteSparePart(id: Int!): SparePart!
+  generateDuePreventiveWorkOrders: Int!
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
+  markAllNotificationsRead: Boolean!
+  markNotificationRead(id: Int!): Notification!
   refreshToken: AuthPayload!
   rejectWorkOrder(id: Int!, input: RejectWorkOrderInput!): WorkOrder!
   removeUser(id: Int!): UserType!
+  removeWorkOrderPart(sparePartId: Int!, workOrderId: Int!): Boolean!
   scheduleWorkOrder(id: Int!, input: ScheduleWorkOrderInput!): WorkOrder!
   startWorkOrder(id: Int!): WorkOrder!
   updateAsset(id: Int!, input: UpdateAssetInput!): AssetType!
+  updatePreventivePlan(id: Int!, input: UpdatePreventivePlanInput!): PreventivePlan!
   updateRole(id: Int!, input: UpdateRoleInput!): RoleType!
+  updateSparePart(id: Int!, input: UpdateSparePartInput!): SparePart!
   updateUser(id: Int!, input: UpdateUserInput!): UserType!
+}
+
+type Notification {
+  createdAt: DateTime!
+  id: Int!
+  isRead: Boolean!
+  message: String!
+  sparePartId: Int
+  type: NotificationType!
+  userId: Int!
+  workOrderId: Int
+}
+
+"""Tipo de notificação"""
+enum NotificationType {
+  LOW_STOCK
+  OVERDUE_WORK_ORDER
+}
+
+type PreventivePlan {
+  asset: AssetType!
+  assetId: Int!
+  createdAt: DateTime!
+  description: String
+  id: Int!
+  intervalDays: Int!
+  isActive: Boolean!
+  lastGeneratedAt: DateTime
+  name: String!
+  nextDueAt: DateTime!
+  updatedAt: DateTime!
 }
 
 """Prioridade da ordem de serviço"""
@@ -134,11 +199,19 @@ type Query {
   assets: [AssetType!]!
   auditLogs(targetId: Int, targetType: String): [AuditLogType!]!
   dashboardKpis(filter: DashboardFilterInput): [AssetKpi!]!
+  dashboardSlaRate(filter: DashboardFilterInput): SlaRate!
+  notifications(unreadOnly: Boolean = false): [Notification!]!
+  preventivePlan(id: Int!): PreventivePlan!
+  preventivePlans(assetId: Int): [PreventivePlan!]!
   role(id: Int!): RoleType!
   roles: [RoleType!]!
+  sparePart(id: Int!): SparePart!
+  spareParts(search: String): [SparePart!]!
+  unreadNotificationsCount: Int!
   user(id: Int!): UserType!
   users: [UserType!]!
   workOrder(id: Int!): WorkOrder!
+  workOrderParts(workOrderId: Int!): [WorkOrderPart!]!
   workOrders(after: String, filter: WorkOrdersFilterInput, first: Int = 20): WorkOrderConnection!
 }
 
@@ -160,6 +233,31 @@ input ScheduleWorkOrderInput {
   scheduledStart: DateTime!
 }
 
+type SlaRate {
+  percentage: Float!
+  total: Int!
+  withinSla: Int!
+}
+
+type SparePart {
+  createdAt: DateTime!
+  deletedAt: DateTime
+  description: String
+  id: Int!
+  minimumStock: Int!
+  name: String!
+  partNumber: String!
+  quantity: Int!
+  unitCost: Float
+  updatedAt: DateTime!
+}
+
+type SparePartSummary {
+  id: Int!
+  name: String!
+  partNumber: String!
+}
+
 input UpdateAssetInput {
   installDate: DateTime
   location: String
@@ -170,10 +268,26 @@ input UpdateAssetInput {
   tag: String
 }
 
+input UpdatePreventivePlanInput {
+  description: String
+  intervalDays: Int
+  isActive: Boolean
+  name: String
+  nextDueAt: String
+}
+
 input UpdateRoleInput {
   description: String
   name: String
   permissions: [String!]
+}
+
+input UpdateSparePartInput {
+  description: String
+  minimumStock: Int
+  name: String
+  quantity: Int
+  unitCost: Float
 }
 
 input UpdateUserInput {
@@ -234,6 +348,15 @@ type WorkOrderEdge {
 type WorkOrderPageInfo {
   endCursor: String
   hasNextPage: Boolean!
+}
+
+type WorkOrderPart {
+  createdAt: DateTime!
+  id: Int!
+  quantityUsed: Int!
+  sparePart: SparePartSummary!
+  sparePartId: Int!
+  workOrderId: Int!
 }
 
 """Status da ordem de serviço"""

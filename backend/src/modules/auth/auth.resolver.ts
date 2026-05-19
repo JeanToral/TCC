@@ -19,7 +19,7 @@ export class AuthResolver {
 
   @Mutation(() => AuthPayload)
   @UseGuards(GqlThrottlerGuard)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   login(
     @Args('input') input: LoginInput,
     @Context() context: { res: Response },

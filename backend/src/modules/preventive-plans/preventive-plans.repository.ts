@@ -8,6 +8,7 @@ export interface PreventivePlanRecord {
   readonly name: string;
   readonly description: string | null;
   readonly assetId: number;
+  readonly asset: { readonly id: number; readonly name: string; readonly tag: string };
   readonly intervalDays: number;
   readonly lastGeneratedAt: Date | null;
   readonly nextDueAt: Date;
@@ -39,6 +40,7 @@ const PLAN_SELECT = {
   name: true,
   description: true,
   assetId: true,
+  asset: { select: { id: true, name: true, tag: true } },
   intervalDays: true,
   lastGeneratedAt: true,
   nextDueAt: true,

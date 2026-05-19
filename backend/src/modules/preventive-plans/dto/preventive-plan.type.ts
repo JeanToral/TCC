@@ -1,6 +1,8 @@
 // ─────────────────────── Imports ────────────────────────
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 
+import { AssetType } from '../../work-orders/dto/asset.type';
+
 // ─────────────────────── Type ────────────────────────────
 @ObjectType('PreventivePlan')
 export class PreventivePlanType {
@@ -15,6 +17,9 @@ export class PreventivePlanType {
 
   @Field(() => Int)
   readonly assetId: number;
+
+  @Field(() => AssetType)
+  readonly asset: AssetType;
 
   @Field(() => Int)
   readonly intervalDays: number;
