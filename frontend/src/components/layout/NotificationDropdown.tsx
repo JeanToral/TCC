@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQuery } from '@apollo/client'
+import { useMutation, useQuery } from '@apollo/client/react'
 
 import { BellIcon } from '../icons'
 import { GET_NOTIFICATIONS } from '../../graphql/notifications/GetNotifications.gql'
