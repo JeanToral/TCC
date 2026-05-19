@@ -1,7 +1,19 @@
 // ─────────────────────── Imports ────────────────────────
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 
-// ─────────────────────── Type ────────────────────────────
+// ─────────────────────── Types ───────────────────────────
+@ObjectType('SparePartSummary')
+export class SparePartSummaryType {
+  @Field(() => Int)
+  readonly id: number;
+
+  @Field()
+  readonly name: string;
+
+  @Field()
+  readonly partNumber: string;
+}
+
 @ObjectType('WorkOrderPart')
 export class WorkOrderPartType {
   @Field(() => Int)
@@ -21,16 +33,4 @@ export class WorkOrderPartType {
 
   @Field()
   readonly createdAt: Date;
-}
-
-@ObjectType('SparePartSummary')
-export class SparePartSummaryType {
-  @Field(() => Int)
-  readonly id: number;
-
-  @Field()
-  readonly name: string;
-
-  @Field()
-  readonly partNumber: string;
 }
