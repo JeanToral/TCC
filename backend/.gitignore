@@ -10,3 +10,6 @@ node_modules
 dist/
 src/generated/
 *.tsbuildinfo
+
+# Build do frontend (gerado pelo Vite durante o build do Railway)
+public/

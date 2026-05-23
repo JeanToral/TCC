@@ -19,7 +19,9 @@ const authLink = new ApolloLink((operation, forward) => {
 });
 
 const httpLink = new HttpLink({
-  uri: 'http://localhost:3000/graphql',
+  // Em produção (Railway) o frontend é servido pelo próprio NestJS — mesma origem.
+  // Em dev local o Vite roda na porta 5173 e o backend na 3000.
+  uri: import.meta.env.VITE_API_URL ?? '/graphql',
   credentials: 'include',
 });
 

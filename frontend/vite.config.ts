@@ -10,4 +10,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    outDir: '../backend/public',
+    emptyOutDir: true,
+  },
+  server: {
+    // Em dev local, proxy /graphql para o NestJS na porta 3000
+    proxy: {
+      '/graphql': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
+  },
 })

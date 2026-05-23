@@ -1,4 +1,7 @@
 {
+	"name": "cmms-tcc",
+	"version": "0.0.1",
+	"private": true,
 	"type": "module",
 	"scripts": {
 		"start:backend": "cd backend && pnpm start:dev",

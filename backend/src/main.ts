@@ -15,11 +15,16 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
   const corsOrigin = config.get<string>('CORS_ORIGIN', 'http://localhost:5173');
   const port = config.get<number>('PORT', 3000);
+  const isProd = config.get<string>('NODE_ENV') === 'production';
 
-  app.enableCors({
-    origin: corsOrigin,
-    credentials: true,
-  });
+  // Em produção o frontend é servido pelo próprio NestJS (mesma origem),
+  // logo CORS não é necessário. Em dev o Vite roda em porta diferente.
+  if (!isProd) {
+    app.enableCors({
+      origin: corsOrigin,
+      credentials: true,
+    });
+  }
 
   app.useGlobalPipes(
     new ValidationPipe({
