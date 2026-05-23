@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
 
@@ -139,6 +139,14 @@ describe('UsersService', () => {
       // Assert
       expect(result.name).toBe('Novo Nome');
       expect(repo.update).toHaveBeenCalledWith(1, { name: 'Novo Nome' });
+    });
+
+    it('deve lançar ForbiddenException ao usuário tentar alterar o próprio role', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeUser({ id: 1 }));
+
+      // Act & Assert
+      await expect(service.update(1, { roleId: 2 }, /* actorId = */ 1)).rejects.toThrow(ForbiddenException);
     });
 
     it('deve lançar ConflictException ao atualizar para email já existente de outro usuário', async () => {

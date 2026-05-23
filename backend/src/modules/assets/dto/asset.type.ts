@@ -1,37 +1,35 @@
 // ─────────────────────── Imports ────────────────────────
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 
-import { AssetType } from '../../assets/dto/asset.type';
-
 // ─────────────────────── Type ────────────────────────────
-@ObjectType('PreventivePlan')
-export class PreventivePlanType {
+@ObjectType()
+export class AssetType {
   @Field(() => Int)
   readonly id: number;
 
   @Field()
   readonly name: string;
 
-  @Field({ nullable: true })
-  readonly description?: string;
-
-  @Field(() => Int)
-  readonly assetId: number;
-
-  @Field(() => AssetType)
-  readonly asset: AssetType;
-
-  @Field(() => Int)
-  readonly intervalDays: number;
+  @Field()
+  readonly tag: string;
 
   @Field({ nullable: true })
-  readonly lastGeneratedAt?: Date;
+  readonly location?: string;
 
-  @Field()
-  readonly nextDueAt: Date;
+  @Field({ nullable: true })
+  readonly manufacturer?: string;
 
-  @Field()
-  readonly isActive: boolean;
+  @Field({ nullable: true })
+  readonly model?: string;
+
+  @Field({ nullable: true })
+  readonly serialNumber?: string;
+
+  @Field({ nullable: true })
+  readonly installDate?: Date;
+
+  @Field({ nullable: true })
+  readonly deletedAt?: Date;
 
   @Field()
   readonly createdAt: Date;

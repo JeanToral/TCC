@@ -5,7 +5,7 @@ import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { RequiresPermission } from '../../common/decorators/requires-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
-import { AssetType } from '../work-orders/dto/asset.type';
+import { AssetType } from './dto/asset.type';
 import { CreateAssetInput } from './dto/create-asset.input';
 import { UpdateAssetInput } from './dto/update-asset.input';
 import type { AssetRecord } from './assets.repository';

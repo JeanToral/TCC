@@ -1,5 +1,5 @@
 // ─────────────────────── Imports ────────────────────────
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 import { AuditLogService } from '../audit-log/audit-log.service';
@@ -49,6 +49,10 @@ export class UsersService {
 
   async update(id: number, input: UpdateUserInput, actorId: number): Promise<UserRecord> {
     const before = await this.findById(id);
+
+    if (actorId === id && input.roleId !== undefined) {
+      throw new ForbiddenException('Usuários não podem alterar o próprio role');
+    }
 
     if (input.email) {
       const conflict = await this.repo.findByEmail(input.email);
