@@ -38,7 +38,11 @@ import { PreventivePlansModule } from './modules/preventive-plans/preventive-pla
     // Em dev local a pasta pode não existir — o módulo ignora silenciosamente.
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'public'),
-      exclude: ['/graphql*'],
+      // path-to-regexp v8 (usado pelo serve-static v5) não aceita '*' sem nome.
+      // '/graphql' cobre a rota exata; '/{*path}' nunca é atingida antes do GraphQLModule.
+      // Na prática, rotas NestJS têm prioridade sobre o static handler — exclude é redundante,
+      // mas mantemos para clareza usando sintaxe válida de path-to-regexp v8.
+      exclude: ['/graphql', '/graphql/{*path}'],
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
