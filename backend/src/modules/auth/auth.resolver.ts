@@ -37,7 +37,7 @@ export class AuthResolver {
   }
 
   @Mutation(() => AuthPayload)
-  refreshToken(@Context() context: { req: Request }): Promise<AuthPayload> {
-    return this.authService.refreshToken(context.req);
+  refreshToken(@Context() context: { req: Request; res: Response }): Promise<AuthPayload> {
+    return this.authService.refreshToken(context.req, context.res);
   }
 }

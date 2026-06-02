@@ -1,5 +1,5 @@
 // ─────────────────────── Imports ────────────────────────
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { apolloClient, setAccessToken } from '../lib/apollo'
@@ -22,15 +22,27 @@ interface JwtPayload {
   sub: string
   email: string
   permissions: string[]
+  exp: number
 }
 
 // ─────────────────────── Helpers ─────────────────────────
+const REFRESH_BUFFER_MS = 60_000
+
 function decodePermissions(token: string): string[] {
   try {
     const payload = JSON.parse(atob(token.split('.')[1])) as JwtPayload
     return Array.isArray(payload.permissions) ? payload.permissions : []
   } catch {
     return []
+  }
+}
+
+function getTokenExpiryMs(token: string): number {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1])) as JwtPayload
+    return payload.exp * 1000
+  } catch {
+    return 0
   }
 }
 
@@ -41,34 +53,57 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [permissions, setPermissions] = useState<string[]>([])
   const [initializing, setInitializing] = useState(true)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearTimer() {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = null
+  }
+
+  function logout() {
+    clearTimer()
+    setAccessToken('')
+    setPermissions([])
+    setIsAuthenticated(false)
+  }
+
+  function applyToken(token: string) {
+    setAccessToken(token)
+    setPermissions(decodePermissions(token))
+    setIsAuthenticated(true)
+    clearTimer()
+    const delay = getTokenExpiryMs(token) - Date.now() - REFRESH_BUFFER_MS
+    if (delay > 0) {
+      timerRef.current = setTimeout(() => void silentRefresh(), delay)
+    }
+  }
+
+  async function silentRefresh() {
+    try {
+      const { data } = await apolloClient.mutate<RefreshTokenResult>({ mutation: REFRESH_TOKEN })
+      const token = data?.refreshToken?.accessToken
+      if (token) applyToken(token)
+      else logout()
+    } catch {
+      logout()
+    }
+  }
 
   useEffect(() => {
     apolloClient
       .mutate<RefreshTokenResult>({ mutation: REFRESH_TOKEN })
       .then(({ data }) => {
-        if (data?.refreshToken?.accessToken) {
-          const token = data.refreshToken.accessToken
-          setAccessToken(token)
-          setPermissions(decodePermissions(token))
-          setIsAuthenticated(true)
-        }
+        const token = data?.refreshToken?.accessToken
+        if (token) applyToken(token)
       })
-      .catch(() => {
-        // cookie ausente ou expirado — permanece deslogado
-      })
+      .catch(() => {})
       .finally(() => setInitializing(false))
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function login(accessToken: string) {
-    setAccessToken(accessToken)
-    setPermissions(decodePermissions(accessToken))
-    setIsAuthenticated(true)
-  }
+  useEffect(() => clearTimer, [])
 
-  function logout() {
-    setAccessToken('')
-    setPermissions([])
-    setIsAuthenticated(false)
+  function login(token: string) {
+    applyToken(token)
   }
 
   const hasPermission = useCallback(

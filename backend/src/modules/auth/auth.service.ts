@@ -74,7 +74,7 @@ export class AuthService {
     return true;
   }
 
-  async refreshToken(req: Request): Promise<AuthPayload> {
+  async refreshToken(req: Request, res: Response): Promise<AuthPayload> {
     const token: string =
       (req.cookies as Record<string, string> | undefined)?.refreshToken ?? '';
 
@@ -117,6 +117,8 @@ export class AuthService {
       where: { id: user.id },
       data: { refreshTokenHash: await bcrypt.hash(newRefresh, 10) },
     });
+
+    this.setRefreshCookie(res, newRefresh);
 
     return { accessToken };
   }
