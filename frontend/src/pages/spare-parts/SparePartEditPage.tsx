@@ -3,6 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
+import {
+  FormActions,
+  FormAlert,
+  FormField,
+  FormGrid,
+  FormLayout,
+  FormSection,
+} from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import Spinner from '../../components/ui/Spinner'
@@ -113,90 +121,106 @@ export default function SparePartEditPage() {
         </div>
       </header>
 
-      <form className="spare-part-form" onSubmit={handleSubmit}>
-        <div className="spare-part-form__card">
-          <div className="spare-part-form__row">
-            <label className="spare-part-form__label">
-              Nome *
-              <Input
-                value={form.name}
-                onChange={(e) => set('name', e.target.value)}
-                required
-                placeholder="Ex: Rolamento 6205"
-              />
-            </label>
-            <label className="spare-part-form__label">
-              Código (Part Number) *
-              <Input
-                value={form.partNumber}
-                onChange={(e) => set('partNumber', e.target.value)}
-                required
-                disabled={!isNew}
-                placeholder="Ex: ROL-6205"
-              />
-            </label>
-          </div>
+      <FormLayout onSubmit={handleSubmit}>
+        {error && <FormAlert>{error}</FormAlert>}
 
-          <label className="spare-part-form__label">
-            Descrição
-            <Textarea
-              value={form.description}
-              onChange={(e) => set('description', e.target.value)}
-              placeholder="Descrição ou especificações da peça…"
-              rows={3}
-            />
-          </label>
+        <FormSection title="Identificação">
+          <FormGrid columns={2}>
+            <FormField>
+              <label className="spare-part-form__label">
+                Nome *
+                <Input
+                  value={form.name}
+                  onChange={(e) => set('name', e.target.value)}
+                  required
+                  placeholder="Ex: Rolamento 6205"
+                />
+              </label>
+            </FormField>
+            <FormField>
+              <label className="spare-part-form__label">
+                Código (Part Number) *
+                <Input
+                  value={form.partNumber}
+                  onChange={(e) => set('partNumber', e.target.value)}
+                  required
+                  disabled={!isNew}
+                  placeholder="Ex: ROL-6205"
+                />
+              </label>
+            </FormField>
+            <FormField span="full">
+              <label className="spare-part-form__label">
+                Descrição
+                <Textarea
+                  value={form.description}
+                  onChange={(e) => set('description', e.target.value)}
+                  placeholder="Descrição ou especificações da peça…"
+                  rows={3}
+                />
+              </label>
+            </FormField>
+          </FormGrid>
+        </FormSection>
 
-          <div className="spare-part-form__row spare-part-form__row--3">
-            <label className="spare-part-form__label">
-              Quantidade em Estoque
-              <Input
-                type="number"
-                min={0}
-                value={form.quantity}
-                onChange={(e) => set('quantity', e.target.value)}
-              />
-            </label>
-            <label className="spare-part-form__label">
-              Estoque Mínimo
-              <Input
-                type="number"
-                min={0}
-                value={form.minimumStock}
-                onChange={(e) => set('minimumStock', e.target.value)}
-              />
-            </label>
-            <label className="spare-part-form__label">
-              Custo Unitário (R$)
-              <Input
-                type="number"
-                min={0}
-                step={0.01}
-                value={form.unitCost}
-                onChange={(e) => set('unitCost', e.target.value)}
-                placeholder="0,00"
-              />
-            </label>
-          </div>
+        <FormSection title="Estoque">
+          <FormGrid>
+            <FormField>
+              <label className="spare-part-form__label">
+                Quantidade em Estoque
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.quantity}
+                  onChange={(e) => set('quantity', e.target.value)}
+                />
+              </label>
+            </FormField>
+            <FormField>
+              <label className="spare-part-form__label">
+                Estoque Mínimo
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.minimumStock}
+                  onChange={(e) => set('minimumStock', e.target.value)}
+                />
+              </label>
+            </FormField>
+            <FormField>
+              <label className="spare-part-form__label">
+                Custo Unitário (R$)
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={form.unitCost}
+                  onChange={(e) => set('unitCost', e.target.value)}
+                  placeholder="0,00"
+                />
+              </label>
+              {!form.unitCost.trim() && (
+                <p className="spare-part-form__hint" role="status">
+                  Peças sem custo tornam o relatório financeiro incompleto.
+                </p>
+              )}
+            </FormField>
+          </FormGrid>
+        </FormSection>
 
-          {error && (
-            <div className="spare-part-form__error" role="alert">{error}</div>
-          )}
-
-          <div className="spare-part-form__actions">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => navigate('/dashboard/spare-parts')}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? <Spinner size="sm" /> : isNew ? 'Criar Peça' : 'Salvar Alterações'}
-            </Button>
-          </div>
-        </div>
-      </form>
+        <FormActions>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => navigate('/dashboard/spare-parts')}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? <Spinner size="sm" /> : isNew ? 'Criar Peça' : 'Salvar Alterações'}
+          </Button>
+        </FormActions>
+      </FormLayout>
     </div>
   )
 }

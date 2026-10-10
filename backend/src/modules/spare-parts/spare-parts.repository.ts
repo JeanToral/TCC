@@ -22,7 +22,18 @@ export interface WorkOrderPartRecord {
   readonly sparePartId: number;
   readonly sparePart: { readonly id: number; readonly name: string; readonly partNumber: string };
   readonly quantityUsed: number;
+  /** Preço congelado na conclusão da OS; nulo enquanto a OS não concluiu. */
+  readonly unitCostSnapshot: number | null;
   readonly createdAt: Date;
+}
+
+/** Peça após a baixa de estoque, o suficiente para checar o mínimo. */
+export interface DecrementedPartRecord {
+  readonly id: number;
+  readonly name: string;
+  readonly partNumber: string;
+  readonly quantity: number;
+  readonly minimumStock: number;
 }
 
 export interface CreateSparePartData {
@@ -125,6 +136,7 @@ export class SparePartsRepository {
         sparePartId: true,
         sparePart: { select: { id: true, name: true, partNumber: true } },
         quantityUsed: true,
+        unitCostSnapshot: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'asc' },
@@ -146,6 +158,7 @@ export class SparePartsRepository {
         sparePartId: true,
         sparePart: { select: { id: true, name: true, partNumber: true } },
         quantityUsed: true,
+        unitCostSnapshot: true,
         createdAt: true,
       },
     }) as Promise<WorkOrderPartRecord>;
@@ -157,18 +170,4 @@ export class SparePartsRepository {
       .then(() => undefined);
   }
 
-  decrementQuantity(sparePartId: number, amount: number): Promise<SparePartRecord> {
-    return this.prisma.sparePart.update({
-      where: { id: sparePartId },
-      data: { quantity: { decrement: amount } },
-      select: SPARE_PART_SELECT,
-    }) as Promise<SparePartRecord>;
-  }
-
-  findByWorkOrder(workOrderId: number): Promise<{ sparePartId: number; quantityUsed: number }[]> {
-    return this.prisma.workOrderPart.findMany({
-      where: { workOrderId },
-      select: { sparePartId: true, quantityUsed: true },
-    });
-  }
 }

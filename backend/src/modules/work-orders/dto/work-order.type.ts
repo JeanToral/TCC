@@ -1,5 +1,5 @@
 // ─────────────────────── Imports ────────────────────────
-import { Field, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
+import { Field, Float, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
 import {
   Priority,
   WorkOrderStatus,
@@ -84,6 +84,17 @@ export class WorkOrderType {
 
   @Field({ nullable: true })
   readonly completedAt?: Date;
+
+  /** Horas apontadas pelo técnico. Quantidade, não valor — visível a todos. */
+  @Field(() => Float, { nullable: true })
+  readonly laborHours?: number;
+
+  /**
+   * false quando alguma peça usada não tinha preço ou o responsável não tinha
+   * taxa horária. É metadado de qualidade do dado, não valor monetário.
+   */
+  @Field()
+  readonly costIsComplete: boolean;
 
   @Field()
   readonly createdAt: Date;

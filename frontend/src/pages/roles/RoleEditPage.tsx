@@ -4,6 +4,14 @@ import { useMutation, useQuery } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/checkbox'
+import {
+  FormActions,
+  FormAlert,
+  FormField,
+  FormGrid,
+  FormLayout,
+  FormSection,
+} from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import Spinner from '../../components/ui/Spinner'
@@ -26,6 +34,8 @@ const PERM_GROUPS: readonly PermGroup[] = [
   { label: 'Ativos',            perms: ['asset.create', 'asset.read', 'asset.update', 'asset.delete'] },
   { label: 'Ordens de Serviço', perms: ['workorder.create', 'workorder.read', 'workorder.update', 'workorder.delete', 'workorder.approve'] },
   { label: 'Peças de Reposição',perms: ['sparepart.create', 'sparepart.read', 'sparepart.update', 'sparepart.delete'] },
+  { label: 'Planos Preventivos',perms: ['preventiveplan.create', 'preventiveplan.read', 'preventiveplan.update', 'preventiveplan.delete'] },
+  { label: 'Custos',            perms: ['cost.read', 'cost.manage'] },
   { label: 'Dashboard',         perms: ['dashboard.read'] },
   { label: 'Log de Auditoria',  perms: ['auditlog.read'] },
 ]
@@ -38,6 +48,7 @@ function permLabel(perm: string): string {
     update: 'Editar',
     delete: 'Excluir',
     approve: 'Aprovar',
+    manage: 'Gerenciar',
   }
   return labels[action] ?? action
 }
@@ -152,7 +163,7 @@ export default function RoleEditPage() {
         <div className="page-header__info">
           <button
             type="button"
-            className="role-edit-page__back"
+            className="page-back"
             onClick={() => navigate('/dashboard/roles')}
           >
             ← Permissões
@@ -169,47 +180,44 @@ export default function RoleEditPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} noValidate>
-        {submitError && (
-          <div className="role-edit-page__alert" role="alert">
-            {submitError}
-          </div>
-        )}
+      <FormLayout onSubmit={handleSubmit} noValidate>
+        {submitError && <FormAlert>{submitError}</FormAlert>}
 
-        <div className="role-edit-page__card">
-          <h2 className="role-edit-page__section-title">Informações</h2>
-          <div className="role-edit-page__fields">
-            <Input
-              label="Nome da role"
-              name="name"
-              value={form.name}
-              onChange={(e) => {
-                setForm((prev) => ({ ...prev, name: e.target.value }))
-                if (nameError) setNameError('')
-              }}
-              error={nameError}
-              placeholder="Ex.: Supervisor"
-              disabled={submitting || isSystem}
-            />
-            <Input
-              label="Descrição (opcional)"
-              name="description"
-              value={form.description}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, description: e.target.value }))
-              }
-              placeholder="Descreva as responsabilidades desta role"
-              disabled={submitting || isSystem}
-            />
-          </div>
-        </div>
+        <FormSection title="Informações">
+          <FormGrid columns={2}>
+            <FormField>
+              <Input
+                label="Nome da role"
+                name="name"
+                value={form.name}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, name: e.target.value }))
+                  if (nameError) setNameError('')
+                }}
+                error={nameError}
+                placeholder="Ex.: Supervisor"
+                disabled={submitting || isSystem}
+              />
+            </FormField>
+            <FormField>
+              <Input
+                label="Descrição (opcional)"
+                name="description"
+                value={form.description}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, description: e.target.value }))
+                }
+                placeholder="Descreva as responsabilidades desta role"
+                disabled={submitting || isSystem}
+              />
+            </FormField>
+          </FormGrid>
+        </FormSection>
 
-        <div className="role-edit-page__card">
-          <h2 className="role-edit-page__section-title">Permissões</h2>
-          <p className="role-edit-page__section-hint">
-            Selecione as permissões que os usuários desta role poderão exercer.
-          </p>
-
+        <FormSection
+          title="Permissões"
+          hint="Selecione as permissões que os usuários desta role poderão exercer."
+        >
           <div className="role-edit-page__perm-groups">
             {PERM_GROUPS.map((group) => {
               const allChecked = group.perms.every((p) => form.permissions.has(p))
@@ -255,9 +263,9 @@ export default function RoleEditPage() {
               )
             })}
           </div>
-        </div>
+        </FormSection>
 
-        <footer className="role-edit-page__footer">
+        <FormActions>
           <Button
             type="button"
             variant="secondary"
@@ -271,8 +279,8 @@ export default function RoleEditPage() {
               {isEdit ? 'Salvar alterações' : 'Criar role'}
             </Button>
           )}
-        </footer>
-      </form>
+        </FormActions>
+      </FormLayout>
     </div>
   )
 }

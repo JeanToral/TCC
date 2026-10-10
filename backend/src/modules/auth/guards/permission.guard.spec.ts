@@ -88,4 +88,47 @@ describe('PermissionGuard', () => {
     // Assert
     expect(result).toBe(false);
   });
+
+  // ── permissões de custo ─────────────────────────────────
+  describe('permissões de custo', () => {
+    it('deve negar cost.manage a usuário com apenas cost.read', () => {
+      // Arrange
+      reflector.getAllAndOverride.mockReturnValue('cost.manage');
+      (GqlExecutionContext.create as jest.Mock).mockReturnValue(
+        makeGqlCtx(['cost.read', 'workorder.read']),
+      );
+
+      // Act
+      const result = guard.canActivate(makeExecCtx());
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('deve conceder cost.read a quem tem cost.read', () => {
+      // Arrange
+      reflector.getAllAndOverride.mockReturnValue('cost.read');
+      (GqlExecutionContext.create as jest.Mock).mockReturnValue(makeGqlCtx(['cost.read']));
+
+      // Act
+      const result = guard.canActivate(makeExecCtx());
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('deve negar cost.read a um Technician', () => {
+      // Arrange
+      reflector.getAllAndOverride.mockReturnValue('cost.read');
+      (GqlExecutionContext.create as jest.Mock).mockReturnValue(
+        makeGqlCtx(['workorder.read', 'workorder.update', 'sparepart.read']),
+      );
+
+      // Act
+      const result = guard.canActivate(makeExecCtx());
+
+      // Assert
+      expect(result).toBe(false);
+    });
+  });
 });

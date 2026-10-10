@@ -10,6 +10,17 @@ interface AuthUser {
   readonly permissions: string[];
 }
 
+// ─────────────────────── Helper ──────────────────────────
+/**
+ * Regra única de autorização: o wildcard do Sysadmin passa em tudo.
+ * Exportada para uso em field resolvers, que precisam devolver `null` em vez de
+ * lançar ForbiddenException e derrubar a query inteira.
+ */
+export function hasPermission(permissions: readonly string[], required: string): boolean {
+  if (permissions.includes('*')) return true;
+  return permissions.includes(required);
+}
+
 // ─────────────────────── Guard ───────────────────────────
 @Injectable()
 export class PermissionGuard implements CanActivate {
@@ -28,8 +39,6 @@ export class PermissionGuard implements CanActivate {
 
     if (!user) return false;
 
-    const { permissions } = user;
-    if (permissions.includes('*')) return true;
-    return permissions.includes(required);
+    return hasPermission(user.permissions, required);
   }
 }

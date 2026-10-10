@@ -3,6 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
+import {
+  FormActions,
+  FormAlert,
+  FormField,
+  FormGrid,
+  FormLayout,
+  FormSection,
+} from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
 import { DatePicker } from '../../components/ui/date-picker'
 import Spinner from '../../components/ui/Spinner'
@@ -128,7 +136,7 @@ export default function AssetEditPage() {
         <div className="page-header__info">
           <button
             type="button"
-            className="asset-edit-page__back"
+            className="page-back"
             onClick={() => navigate(isEdit ? `/dashboard/assets/${id}` : '/dashboard/assets')}
           >
             ← {isEdit ? 'Voltar' : 'Ativos'}
@@ -139,17 +147,12 @@ export default function AssetEditPage() {
         </div>
       </header>
 
-      <div className="asset-edit-page__card">
-        <form onSubmit={handleSubmit} noValidate>
-          {submitError && (
-            <div className="asset-edit-page__alert" role="alert">
-              {submitError}
-            </div>
-          )}
+      <FormLayout onSubmit={handleSubmit} noValidate>
+        {submitError && <FormAlert>{submitError}</FormAlert>}
 
-          <div className="asset-edit-page__section">
-            <h2 className="asset-edit-page__section-title">Identificação</h2>
-            <div className="asset-edit-page__fields">
+        <FormSection title="Identificação">
+          <FormGrid>
+            <FormField>
               <Input
                 label="Nome"
                 name="name"
@@ -159,6 +162,8 @@ export default function AssetEditPage() {
                 placeholder="Ex.: Torno CNC #3"
                 disabled={submitting}
               />
+            </FormField>
+            <FormField>
               <Input
                 label="Tag"
                 name="tag"
@@ -169,6 +174,8 @@ export default function AssetEditPage() {
                 hint="Identificador único do ativo."
                 disabled={submitting}
               />
+            </FormField>
+            <FormField>
               <Input
                 label="Localização"
                 name="location"
@@ -177,12 +184,13 @@ export default function AssetEditPage() {
                 placeholder="Ex.: Galpão A — Setor 2"
                 disabled={submitting}
               />
-            </div>
-          </div>
+            </FormField>
+          </FormGrid>
+        </FormSection>
 
-          <div className="asset-edit-page__section">
-            <h2 className="asset-edit-page__section-title">Especificações técnicas</h2>
-            <div className="asset-edit-page__fields">
+        <FormSection title="Especificações técnicas">
+          <FormGrid>
+            <FormField>
               <Input
                 label="Fabricante"
                 name="manufacturer"
@@ -191,6 +199,8 @@ export default function AssetEditPage() {
                 placeholder="Ex.: Romi"
                 disabled={submitting}
               />
+            </FormField>
+            <FormField>
               <Input
                 label="Modelo"
                 name="model"
@@ -199,6 +209,8 @@ export default function AssetEditPage() {
                 placeholder="Ex.: GL 240"
                 disabled={submitting}
               />
+            </FormField>
+            <FormField>
               <Input
                 label="Número de série"
                 name="serialNumber"
@@ -207,30 +219,32 @@ export default function AssetEditPage() {
                 placeholder="Ex.: SN-2024-00123"
                 disabled={submitting}
               />
+            </FormField>
+            <FormField>
               <DatePicker
                 label="Data de instalação"
                 value={installDate}
                 onSelect={setInstallDate}
                 disabled={submitting}
               />
-            </div>
-          </div>
+            </FormField>
+          </FormGrid>
+        </FormSection>
 
-          <footer className="asset-edit-page__footer">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => navigate(isEdit ? `/dashboard/assets/${id}` : '/dashboard/assets')}
-              disabled={submitting}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" loading={submitting}>
-              {isEdit ? 'Salvar alterações' : 'Criar ativo'}
-            </Button>
-          </footer>
-        </form>
-      </div>
+        <FormActions>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate(isEdit ? `/dashboard/assets/${id}` : '/dashboard/assets')}
+            disabled={submitting}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" loading={submitting}>
+            {isEdit ? 'Salvar alterações' : 'Criar ativo'}
+          </Button>
+        </FormActions>
+      </FormLayout>
     </div>
   )
 }

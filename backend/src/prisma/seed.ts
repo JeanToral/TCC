@@ -40,6 +40,7 @@ async function main() {
     'user.read',
     'dashboard.read',
     'auditlog.read',
+    'cost.read', 'cost.manage',
   ]
 
   const managerRole = await prisma.role.upsert({
@@ -59,6 +60,7 @@ async function main() {
     'sparepart.read', 'sparepart.update',
     'preventiveplan.create', 'preventiveplan.read', 'preventiveplan.update', 'preventiveplan.delete',
     'dashboard.read',
+    'cost.read',
   ]
 
   const engineerRole = await prisma.role.upsert({
@@ -107,34 +109,38 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: 'manager@cmms.com' },
-    update: {},
+    update: { hourlyRate: 110 },
     create: {
       name: 'Carlos Gestão',
       email: 'manager@cmms.com',
       passwordHash: await hashPassword('manager123'),
       roleId: managerRole.id,
+      hourlyRate: 110,
     },
   })
 
   await prisma.user.upsert({
     where: { email: 'engineer@cmms.com' },
-    update: {},
+    update: { hourlyRate: 80 },
     create: {
       name: 'Ana Engenharia',
       email: 'engineer@cmms.com',
       passwordHash: await hashPassword('engineer123'),
       roleId: engineerRole.id,
+      hourlyRate: 80,
     },
   })
 
+  // Sysadmin fica sem hourlyRate de propósito: não executa manutenção.
   const techUser = await prisma.user.upsert({
     where: { email: 'tech@cmms.com' },
-    update: {},
+    update: { hourlyRate: 45 },
     create: {
       name: 'João Técnico',
       email: 'tech@cmms.com',
       passwordHash: await hashPassword('tech123'),
       roleId: techRole.id,
+      hourlyRate: 45,
     },
   })
 

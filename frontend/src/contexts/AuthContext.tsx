@@ -47,7 +47,8 @@ function getTokenExpiryMs(token: string): number {
 }
 
 // ─────────────────────── Context ─────────────────────────
-const AuthContext = createContext<AuthContextValue | null>(null)
+/** Exportado para que testes possam injetar permissões sem subir o provider real. */
+export const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { readonly children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)

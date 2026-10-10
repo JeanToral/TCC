@@ -7,6 +7,7 @@ export const UPDATE_USER = gql`
       name
       email
       isActive
+      hourlyRate
       roleId
       role {
         id

@@ -1,13 +1,16 @@
 // ─────────────────────── Imports ────────────────────────
-import { Field, InputType, Int } from '@nestjs/graphql';
+import { Field, Float, InputType, Int } from '@nestjs/graphql';
 import {
   IsBoolean,
   IsEmail,
   IsInt,
+  IsNumber,
   IsOptional,
   IsPositive,
   IsString,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 
@@ -42,4 +45,12 @@ export class UpdateUserInput {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  /** Taxa horária. Só aceita de quem tem cost.manage — validado no service. */
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100000)
+  hourlyRate?: number;
 }

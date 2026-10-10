@@ -2,6 +2,14 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AddExternalCostInput {
+  amount: Float!
+  description: String!
+  incurredAt: DateTime!
+  supplier: String
+  workOrderId: Int!
+}
+
 input AddWorkOrderPartInput {
   quantityUsed: Int!
   sparePartId: Int!
@@ -56,6 +64,7 @@ input CancelWorkOrderInput {
 
 input CompleteWorkOrderInput {
   closingNotes: String!
+  laborHours: Float
 }
 
 input CreateAssetInput {
@@ -93,6 +102,7 @@ input CreateSparePartInput {
 
 input CreateUserInput {
   email: String!
+  hourlyRate: Float
   name: String!
   password: String!
   roleId: Int!
@@ -123,6 +133,7 @@ input LoginInput {
 }
 
 type Mutation {
+  addWorkOrderExternalCost(input: AddExternalCostInput!): WorkOrderExternalCost!
   addWorkOrderPart(input: AddWorkOrderPartInput!): WorkOrderPart!
   approveWorkOrder(id: Int!): WorkOrder!
   cancelWorkOrder(id: Int!, input: CancelWorkOrderInput!): WorkOrder!
@@ -145,6 +156,7 @@ type Mutation {
   refreshToken: AuthPayload!
   rejectWorkOrder(id: Int!, input: RejectWorkOrderInput!): WorkOrder!
   removeUser(id: Int!): UserType!
+  removeWorkOrderExternalCost(id: Int!): Boolean!
   removeWorkOrderPart(sparePartId: Int!, workOrderId: Int!): Boolean!
   scheduleWorkOrder(id: Int!, input: ScheduleWorkOrderInput!): WorkOrder!
   startWorkOrder(id: Int!): WorkOrder!
@@ -153,6 +165,7 @@ type Mutation {
   updateRole(id: Int!, input: UpdateRoleInput!): RoleType!
   updateSparePart(id: Int!, input: UpdateSparePartInput!): SparePart!
   updateUser(id: Int!, input: UpdateUserInput!): UserType!
+  updateWorkOrderExternalCost(id: Int!, input: UpdateExternalCostInput!): WorkOrderExternalCost!
 }
 
 type Notification {
@@ -268,6 +281,13 @@ input UpdateAssetInput {
   tag: String
 }
 
+input UpdateExternalCostInput {
+  amount: Float
+  description: String
+  incurredAt: DateTime
+  supplier: String
+}
+
 input UpdatePreventivePlanInput {
   description: String
   intervalDays: Int
@@ -292,6 +312,7 @@ input UpdateSparePartInput {
 
 input UpdateUserInput {
   email: String
+  hourlyRate: Float
   isActive: Boolean
   name: String
   password: String
@@ -302,6 +323,7 @@ type UserType {
   createdAt: DateTime!
   deletedAt: DateTime
   email: String!
+  hourlyRate: Float
   id: Int!
   isActive: Boolean!
   name: String!
@@ -318,10 +340,14 @@ type WorkOrder {
   cancellationReason: String
   closingNotes: String
   completedAt: DateTime
+  cost: WorkOrderCostBreakdown
+  costIsComplete: Boolean!
   createdAt: DateTime!
   deletedAt: DateTime
   description: String!
+  externalCosts: [WorkOrderExternalCost!]
   id: Int!
+  laborHours: Float
   priority: Priority!
   rejectionReason: String
   requestedBy: UserType!
@@ -340,9 +366,29 @@ type WorkOrderConnection {
   pageInfo: WorkOrderPageInfo!
 }
 
+type WorkOrderCostBreakdown {
+  externalCost: Float!
+  isComplete: Boolean!
+  laborCost: Float!
+  partsCost: Float!
+  total: Float!
+}
+
 type WorkOrderEdge {
   cursor: String!
   node: WorkOrder!
+}
+
+type WorkOrderExternalCost {
+  amount: Float!
+  createdAt: DateTime!
+  createdById: Int!
+  description: String!
+  id: Int!
+  incurredAt: DateTime!
+  supplier: String
+  updatedAt: DateTime!
+  workOrderId: Int!
 }
 
 type WorkOrderPageInfo {
@@ -356,6 +402,7 @@ type WorkOrderPart {
   quantityUsed: Int!
   sparePart: SparePartSummary!
   sparePartId: Int!
+  unitCostSnapshot: Float
   workOrderId: Int!
 }
 

@@ -159,3 +159,87 @@ describe('UserEditPage — modo criação', () => {
     })
   })
 })
+
+describe('UserEditPage — taxa horária (dado salarial)', () => {
+  it('não deve exibir o campo de taxa horária sem a permissão cost.manage', () => {
+    // Arrange / Act
+    renderWithProviders(<UserEditPage />, {
+      mocks: [rolesMock(), usersMock()],
+      permissions: ['user.create', 'user.update'],
+    })
+
+    // Assert
+    expect(screen.queryByLabelText('Taxa horária (R$)')).not.toBeInTheDocument()
+  })
+
+  it('deve exibir o campo de taxa horária com a permissão cost.manage', () => {
+    // Arrange / Act
+    renderWithProviders(<UserEditPage />, {
+      mocks: [rolesMock(), usersMock()],
+      permissions: ['user.create', 'cost.manage'],
+    })
+
+    // Assert
+    expect(screen.getByLabelText('Taxa horária (R$)')).toBeInTheDocument()
+  })
+
+  it('deve enviar hourlyRate na mutation quando informado', async () => {
+    // Arrange
+    const sent: Record<string, unknown>[] = []
+    const createMock: MockLink.MockedResponse = {
+      request: {
+        query: CREATE_USER,
+        variables: (vars) => {
+          sent.push(vars)
+          return true
+        },
+      },
+      result: {
+        data: {
+          createUser: {
+            id: 11,
+            name: 'Técnico Novo',
+            email: 'novo@empresa.com',
+            isActive: true,
+            roleId: 2,
+            role: { id: 2, name: 'Technician' },
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      },
+    }
+
+    const { user } = renderWithProviders(<UserEditPage />, {
+      mocks: [rolesMock(), createMock, usersMock()],
+      permissions: ['user.create', 'cost.manage'],
+    })
+    await screen.findByRole('option', { name: 'Technician' })
+
+    // Act
+    await user.type(screen.getByLabelText('Nome completo'), 'Técnico Novo')
+    await user.type(screen.getByLabelText('E-mail'), 'novo@empresa.com')
+    await user.type(screen.getByLabelText('Senha'), 'senha1234')
+    await user.selectOptions(screen.getByLabelText('Função'), '2')
+    await user.type(screen.getByLabelText('Taxa horária (R$)'), '45')
+    await user.click(screen.getByRole('button', { name: 'Criar usuário' }))
+
+    // Assert
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect((sent[0].input as { hourlyRate: number }).hourlyRate).toBe(45)
+  })
+
+  it('deve rejeitar taxa horária negativa', async () => {
+    // Arrange
+    const { user } = renderWithProviders(<UserEditPage />, {
+      mocks: [rolesMock(), usersMock()],
+      permissions: ['user.create', 'cost.manage'],
+    })
+
+    // Act
+    await user.type(screen.getByLabelText('Taxa horária (R$)'), '-10')
+    await user.click(screen.getByRole('button', { name: 'Criar usuário' }))
+
+    // Assert
+    expect(await screen.findByText('Informe um valor válido.')).toBeInTheDocument()
+  })
+})

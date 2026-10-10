@@ -8,6 +8,7 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SparePartsService } from '../spare-parts/spare-parts.service';
 import type { WorkOrderRecord } from './work-orders.repository';
+import type { DecrementedPartRecord } from '../spare-parts/spare-parts.repository';
 
 // ─────────────────────── Fixtures ────────────────────────
 const mockAsset = { id: 1, name: 'Torno CNC 01', tag: 'MQ-001', location: 'Usinagem' };
@@ -40,11 +41,19 @@ const makeWorkOrder = (overrides: Partial<WorkOrderRecord> = {}): WorkOrderRecor
   closingNotes: null,
   startedAt: null,
   completedAt: null,
+  laborHours: null,
+  laborRateSnapshot: null,
+  costIsComplete: true,
   deletedAt: null,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
   ...overrides,
 });
+
+const makeCompleteResult = (
+  workOrder: WorkOrderRecord,
+  decrementedParts: DecrementedPartRecord[] = [],
+) => ({ workOrder, decrementedParts });
 
 // ─────────────────────── Suite ───────────────────────────
 describe('WorkOrdersService', () => {
@@ -64,6 +73,8 @@ describe('WorkOrdersService', () => {
             findById: jest.fn(),
             create: jest.fn(),
             update: jest.fn(),
+            findHourlyRate: jest.fn().mockResolvedValue(null),
+            completeWithCostSnapshot: jest.fn(),
           } satisfies Partial<jest.Mocked<WorkOrdersRepository>>,
         },
         {
@@ -77,7 +88,7 @@ describe('WorkOrdersService', () => {
         {
           provide: SparePartsService,
           useValue: {
-            decrementOnComplete: jest.fn().mockResolvedValue(undefined),
+            notifyLowStock: jest.fn(),
             addWorkOrderPart: jest.fn(),
             removeWorkOrderPart: jest.fn(),
           } satisfies Partial<jest.Mocked<SparePartsService>>,
@@ -269,26 +280,143 @@ describe('WorkOrdersService', () => {
     it('deve registrar completedAt ao mover para COMPLETED', async () => {
       // Arrange
       repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS }));
-      repo.update.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.COMPLETED, completedAt: new Date() }));
+      repo.completeWithCostSnapshot.mockResolvedValue(
+        makeCompleteResult(makeWorkOrder({ status: WorkOrderStatus.COMPLETED, completedAt: new Date() })),
+      );
 
       // Act
       const result = await service.complete(1, { closingNotes: 'Concluído' }, ACTOR_ID);
 
       // Assert
       expect(result.status).toBe(WorkOrderStatus.COMPLETED);
-      expect(repo.update).toHaveBeenCalledWith(1, expect.objectContaining({ completedAt: expect.any(Date), closingNotes: 'Concluído' }));
+      expect(repo.completeWithCostSnapshot).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ completedAt: expect.any(Date), closingNotes: 'Concluído' }),
+      );
     });
 
-    it('deve chamar decrementOnComplete ao completar', async () => {
+    it('deve congelar preços e dar baixa no estoque na mesma transação', async () => {
       // Arrange
       repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS }));
-      repo.update.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.COMPLETED }));
+      repo.completeWithCostSnapshot.mockResolvedValue(
+        makeCompleteResult(makeWorkOrder({ status: WorkOrderStatus.COMPLETED })),
+      );
+
+      // Act
+      await service.complete(1, { closingNotes: 'OK' }, ACTOR_ID);
+
+      // Assert — uma única chamada faz status + snapshot + decremento
+      expect(repo.completeWithCostSnapshot).toHaveBeenCalledTimes(1);
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it('não deve concluir a OS se a transação de custo falhar', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS }));
+      repo.completeWithCostSnapshot.mockRejectedValue(new Error('estoque insuficiente'));
+
+      // Act & Assert
+      await expect(service.complete(1, { closingNotes: 'OK' }, ACTOR_ID)).rejects.toThrow(
+        'estoque insuficiente',
+      );
+    });
+
+    it('deve congelar a taxa horária do responsável atribuído', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(
+        makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS, assignedToId: 7 }),
+      );
+      repo.findHourlyRate.mockResolvedValue(45);
+      repo.completeWithCostSnapshot.mockResolvedValue(
+        makeCompleteResult(makeWorkOrder({ status: WorkOrderStatus.COMPLETED })),
+      );
 
       // Act
       await service.complete(1, { closingNotes: 'OK' }, ACTOR_ID);
 
       // Assert
-      expect(spareParts.decrementOnComplete).toHaveBeenCalledWith(1, ACTOR_ID);
+      expect(repo.findHourlyRate).toHaveBeenCalledWith(7);
+      expect(repo.completeWithCostSnapshot).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ laborRateSnapshot: 45 }),
+      );
+    });
+
+    it('deve congelar taxa nula quando não há responsável atribuído', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(
+        makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS, assignedToId: null }),
+      );
+      repo.completeWithCostSnapshot.mockResolvedValue(
+        makeCompleteResult(makeWorkOrder({ status: WorkOrderStatus.COMPLETED })),
+      );
+
+      // Act
+      await service.complete(1, { closingNotes: 'OK' }, ACTOR_ID);
+
+      // Assert
+      expect(repo.findHourlyRate).not.toHaveBeenCalled();
+      expect(repo.completeWithCostSnapshot).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ laborRateSnapshot: null }),
+      );
+    });
+
+    it('deve marcar a mão de obra como incompleta quando há horas mas não há taxa', async () => {
+      // Arrange — técnico atribuído, 3h apontadas, sem hourlyRate cadastrado
+      repo.findById.mockResolvedValue(
+        makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS, assignedToId: 7, laborHours: 3 }),
+      );
+      repo.findHourlyRate.mockResolvedValue(null);
+      repo.completeWithCostSnapshot.mockResolvedValue(
+        makeCompleteResult(makeWorkOrder({ status: WorkOrderStatus.COMPLETED, costIsComplete: false })),
+      );
+
+      // Act
+      await service.complete(1, { closingNotes: 'OK' }, ACTOR_ID);
+
+      // Assert
+      expect(repo.completeWithCostSnapshot).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ laborCostIsComplete: false }),
+      );
+    });
+
+    it('deve considerar a mão de obra completa quando não há horas apontadas', async () => {
+      // Arrange — sem horas apontadas, a ausência de taxa não torna o custo incompleto
+      repo.findById.mockResolvedValue(
+        makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS, assignedToId: 7, laborHours: null }),
+      );
+      repo.findHourlyRate.mockResolvedValue(null);
+      repo.completeWithCostSnapshot.mockResolvedValue(
+        makeCompleteResult(makeWorkOrder({ status: WorkOrderStatus.COMPLETED })),
+      );
+
+      // Act
+      await service.complete(1, { closingNotes: 'OK' }, ACTOR_ID);
+
+      // Assert
+      expect(repo.completeWithCostSnapshot).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ laborCostIsComplete: true }),
+      );
+    });
+
+    it('deve notificar estoque baixo das peças que ficaram abaixo do mínimo', async () => {
+      // Arrange
+      const decremented: DecrementedPartRecord[] = [
+        { id: 5, name: 'Rolamento 6205', partNumber: 'ROL-6205', quantity: 1, minimumStock: 4 },
+      ];
+      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS }));
+      repo.completeWithCostSnapshot.mockResolvedValue(
+        makeCompleteResult(makeWorkOrder({ status: WorkOrderStatus.COMPLETED }), decremented),
+      );
+
+      // Act
+      await service.complete(1, { closingNotes: 'OK' }, ACTOR_ID);
+
+      // Assert
+      expect(spareParts.notifyLowStock).toHaveBeenCalledWith(decremented, ACTOR_ID);
     });
   });
 

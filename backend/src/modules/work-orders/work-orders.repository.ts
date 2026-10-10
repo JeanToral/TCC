@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { Priority, WorkOrderStatus, WorkOrderType as WorkOrderTypeEnum } from '../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
 import { decodeCursor } from '../../common/pagination/page-args';
+import type { DecrementedPartRecord } from '../spare-parts/spare-parts.repository';
 
 // ─────────────────────── Types ───────────────────────────
 export interface AssetRecord {
@@ -52,9 +53,26 @@ export interface WorkOrderRecord {
   readonly cancellationReason: string | null;
   readonly startedAt: Date | null;
   readonly completedAt: Date | null;
+  readonly laborHours: number | null;
+  readonly laborRateSnapshot: number | null;
+  readonly costIsComplete: boolean;
   readonly deletedAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
+}
+
+export interface CompleteWorkOrderData {
+  readonly closingNotes: string;
+  readonly completedAt: Date;
+  readonly laborHours: number | null;
+  readonly laborRateSnapshot: number | null;
+  /** false quando há horas apontadas mas o responsável não tem taxa horária. */
+  readonly laborCostIsComplete: boolean;
+}
+
+export interface CompleteWorkOrderResult {
+  readonly workOrder: WorkOrderRecord;
+  readonly decrementedParts: readonly DecrementedPartRecord[];
 }
 
 export interface CreateWorkOrderData {
@@ -121,6 +139,9 @@ const WORK_ORDER_SELECT = {
   cancellationReason: true,
   startedAt: true,
   completedAt: true,
+  laborHours: true,
+  laborRateSnapshot: true,
+  costIsComplete: true,
   deletedAt: true,
   createdAt: true,
   updatedAt: true,
@@ -202,5 +223,81 @@ export class WorkOrdersRepository {
       },
       select: WORK_ORDER_SELECT,
     }) as Promise<WorkOrderRecord>;
+  }
+
+  /**
+   * Taxa horária de um usuário, lida por consulta dedicada para não entrar no
+   * WORK_ORDER_SELECT — hourlyRate é dado salarial (ADR 0001).
+   */
+  async findHourlyRate(userId: number): Promise<number | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { hourlyRate: true },
+    });
+    return user?.hourlyRate ?? null;
+  }
+
+  /**
+   * Conclui a OS congelando os custos e dando baixa no estoque numa única
+   * transação: status, snapshot de preço das peças e decremento não podem
+   * divergir (ADR 0001). Se qualquer passo falhar, nada é gravado.
+   */
+  completeWithCostSnapshot(
+    id: number,
+    data: CompleteWorkOrderData,
+  ): Promise<CompleteWorkOrderResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const parts = await tx.workOrderPart.findMany({
+        where: { workOrderId: id },
+        select: {
+          id: true,
+          sparePartId: true,
+          quantityUsed: true,
+          sparePart: { select: { unitCost: true } },
+        },
+      });
+
+      const decrementedParts: DecrementedPartRecord[] = [];
+      let allPartsPriced = true;
+
+      for (const part of parts) {
+        const unitCost = part.sparePart.unitCost;
+        if (unitCost === null) allPartsPriced = false;
+
+        await tx.workOrderPart.update({
+          where: { id: part.id },
+          data: { unitCostSnapshot: unitCost },
+        });
+
+        const updated = await tx.sparePart.update({
+          where: { id: part.sparePartId },
+          data: { quantity: { decrement: part.quantityUsed } },
+          select: {
+            id: true,
+            name: true,
+            partNumber: true,
+            quantity: true,
+            minimumStock: true,
+          },
+        });
+        decrementedParts.push(updated);
+      }
+
+      const workOrder = (await tx.workOrder.update({
+        where: { id },
+        data: {
+          status: WorkOrderStatus.COMPLETED,
+          closingNotes: data.closingNotes,
+          completedAt: data.completedAt,
+          laborHours: data.laborHours,
+          laborRateSnapshot: data.laborRateSnapshot,
+          costIsComplete: data.laborCostIsComplete && allPartsPriced,
+          updatedAt: new Date(),
+        },
+        select: WORK_ORDER_SELECT,
+      })) as WorkOrderRecord;
+
+      return { workOrder, decrementedParts };
+    });
   }
 }

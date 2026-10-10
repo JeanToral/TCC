@@ -1,6 +1,17 @@
 // ─────────────────────── Imports ────────────────────────
-import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsEmail, IsInt, IsPositive, IsString, MaxLength, MinLength } from 'class-validator';
+import { Field, Float, InputType, Int } from '@nestjs/graphql';
+import {
+  IsEmail,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 // ─────────────────────── Input ───────────────────────────
 @InputType()
@@ -24,4 +35,12 @@ export class CreateUserInput {
   @IsInt()
   @IsPositive()
   roleId: number;
+
+  /** Taxa horária. Só aceita de quem tem cost.manage — validado no service. */
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100000)
+  hourlyRate?: number;
 }

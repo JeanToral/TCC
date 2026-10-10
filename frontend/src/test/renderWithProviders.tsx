@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing/react'
 import type { MockLink } from '@apollo/client/testing'
 import { render, type RenderResult } from '@testing-library/react'
+import { AuthContext } from '../contexts/AuthContext'
 import userEvent from '@testing-library/user-event'
 import type { UserEvent } from '@testing-library/user-event'
 
@@ -13,6 +14,11 @@ export interface RenderWithProvidersOptions {
   readonly path?: string
   /** Respostas GraphQL simuladas. */
   readonly mocks?: readonly MockLink.MockedResponse[]
+  /**
+   * Permissões do usuário autenticado, para telas que dependem de `useAuth`.
+   * Omitido = nenhuma permissão.
+   */
+  readonly permissions?: readonly string[]
 }
 
 export interface RenderWithProvidersResult extends RenderResult {
@@ -20,14 +26,11 @@ export interface RenderWithProvidersResult extends RenderResult {
 }
 
 /**
- * Renderiza um componente com Router e Apollo simulados.
- *
- * Páginas que dependem de permissões (`useAuth`) devem mockar o módulo
- * `contexts/AuthContext` no próprio spec — o contexto não é exportado.
+ * Renderiza um componente com Router, Apollo e autenticação simulados.
  */
 export function renderWithProviders(
   ui: ReactElement,
-  { route = '/', path, mocks = [] }: RenderWithProvidersOptions = {},
+  { route = '/', path, mocks = [], permissions = [] }: RenderWithProvidersOptions = {},
 ): RenderWithProvidersResult {
   const element: ReactNode = path ? (
     <Routes>
@@ -37,9 +40,19 @@ export function renderWithProviders(
     ui
   )
 
+  const auth = {
+    isAuthenticated: true,
+    permissions,
+    hasPermission: (perm: string) => permissions.includes('*') || permissions.includes(perm),
+    login: () => undefined,
+    logout: () => undefined,
+  }
+
   const result = render(
     <MockedProvider mocks={[...mocks]}>
-      <MemoryRouter initialEntries={[route]}>{element}</MemoryRouter>
+      <AuthContext.Provider value={auth}>
+        <MemoryRouter initialEntries={[route]}>{element}</MemoryRouter>
+      </AuthContext.Provider>
     </MockedProvider>,
   )
 

@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 
 import { UsersResolver } from './users.resolver';
@@ -18,6 +19,7 @@ const makeUser = (overrides: Partial<UserRecord> = {}): UserRecord => ({
   name: 'João Silva',
   email: 'joao@example.com',
   isActive: true,
+  hourlyRate: 45,
   roleId: 1,
   role: mockRole,
   createdAt: new Date('2026-01-01'),
@@ -27,6 +29,13 @@ const makeUser = (overrides: Partial<UserRecord> = {}): UserRecord => ({
 });
 
 const mockActor: JwtUser = { id: 99, email: 'actor@cmms.local', roleId: 1, permissions: ['*'] };
+
+const actorWith = (permissions: string[]): JwtUser => ({
+  id: 99,
+  email: 'actor@cmms.local',
+  roleId: 1,
+  permissions,
+});
 
 describe('UsersResolver', () => {
   let resolver: UsersResolver;
@@ -118,5 +127,116 @@ describe('UsersResolver', () => {
     // Assert
     expect(service.remove).toHaveBeenCalledWith(1, mockActor.id);
     expect(result.deletedAt).not.toBeNull();
+  });
+
+  // ── hourlyRate (dado salarial) ──────────────────────────
+  describe('hourlyRate', () => {
+    it('deve expor a taxa horária para quem tem cost.manage', async () => {
+      // Arrange
+      const user = makeUser({ hourlyRate: 45 });
+
+      // Act
+      const result = await resolver.hourlyRate(user, actorWith(['cost.manage']));
+
+      // Assert
+      expect(result).toBe(45);
+    });
+
+    it('deve expor a taxa horária para o Sysadmin com wildcard', async () => {
+      // Arrange
+      const user = makeUser({ hourlyRate: 45 });
+
+      // Act
+      const result = await resolver.hourlyRate(user, actorWith(['*']));
+
+      // Assert
+      expect(result).toBe(45);
+    });
+
+    it('não deve expor a taxa horária para quem só tem cost.read', async () => {
+      // Arrange
+      const user = makeUser({ hourlyRate: 45 });
+
+      // Act
+      const result = await resolver.hourlyRate(user, actorWith(['cost.read']));
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('não deve expor a taxa horária para um Technician', async () => {
+      // Arrange
+      const user = makeUser({ hourlyRate: 45 });
+
+      // Act
+      const result = await resolver.hourlyRate(user, actorWith(['workorder.read']));
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('deve buscar sob demanda quando o parent não traz a taxa', async () => {
+      // Arrange — usuário aninhado em WorkOrder vem sem hourlyRate no select
+      const nested = { ...makeUser() } as UserRecord & { hourlyRate?: number };
+      delete nested.hourlyRate;
+      service.findById.mockResolvedValue(makeUser({ hourlyRate: 80 }));
+
+      // Act
+      const result = await resolver.hourlyRate(nested as UserRecord, actorWith(['cost.manage']));
+
+      // Assert
+      expect(service.findById).toHaveBeenCalledWith(1);
+      expect(result).toBe(80);
+    });
+  });
+
+  // ── escrita da taxa horária ─────────────────────────────
+  describe('escrita de hourlyRate', () => {
+    it('deve rejeitar createUser com hourlyRate sem cost.manage', () => {
+      // Arrange
+      const input = {
+        name: 'Novo',
+        email: 'novo@cmms.local',
+        password: 'senha1234',
+        roleId: 1,
+        hourlyRate: 50,
+      };
+
+      // Act & Assert
+      expect(() => resolver.createUser(input, actorWith(['user.create']))).toThrow(
+        ForbiddenException,
+      );
+      expect(service.create).not.toHaveBeenCalled();
+    });
+
+    it('deve rejeitar updateUser com hourlyRate sem cost.manage', () => {
+      // Act & Assert
+      expect(() => resolver.updateUser(1, { hourlyRate: 50 }, actorWith(['user.update']))).toThrow(
+        ForbiddenException,
+      );
+      expect(service.update).not.toHaveBeenCalled();
+    });
+
+    it('deve aceitar updateUser com hourlyRate quando há cost.manage', async () => {
+      // Arrange
+      service.update.mockResolvedValue(makeUser({ hourlyRate: 50 }));
+
+      // Act
+      await resolver.updateUser(1, { hourlyRate: 50 }, actorWith(['user.update', 'cost.manage']));
+
+      // Assert
+      expect(service.update).toHaveBeenCalledWith(1, { hourlyRate: 50 }, 99);
+    });
+
+    it('deve aceitar updateUser sem hourlyRate mesmo sem cost.manage', async () => {
+      // Arrange
+      service.update.mockResolvedValue(makeUser({ name: 'Renomeado' }));
+
+      // Act
+      await resolver.updateUser(1, { name: 'Renomeado' }, actorWith(['user.update']));
+
+      // Assert
+      expect(service.update).toHaveBeenCalled();
+    });
   });
 });

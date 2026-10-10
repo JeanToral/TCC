@@ -103,28 +103,32 @@ describe('SparePartsService', () => {
     });
   });
 
-  // ── decrementOnComplete ───────────────────────────────
-  describe('decrementOnComplete', () => {
-    it('deve decrementar SparePart.quantity ao completar a OS', async () => {
+  // ── notifyLowStock ────────────────────────────────────
+  // A baixa de estoque em si acontece na transação de conclusão da OS
+  // (WorkOrdersRepository.completeWithCostSnapshot) — ver ADR 0001. Aqui só
+  // a notificação é responsabilidade deste serviço.
+  describe('notifyLowStock', () => {
+    it('não deve notificar quando a peça continua acima do mínimo', () => {
       // Arrange
-      repo.findByWorkOrder.mockResolvedValue([{ sparePartId: 1, quantityUsed: 2 }]);
-      repo.decrementQuantity.mockResolvedValue(makePart({ quantity: 8 }));
+      const parts = [
+        { id: 1, name: 'Rolamento 6205', partNumber: 'ROL-6205', quantity: 8, minimumStock: 5 },
+      ];
 
       // Act
-      await service.decrementOnComplete(1, 99);
+      service.notifyLowStock(parts, 99);
 
       // Assert
-      expect(repo.decrementQuantity).toHaveBeenCalledWith(1, 2);
       expect(notifications.notify).not.toHaveBeenCalled();
     });
 
-    it('deve gerar Notification LOW_STOCK quando quantity < minimumStock após decremento', async () => {
+    it('deve gerar Notification LOW_STOCK quando quantity < minimumStock após decremento', () => {
       // Arrange
-      repo.findByWorkOrder.mockResolvedValue([{ sparePartId: 1, quantityUsed: 8 }]);
-      repo.decrementQuantity.mockResolvedValue(makePart({ quantity: 2, minimumStock: 5 }));
+      const parts = [
+        { id: 1, name: 'Rolamento 6205', partNumber: 'ROL-6205', quantity: 2, minimumStock: 5 },
+      ];
 
       // Act
-      await service.decrementOnComplete(1, 99);
+      service.notifyLowStock(parts, 99);
 
       // Assert
       expect(notifications.notify).toHaveBeenCalledWith(
@@ -135,11 +139,32 @@ describe('SparePartsService', () => {
       );
     });
 
-    it('deve rejeitar adição de WorkOrderPart em OS com status COMPLETED', async () => {
-      // Note: this validation lives in WorkOrdersService which calls SparePartsService.addWorkOrderPart
-      // SparePartsService.addWorkOrderPart itself trusts the caller to enforce the rule.
-      // The guard is tested in work-orders.service.spec.ts
-      expect(true).toBe(true);
+    it('não deve notificar quando a quantidade fica exatamente no mínimo', () => {
+      // Arrange — a regra é "abaixo do mínimo", não "no mínimo"
+      const parts = [
+        { id: 1, name: 'Rolamento 6205', partNumber: 'ROL-6205', quantity: 5, minimumStock: 5 },
+      ];
+
+      // Act
+      service.notifyLowStock(parts, 99);
+
+      // Assert
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('deve notificar uma vez por peça abaixo do mínimo', () => {
+      // Arrange
+      const parts = [
+        { id: 1, name: 'Rolamento 6205', partNumber: 'ROL-6205', quantity: 2, minimumStock: 5 },
+        { id: 2, name: 'Correia A-52', partNumber: 'COR-A52', quantity: 9, minimumStock: 3 },
+        { id: 3, name: 'Retentor 40x62', partNumber: 'RET-4062', quantity: 0, minimumStock: 2 },
+      ];
+
+      // Act
+      service.notifyLowStock(parts, 99);
+
+      // Assert
+      expect(notifications.notify).toHaveBeenCalledTimes(2);
     });
   });
 });

@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import { useAuth } from '../../contexts/AuthContext'
 import { DateTimePicker } from '../../components/ui/date-time-picker'
 import Modal from '../../components/ui/Modal'
+import WorkOrderCostsSection from '../../components/work-orders/WorkOrderCostsSection'
 import Spinner from '../../components/ui/Spinner'
 import { GET_USERS } from '../../graphql/users/GetUsers.gql'
 import type { GetUsersData } from '../../graphql/users/types'
@@ -305,7 +306,9 @@ function CompleteModal({
   loading,
   error,
   notes,
+  laborHours,
   onNotesChange,
+  onLaborHoursChange,
   onClose,
   onConfirm,
 }: {
@@ -313,7 +316,9 @@ function CompleteModal({
   readonly loading: boolean
   readonly error: string
   readonly notes: string
+  readonly laborHours: string
   readonly onNotesChange: (v: string) => void
+  readonly onLaborHoursChange: (v: string) => void
   readonly onClose: () => void
   readonly onConfirm: () => void
 }) {
@@ -347,6 +352,25 @@ function CompleteModal({
           placeholder="Descreva o que foi feito…"
           maxLength={2000}
         />
+      </div>
+      <div className="wo-view-page__field">
+        <label className="wo-view-page__label" htmlFor="labor-hours">
+          Horas trabalhadas
+        </label>
+        <input
+          id="labor-hours"
+          className="wo-view-page__input"
+          type="number"
+          min={0}
+          max={999}
+          step={0.5}
+          value={laborHours}
+          onChange={(e) => onLaborHoursChange(e.target.value)}
+          placeholder="Ex.: 3"
+        />
+        <span className="wo-view-page__hint">
+          Horas efetivamente trabalhadas, não o tempo total de parada.
+        </span>
       </div>
       {error && <p className="wo-view-page__modal-error">{error}</p>}
     </Modal>
@@ -446,6 +470,8 @@ export default function WorkOrderViewPage() {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [closingNotes, setClosingNotes] = useState('')
+  const [laborHours, setLaborHours] = useState('')
+  const { hasPermission } = useAuth()
   const [cancelReason, setCancelReason] = useState('')
   const [scheduleForm, setScheduleForm] = useState<{
     assignedToId: string
@@ -493,7 +519,7 @@ export default function WorkOrderViewPage() {
 
   const [completeWorkOrder, { loading: completing }] = useMutation<CompleteWorkOrderData>(COMPLETE_WORK_ORDER, {
     refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
-    onCompleted: () => { setCompleteOpen(false); setClosingNotes('') },
+    onCompleted: () => { setCompleteOpen(false); setClosingNotes(''); setLaborHours('') },
     onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
   })
 
@@ -683,6 +709,11 @@ export default function WorkOrderViewPage() {
           </dl>
         </div>
 
+        {/* Custos — só para quem tem cost.read (ver ADR 0001) */}
+        {hasPermission('cost.read') && (
+          <WorkOrderCostsSection workOrder={wo} canManage={hasPermission('cost.manage')} />
+        )}
+
         {/* Metadados */}
         <div className="detail-card">
           <h2 className="detail-card__title">Metadados</h2>
@@ -757,11 +788,19 @@ export default function WorkOrderViewPage() {
         loading={completing}
         error={actionError}
         notes={closingNotes}
+        laborHours={laborHours}
         onNotesChange={(v) => { setClosingNotes(v); setActionError('') }}
+        onLaborHoursChange={(v) => { setLaborHours(v); setActionError('') }}
         onClose={() => setCompleteOpen(false)}
         onConfirm={() =>
           completeWorkOrder({
-            variables: { id: Number(id), input: { closingNotes } },
+            variables: {
+              id: Number(id),
+              input: {
+                closingNotes,
+                ...(laborHours.trim() ? { laborHours: Number(laborHours) } : {}),
+              },
+            },
           })
         }
       />

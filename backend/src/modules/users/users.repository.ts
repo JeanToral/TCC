@@ -11,6 +11,11 @@ export interface UserRecord {
   readonly name: string;
   readonly email: string;
   readonly isActive: boolean;
+  /**
+   * Dado salarial: só é exposto no GraphQL pelo field resolver de UserType,
+   * que exige cost.manage. Ver ADR 0001.
+   */
+  readonly hourlyRate: number | null;
   readonly roleId: number;
   readonly role: RoleRecord;
   readonly createdAt: Date;
@@ -23,6 +28,7 @@ interface CreateData {
   readonly email: string;
   readonly passwordHash: string;
   readonly roleId: number;
+  readonly hourlyRate?: number;
 }
 
 interface UpdateData {
@@ -31,6 +37,7 @@ interface UpdateData {
   passwordHash?: string;
   isActive?: boolean;
   roleId?: number;
+  hourlyRate?: number | null;
 }
 
 // ─────────────────────── Constants ──────────────────────
@@ -39,6 +46,7 @@ const USER_SELECT = {
   name: true,
   email: true,
   isActive: true,
+  hourlyRate: true,
   roleId: true,
   role: {
     select: {
@@ -94,6 +102,7 @@ export class UsersRepository {
         name: data.name,
         email: data.email,
         passwordHash: data.passwordHash,
+        hourlyRate: data.hourlyRate,
         role: { connect: { id: data.roleId } },
       },
       select: USER_SELECT,

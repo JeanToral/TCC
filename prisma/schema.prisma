@@ -54,10 +54,14 @@ model User {
   passwordHash        String
   refreshTokenHash    String?
   isActive            Boolean        @default(true)
+  /// Custo/hora do técnico. Dado de natureza salarial — nunca exposto em tipo
+  /// GraphQL sem a permissão cost.manage. Ver .claude/CONTEXT.md.
+  hourlyRate          Float?
   roleId              Int
   role                Role           @relation(fields: [roleId], references: [id])
   requestedWorkOrders WorkOrder[]    @relation("RequestedWorkOrders")
   assignedWorkOrders  WorkOrder[]    @relation("AssignedWorkOrders")
+  externalCosts       WorkOrderExternalCost[] @relation("CreatedExternalCosts")
   auditLogs           AuditLog[]
   notifications       Notification[]
   createdAt           DateTime       @default(now())
@@ -113,7 +117,15 @@ model WorkOrder {
   cancellationReason String?
   startedAt          DateTime?
   completedAt        DateTime?
+  /// Horas efetivamente trabalhadas, apontadas pelo técnico ao concluir.
+  /// Não confundir com tempo de parada (completedAt − startedAt).
+  laborHours         Float?
+  /// Taxa horária do responsável, congelada na conclusão da OS.
+  laborRateSnapshot  Float?
+  /// false quando alguma peça usada não tinha preço ou o técnico não tinha taxa.
+  costIsComplete     Boolean         @default(true)
   parts              WorkOrderPart[]
+  externalCosts      WorkOrderExternalCost[]
   notifications      Notification[]
   deletedAt          DateTime?
   createdAt          DateTime        @default(now())
@@ -142,9 +154,34 @@ model WorkOrderPart {
   sparePart    SparePart @relation(fields: [sparePartId], references: [id])
   sparePartId  Int
   quantityUsed Int
+  /// Preço unitário congelado na conclusão da OS. Editar SparePart.unitCost
+  /// depois disso não altera o custo histórico. Ver ADR 0001.
+  unitCostSnapshot Float?
   createdAt    DateTime  @default(now())
 
   @@unique([workOrderId, sparePartId])
+}
+
+/// Custo de terceiro atribuído a uma OS (retífica, frete, locação).
+/// Único componente de custo que pode ser lançado após a conclusão — a nota
+/// fiscal do fornecedor raramente chega antes. Ver ADR 0001.
+model WorkOrderExternalCost {
+  id          Int       @id @default(autoincrement())
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+  workOrderId Int
+  description String
+  supplier    String?
+  amount      Float
+  /// Competência: mês ao qual o custo pertence economicamente, que pode diferir
+  /// do mês em que foi lançado no sistema.
+  incurredAt  DateTime
+  createdBy   User      @relation("CreatedExternalCosts", fields: [createdById], references: [id])
+  createdById Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workOrderId])
+  @@index([incurredAt])
 }
 
 model Notification {

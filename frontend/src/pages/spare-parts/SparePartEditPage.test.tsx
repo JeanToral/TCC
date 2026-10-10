@@ -158,3 +158,36 @@ describe('SparePartEditPage — modo criação', () => {
     expect((sent[0].input as { unitCost: number }).unitCost).toBe(35.9)
   })
 })
+
+describe('SparePartEditPage — aviso de custo', () => {
+  it('deve avisar que peça sem custo torna o relatório financeiro incompleto', () => {
+    // Arrange / Act
+    renderWithProviders(<SparePartEditPage />, { mocks: [sparePartsMock()] })
+
+    // Assert
+    expect(
+      screen.getByText('Peças sem custo tornam o relatório financeiro incompleto.'),
+    ).toBeInTheDocument()
+  })
+
+  it('deve esconder o aviso quando o custo é informado', async () => {
+    // Arrange
+    const { user } = renderWithProviders(<SparePartEditPage />, { mocks: [sparePartsMock()] })
+
+    // Act
+    await user.type(screen.getByLabelText('Custo Unitário (R$)'), '35.90')
+
+    // Assert
+    expect(
+      screen.queryByText('Peças sem custo tornam o relatório financeiro incompleto.'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('não deve alterar o rótulo acessível do campo de custo', () => {
+    // Arrange / Act — o aviso fica fora do <label> de propósito
+    renderWithProviders(<SparePartEditPage />, { mocks: [sparePartsMock()] })
+
+    // Assert
+    expect(screen.getByLabelText('Custo Unitário (R$)')).toBeInTheDocument()
+  })
+})

@@ -3,6 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
+import {
+  FormActions,
+  FormAlert,
+  FormField,
+  FormGrid,
+  FormLayout,
+  FormSection,
+} from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import Spinner from '../../components/ui/Spinner'
@@ -135,98 +143,109 @@ export default function PreventivePlanEditPage() {
         </div>
       </header>
 
-      <form className="prev-plan-form" onSubmit={handleSubmit}>
-        <div className="prev-plan-form__card">
-          <div className="prev-plan-form__row">
-            <label className="prev-plan-form__label">
-              Nome *
-              <Input
-                value={form.name}
-                onChange={(e) => set('name', e.target.value)}
-                required
-                placeholder="Ex: Troca de óleo mensal"
-              />
-            </label>
-            <label className="prev-plan-form__label">
-              Ativo *
-              <select
-                className="prev-plan-form__select"
-                value={form.assetId}
-                onChange={(e) => set('assetId', e.target.value)}
-                required
-                disabled={!isNew}
-              >
-                <option value="">Selecione um ativo…</option>
-                {assets.map((a) => (
-                  <option key={a.id} value={String(a.id)}>
-                    {a.name} ({a.tag})
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+      <FormLayout onSubmit={handleSubmit}>
+        {error && <FormAlert>{error}</FormAlert>}
 
-          <label className="prev-plan-form__label">
-            Descrição
-            <Textarea
-              value={form.description}
-              onChange={(e) => set('description', e.target.value)}
-              placeholder="Descreva o procedimento ou critério do plano…"
-              rows={3}
-            />
-          </label>
+        <FormSection title="Plano">
+          <FormGrid columns={2}>
+            <FormField>
+              <label className="prev-plan-form__label">
+                Nome *
+                <Input
+                  value={form.name}
+                  onChange={(e) => set('name', e.target.value)}
+                  required
+                  placeholder="Ex: Troca de óleo mensal"
+                />
+              </label>
+            </FormField>
+            <FormField>
+              <label className="prev-plan-form__label">
+                Ativo *
+                <select
+                  className="prev-plan-form__select"
+                  value={form.assetId}
+                  onChange={(e) => set('assetId', e.target.value)}
+                  required
+                  disabled={!isNew}
+                >
+                  <option value="">Selecione um ativo…</option>
+                  {assets.map((a) => (
+                    <option key={a.id} value={String(a.id)}>
+                      {a.name} ({a.tag})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </FormField>
+            <FormField span="full">
+              <label className="prev-plan-form__label">
+                Descrição
+                <Textarea
+                  value={form.description}
+                  onChange={(e) => set('description', e.target.value)}
+                  placeholder="Descreva o procedimento ou critério do plano…"
+                  rows={3}
+                />
+              </label>
+            </FormField>
+          </FormGrid>
+        </FormSection>
 
-          <div className="prev-plan-form__row">
-            <label className="prev-plan-form__label">
-              Intervalo (dias) *
-              <Input
-                type="number"
-                min={1}
-                value={form.intervalDays}
-                onChange={(e) => set('intervalDays', e.target.value)}
-                required
-              />
-            </label>
-            <label className="prev-plan-form__label">
-              Próxima Execução *
-              <Input
-                type="date"
-                value={form.nextDueAt}
-                onChange={(e) => set('nextDueAt', e.target.value)}
-                required
-              />
-            </label>
-          </div>
+        <FormSection title="Periodicidade">
+          <FormGrid columns={2}>
+            <FormField>
+              <label className="prev-plan-form__label">
+                Intervalo (dias) *
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.intervalDays}
+                  onChange={(e) => set('intervalDays', e.target.value)}
+                  required
+                />
+              </label>
+            </FormField>
+            <FormField>
+              <label className="prev-plan-form__label">
+                Próxima Execução *
+                <Input
+                  type="date"
+                  value={form.nextDueAt}
+                  onChange={(e) => set('nextDueAt', e.target.value)}
+                  required
+                />
+              </label>
+            </FormField>
 
-          {!isNew && (
-            <label className="prev-plan-form__label prev-plan-form__label--checkbox">
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                onChange={(e) => set('isActive', e.target.checked)}
-              />
-              Plano ativo (gera OS automaticamente quando vencido)
-            </label>
-          )}
+            {!isNew && (
+              <FormField span="full">
+                <label className="prev-plan-form__label prev-plan-form__label--checkbox">
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={(e) => set('isActive', e.target.checked)}
+                  />
+                  Plano ativo (gera OS automaticamente quando vencido)
+                </label>
+              </FormField>
+            )}
+          </FormGrid>
+        </FormSection>
 
-          {error && (
-            <div className="prev-plan-form__error" role="alert">{error}</div>
-          )}
-
-          <div className="prev-plan-form__actions">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => navigate('/dashboard/preventive-plans')}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? <Spinner size="sm" /> : isNew ? 'Criar Plano' : 'Salvar Alterações'}
-            </Button>
-          </div>
-        </div>
-      </form>
+        <FormActions>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => navigate('/dashboard/preventive-plans')}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? <Spinner size="sm" /> : isNew ? 'Criar Plano' : 'Salvar Alterações'}
+          </Button>
+        </FormActions>
+      </FormLayout>
     </div>
   )
 }

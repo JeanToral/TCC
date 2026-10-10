@@ -14,6 +14,7 @@ import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { AssetsModule } from './modules/assets/assets.module';
 import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
+import { WorkOrderCostsModule } from './modules/work-order-costs/work-order-costs.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -57,6 +58,7 @@ import { PreventivePlansModule } from './modules/preventive-plans/preventive-pla
     RolesModule,
     AssetsModule,
     WorkOrdersModule,
+    WorkOrderCostsModule,
     AuditLogModule,
     DashboardModule,
     NotificationsModule,

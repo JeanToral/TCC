@@ -22,6 +22,26 @@ export const GET_WORK_ORDER = gql`
       cancellationReason
       startedAt
       completedAt
+      laborHours
+      costIsComplete
+      cost {
+        partsCost
+        laborCost
+        externalCost
+        total
+        isComplete
+      }
+      externalCosts {
+        id
+        workOrderId
+        description
+        supplier
+        amount
+        incurredAt
+        createdById
+        createdAt
+        updatedAt
+      }
       createdAt
       updatedAt
       deletedAt

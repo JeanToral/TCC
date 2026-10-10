@@ -141,15 +141,27 @@ export class WorkOrdersService {
   async complete(id: number, input: CompleteWorkOrderInput, actorId: number): Promise<WorkOrderRecord> {
     const workOrder = await this.findById(id);
     this.assertValidTransition(workOrder.status, WorkOrderStatus.COMPLETED);
-    const updated = await this.repo.update(id, {
-      status: WorkOrderStatus.COMPLETED,
+
+    // Taxa horária congelada no momento da conclusão (ADR 0001).
+    const laborRateSnapshot =
+      workOrder.assignedToId !== null ? await this.repo.findHourlyRate(workOrder.assignedToId) : null;
+
+    // Horas apontadas pelo técnico; cai para o que já estava gravado na OS.
+    const laborHours = input.laborHours ?? workOrder.laborHours;
+    const laborCostIsComplete = !laborHours || laborHours <= 0 || laborRateSnapshot !== null;
+
+    const { workOrder: updated, decrementedParts } = await this.repo.completeWithCostSnapshot(id, {
       closingNotes: input.closingNotes,
       completedAt: new Date(),
+      laborHours,
+      laborRateSnapshot,
+      laborCostIsComplete,
     });
+
     this.audit.log(actorId, 'workorder.complete', 'WorkOrder', id,
       { status: workOrder.status }, { status: WorkOrderStatus.COMPLETED });
 
-    this.spareParts.decrementOnComplete(id, actorId).catch(() => undefined);
+    this.spareParts.notifyLowStock(decrementedParts, actorId);
 
     return updated;
   }

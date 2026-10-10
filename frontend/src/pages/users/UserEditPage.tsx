@@ -2,8 +2,17 @@ import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
+import { useAuth } from '../../contexts/AuthContext'
 import Button from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/checkbox'
+import {
+  FormActions,
+  FormAlert,
+  FormField,
+  FormGrid,
+  FormLayout,
+  FormSection,
+} from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { NativeSelect } from '../../components/ui/select'
@@ -27,6 +36,7 @@ interface FormState {
   password: string
   roleId: string
   isActive: boolean
+  hourlyRate: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -35,12 +45,16 @@ const EMPTY_FORM: FormState = {
   password: '',
   roleId: '',
   isActive: true,
+  hourlyRate: '',
 }
 
 export default function UserEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isEdit = !!id
+
+  const { hasPermission } = useAuth()
+  const canManageCost = hasPermission('cost.manage')
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [errors, setErrors] = useState<Partial<FormState>>({})
@@ -65,6 +79,7 @@ export default function UserEditPage() {
         password: '',
         roleId: String(user.roleId),
         isActive: user.isActive,
+        hourlyRate: user.hourlyRate != null ? String(user.hourlyRate) : '',
       })
     }
   }, [userData])
@@ -117,6 +132,10 @@ export default function UserEditPage() {
       next.password = 'A senha deve ter pelo menos 8 caracteres.'
     }
     if (!form.roleId) next.roleId = 'Selecione uma função.'
+    if (form.hourlyRate.trim()) {
+      const rate = Number(form.hourlyRate)
+      if (Number.isNaN(rate) || rate < 0) next.hourlyRate = 'Informe um valor válido.'
+    }
     setErrors(next)
     return Object.keys(next).length === 0
   }
@@ -133,6 +152,9 @@ export default function UserEditPage() {
         isActive: form.isActive,
       }
       if (form.password) input.password = form.password
+      if (canManageCost && form.hourlyRate.trim()) {
+        input.hourlyRate = Number(form.hourlyRate)
+      }
       updateUser({ variables: { id: Number(id), input } })
     } else {
       createUser({
@@ -142,6 +164,9 @@ export default function UserEditPage() {
             email: form.email,
             password: form.password,
             roleId: Number(form.roleId),
+            ...(canManageCost && form.hourlyRate.trim()
+              ? { hourlyRate: Number(form.hourlyRate) }
+              : {}),
           },
         },
       })
@@ -163,7 +188,7 @@ export default function UserEditPage() {
         <div className="page-header__info">
           <button
             type="button"
-            className="user-edit-page__back"
+            className="page-back"
             onClick={() =>
               navigate(isEdit ? `/dashboard/users/${id}` : '/dashboard/users')
             }
@@ -177,19 +202,12 @@ export default function UserEditPage() {
       </header>
 
       {/* Form */}
-      <div className="user-edit-page__card">
-        <form onSubmit={handleSubmit} noValidate>
-          {submitError && (
-            <div className="user-edit-page__alert" role="alert">
-              {submitError}
-            </div>
-          )}
+      <FormLayout onSubmit={handleSubmit} noValidate>
+        {submitError && <FormAlert>{submitError}</FormAlert>}
 
-          <div className="user-edit-page__section">
-            <h2 className="user-edit-page__section-title">
-              Informações do usuário
-            </h2>
-            <div className="user-edit-page__fields">
+        <FormSection title="Informações do usuário">
+          <FormGrid>
+            <FormField>
               <Input
                 label="Nome completo"
                 name="name"
@@ -200,6 +218,8 @@ export default function UserEditPage() {
                 autoComplete="name"
                 disabled={submitting}
               />
+            </FormField>
+            <FormField>
               <Input
                 label="E-mail"
                 name="email"
@@ -211,6 +231,8 @@ export default function UserEditPage() {
                 autoComplete="email"
                 disabled={submitting}
               />
+            </FormField>
+            <FormField>
               <Input
                 label={isEdit ? 'Nova senha (opcional)' : 'Senha'}
                 name="password"
@@ -219,16 +241,17 @@ export default function UserEditPage() {
                 onChange={handleChange}
                 error={errors.password}
                 placeholder={isEdit ? 'Deixe em branco para não alterar' : '••••••••'}
-                autoComplete={isEdit ? 'new-password' : 'new-password'}
+                autoComplete="new-password"
                 hint="Mínimo de 8 caracteres."
                 disabled={submitting}
               />
-            </div>
-          </div>
+            </FormField>
+          </FormGrid>
+        </FormSection>
 
-          <div className="user-edit-page__section">
-            <h2 className="user-edit-page__section-title">Função e status</h2>
-            <div className="user-edit-page__fields">
+        <FormSection title="Função e status">
+          <FormGrid>
+            <FormField>
               <NativeSelect
                 id="roleId"
                 name="roleId"
@@ -247,8 +270,28 @@ export default function UserEditPage() {
                   </option>
                 ))}
               </NativeSelect>
+            </FormField>
 
-              {isEdit && (
+            {canManageCost && (
+              <FormField>
+                <Input
+                  label="Taxa horária (R$)"
+                  name="hourlyRate"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={form.hourlyRate}
+                  onChange={handleChange}
+                  error={errors.hourlyRate}
+                  placeholder="Ex.: 45,00"
+                  hint="Usada no custo de mão de obra das OS atendidas."
+                  disabled={submitting}
+                />
+              </FormField>
+            )}
+
+            {isEdit && (
+              <FormField span="full">
                 <div className="user-edit-page__toggle-row">
                   <div className="user-edit-page__toggle-label">
                     <Label htmlFor="isActive">Usuário ativo</Label>
@@ -263,27 +306,27 @@ export default function UserEditPage() {
                     disabled={submitting}
                   />
                 </div>
-              )}
-            </div>
-          </div>
+              </FormField>
+            )}
+          </FormGrid>
+        </FormSection>
 
-          <footer className="user-edit-page__footer">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() =>
-                navigate(isEdit ? `/dashboard/users/${id}` : '/dashboard/users')
-              }
-              disabled={submitting}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" loading={submitting}>
-              {isEdit ? 'Salvar alterações' : 'Criar usuário'}
-            </Button>
-          </footer>
-        </form>
-      </div>
+        <FormActions>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              navigate(isEdit ? `/dashboard/users/${id}` : '/dashboard/users')
+            }
+            disabled={submitting}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" loading={submitting}>
+            {isEdit ? 'Salvar alterações' : 'Criar usuário'}
+          </Button>
+        </FormActions>
+      </FormLayout>
     </div>
   )
 }

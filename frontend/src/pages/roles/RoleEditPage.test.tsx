@@ -8,14 +8,15 @@ import { GET_ROLE } from '../../graphql/roles/GetRole.gql'
 import { GET_ROLES_MGMT } from '../../graphql/roles/GetRoles.gql'
 import { renderWithProviders } from '../../test/renderWithProviders'
 
-// Grupos de permissão renderizados hoje pela tela.
-// Nota: `preventiveplan.*` existe no seed do backend mas NÃO tem grupo aqui.
+// Grupos de permissão renderizados pela tela.
 const PERM_GROUP_LABELS = [
   'Usuários',
   'Roles',
   'Ativos',
   'Ordens de Serviço',
   'Peças de Reposição',
+  'Planos Preventivos',
+  'Custos',
   'Dashboard',
   'Log de Auditoria',
 ] as const
@@ -62,7 +63,7 @@ describe('RoleEditPage — modo criação', () => {
     expect(screen.getByRole('button', { name: 'Criar role' })).toBeInTheDocument()
   })
 
-  it('deve renderizar os 7 grupos de permissão', () => {
+  it('deve renderizar os 9 grupos de permissão', () => {
     // Arrange / Act
     renderWithProviders(<RoleEditPage />, { mocks: [rolesMgmtMock()] })
 
@@ -96,6 +97,20 @@ describe('RoleEditPage — modo criação', () => {
     expect(
       within(dashboardGroup as HTMLElement).getByLabelText('Visualizar'),
     ).toBeChecked()
+  })
+
+  it('deve oferecer as permissões de custo', async () => {
+    // Arrange
+    const { user } = renderWithProviders(<RoleEditPage />, { mocks: [rolesMgmtMock()] })
+
+    // Act
+    await user.click(screen.getByLabelText('Custos'))
+
+    // Assert — o grupo Custos tem cost.read (Visualizar) e cost.manage (Gerenciar)
+    const group = screen.getByLabelText('Custos').closest('.role-edit-page__perm-group')
+    expect(group).not.toBeNull()
+    expect(within(group as HTMLElement).getByLabelText('Visualizar')).toBeChecked()
+    expect(within(group as HTMLElement).getByLabelText('Gerenciar')).toBeChecked()
   })
 
   it('deve enviar as permissões marcadas como array na mutation', async () => {

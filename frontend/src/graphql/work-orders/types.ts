@@ -1,3 +1,8 @@
+import type {
+  WorkOrderCostBreakdown,
+  WorkOrderExternalCost,
+} from '../work-order-costs/types'
+
 export type WorkOrderType = 'CORRECTIVE' | 'PREVENTIVE'
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 export type WorkOrderStatus =
@@ -46,6 +51,13 @@ export interface WorkOrderDetail extends WorkOrderListItem {
   readonly cancellationReason: string | null
   readonly startedAt: string | null
   readonly completedAt: string | null
+  /** Horas apontadas pelo técnico. Quantidade, não valor monetário. */
+  readonly laborHours: number | null
+  readonly costIsComplete: boolean
+  /** null sem a permissão cost.read. */
+  readonly cost: WorkOrderCostBreakdown | null
+  /** null sem a permissão cost.read. */
+  readonly externalCosts: readonly WorkOrderExternalCost[] | null
   readonly updatedAt: string
   readonly deletedAt: string | null
 }

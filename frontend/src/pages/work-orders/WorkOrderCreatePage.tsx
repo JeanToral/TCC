@@ -3,6 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
+import {
+  FormActions,
+  FormAlert,
+  FormField,
+  FormGrid,
+  FormLayout,
+  FormSection,
+} from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
 import { NativeSelect } from '../../components/ui/select'
 import { Textarea } from '../../components/ui/textarea'
@@ -103,39 +111,30 @@ export default function WorkOrderCreatePage() {
     <div className="wo-create-page">
       <header className="page-header">
         <div className="page-header__info">
-          <button type="button" className="wo-create-page__back" onClick={() => navigate('/dashboard/work-orders')}>
+          <button type="button" className="page-back" onClick={() => navigate('/dashboard/work-orders')}>
             ← Ordens de Serviço
           </button>
           <h1 className="page-header__title">Nova Ordem de Serviço</h1>
         </div>
       </header>
 
-      <form className="wo-create-page__form" onSubmit={handleSubmit} noValidate>
-        <div className="form-card">
-          <h2 className="form-card__title">Informações da OS</h2>
+      <FormLayout onSubmit={handleSubmit} noValidate>
+        {submitError && <FormAlert>{submitError}</FormAlert>}
 
-          <div className="form-card__body">
-            <Input
-              label="Título"
-              value={form.title}
-              onChange={(e) => handleChange('title', e.target.value)}
-              error={errors.title}
-              placeholder="Ex: Falha no rolamento do motor principal"
-              maxLength={200}
-            />
+        <FormSection title="Informações da OS">
+          <FormGrid>
+            <FormField span="full">
+              <Input
+                label="Título"
+                value={form.title}
+                onChange={(e) => handleChange('title', e.target.value)}
+                error={errors.title}
+                placeholder="Ex: Falha no rolamento do motor principal"
+                maxLength={200}
+              />
+            </FormField>
 
-            <Textarea
-              id="wo-description"
-              label="Descrição"
-              value={form.description}
-              onChange={(e) => handleChange('description', e.target.value)}
-              rows={4}
-              placeholder="Descreva o problema ou a necessidade de manutenção…"
-              maxLength={2000}
-              error={errors.description}
-            />
-
-            <div className="wo-create-page__row">
+            <FormField>
               <NativeSelect
                 id="wo-type"
                 label="Tipo"
@@ -147,7 +146,9 @@ export default function WorkOrderCreatePage() {
                 <option value="CORRECTIVE">Corretiva</option>
                 <option value="PREVENTIVE">Preventiva</option>
               </NativeSelect>
+            </FormField>
 
+            <FormField>
               <NativeSelect
                 id="wo-priority"
                 label="Prioridade"
@@ -161,32 +162,41 @@ export default function WorkOrderCreatePage() {
                 <option value="HIGH">Alta</option>
                 <option value="CRITICAL">Crítica</option>
               </NativeSelect>
-            </div>
+            </FormField>
 
-            <NativeSelect
-              id="wo-asset"
-              label="Ativo"
-              value={form.assetId}
-              onChange={(e) => handleChange('assetId', e.target.value)}
-              error={errors.assetId}
-            >
-              <option value="">Selecionar ativo…</option>
-              {assets.map((a) => (
-                <option key={a.id} value={String(a.id)}>
-                  {a.tag} — {a.name}{a.location ? ` (${a.location})` : ''}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-        </div>
+            <FormField>
+              <NativeSelect
+                id="wo-asset"
+                label="Ativo"
+                value={form.assetId}
+                onChange={(e) => handleChange('assetId', e.target.value)}
+                error={errors.assetId}
+              >
+                <option value="">Selecionar ativo…</option>
+                {assets.map((a) => (
+                  <option key={a.id} value={String(a.id)}>
+                    {a.tag} — {a.name}{a.location ? ` (${a.location})` : ''}
+                  </option>
+                ))}
+              </NativeSelect>
+            </FormField>
 
-        {submitError && (
-          <div className="page-error" role="alert">
-            {submitError}
-          </div>
-        )}
+            <FormField span="full">
+              <Textarea
+                id="wo-description"
+                label="Descrição"
+                value={form.description}
+                onChange={(e) => handleChange('description', e.target.value)}
+                rows={5}
+                placeholder="Descreva o problema ou a necessidade de manutenção…"
+                maxLength={2000}
+                error={errors.description}
+              />
+            </FormField>
+          </FormGrid>
+        </FormSection>
 
-        <div className="wo-create-page__footer">
+        <FormActions>
           <Button
             type="button"
             variant="secondary"
@@ -198,8 +208,8 @@ export default function WorkOrderCreatePage() {
           <Button type="submit" loading={submitting}>
             Criar Ordem de Serviço
           </Button>
-        </div>
-      </form>
+        </FormActions>
+      </FormLayout>
     </div>
   )
 }

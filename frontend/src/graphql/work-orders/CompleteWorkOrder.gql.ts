@@ -7,6 +7,8 @@ export const COMPLETE_WORK_ORDER = gql`
       status
       closingNotes
       completedAt
+      laborHours
+      costIsComplete
       updatedAt
     }
   }

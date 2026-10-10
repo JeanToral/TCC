@@ -26,6 +26,8 @@ export interface UserDetail {
   readonly name: string
   readonly email: string
   readonly isActive: boolean
+  /** null sem a permissão cost.manage — dado salarial. Ver ADR 0001. */
+  readonly hourlyRate: number | null
   readonly roleId: number
   readonly role: RoleFull
   readonly createdAt: string

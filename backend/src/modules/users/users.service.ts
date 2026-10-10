@@ -36,6 +36,7 @@ export class UsersService {
       email: input.email,
       passwordHash,
       roleId: input.roleId,
+      hourlyRate: input.hourlyRate,
     });
 
     this.audit.log(actorId, 'user.create', 'User', user.id, null, {
@@ -67,12 +68,14 @@ export class UsersService {
       passwordHash?: string;
       isActive?: boolean;
       roleId?: number;
+      hourlyRate?: number | null;
     } = {};
 
     if (input.name !== undefined) data.name = input.name;
     if (input.email !== undefined) data.email = input.email;
     if (input.isActive !== undefined) data.isActive = input.isActive;
     if (input.roleId !== undefined) data.roleId = input.roleId;
+    if (input.hourlyRate !== undefined) data.hourlyRate = input.hourlyRate;
     if (input.password !== undefined) {
       data.passwordHash = await bcrypt.hash(input.password, 10);
     }
@@ -80,8 +83,20 @@ export class UsersService {
     const after = await this.repo.update(id, data);
 
     this.audit.log(actorId, 'user.update', 'User', id,
-      { name: before.name, email: before.email, roleId: before.roleId, isActive: before.isActive },
-      { name: after.name, email: after.email, roleId: after.roleId, isActive: after.isActive },
+      {
+        name: before.name,
+        email: before.email,
+        roleId: before.roleId,
+        isActive: before.isActive,
+        hasHourlyRate: before.hourlyRate !== null,
+      },
+      {
+        name: after.name,
+        email: after.email,
+        roleId: after.roleId,
+        isActive: after.isActive,
+        hasHourlyRate: after.hourlyRate !== null,
+      },
     );
 
     return after;
