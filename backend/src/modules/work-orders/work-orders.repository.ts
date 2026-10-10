@@ -70,6 +70,35 @@ export interface CompleteWorkOrderData {
   readonly laborCostIsComplete: boolean;
 }
 
+/** Filtro da exportação: espelha WorkOrdersFilterInput + período de abertura. */
+export interface WorkOrderExportFilter {
+  readonly status?: WorkOrderStatus;
+  readonly assetId?: number;
+  readonly assignedToId?: number;
+  readonly from?: Date;
+  readonly to?: Date;
+}
+
+/** Linha da exportação de OS, já com o necessário para o custo congelado. */
+export interface WorkOrderExportRow {
+  readonly id: number;
+  readonly title: string;
+  readonly type: WorkOrderTypeEnum;
+  readonly priority: Priority;
+  readonly status: WorkOrderStatus;
+  readonly asset: { readonly tag: string; readonly name: string };
+  readonly requestedBy: { readonly name: string };
+  readonly assignedTo: { readonly name: string } | null;
+  readonly createdAt: Date;
+  readonly startedAt: Date | null;
+  readonly completedAt: Date | null;
+  readonly laborHours: number | null;
+  readonly laborRateSnapshot: number | null;
+  readonly costIsComplete: boolean;
+  readonly parts: readonly { readonly quantityUsed: number; readonly unitCostSnapshot: number | null }[];
+  readonly externalCosts: readonly { readonly amount: number }[];
+}
+
 export interface CompleteWorkOrderResult {
   readonly workOrder: WorkOrderRecord;
   readonly decrementedParts: readonly DecrementedPartRecord[];
@@ -223,6 +252,70 @@ export class WorkOrdersRepository {
       },
       select: WORK_ORDER_SELECT,
     }) as Promise<WorkOrderRecord>;
+  }
+
+  countForExport(filter: WorkOrderExportFilter): Promise<number> {
+    return this.prisma.workOrder.count({ where: this.exportWhere(filter) });
+  }
+
+  /**
+   * Percorre o conjunto inteiro em lotes por cursor — nunca um findMany sem
+   * limite. Memória constante, independente do volume (ADR 0002).
+   */
+  async *iterateForExport(
+    filter: WorkOrderExportFilter,
+    batchSize: number,
+  ): AsyncGenerator<WorkOrderExportRow> {
+    let cursor: number | undefined;
+
+    for (;;) {
+      const batch = (await this.prisma.workOrder.findMany({
+        where: this.exportWhere(filter),
+        orderBy: { id: 'asc' },
+        take: batchSize,
+        ...(cursor !== undefined ? { cursor: { id: cursor }, skip: 1 } : {}),
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          priority: true,
+          status: true,
+          asset: { select: { tag: true, name: true } },
+          requestedBy: { select: { name: true } },
+          assignedTo: { select: { name: true } },
+          createdAt: true,
+          startedAt: true,
+          completedAt: true,
+          laborHours: true,
+          laborRateSnapshot: true,
+          costIsComplete: true,
+          parts: { select: { quantityUsed: true, unitCostSnapshot: true } },
+          externalCosts: { select: { amount: true } },
+        },
+      })) as WorkOrderExportRow[];
+
+      for (const row of batch) yield row;
+
+      if (batch.length < batchSize) return;
+      cursor = batch[batch.length - 1].id;
+    }
+  }
+
+  private exportWhere(filter: WorkOrderExportFilter) {
+    return {
+      deletedAt: null,
+      ...(filter.status ? { status: filter.status } : {}),
+      ...(filter.assetId ? { assetId: filter.assetId } : {}),
+      ...(filter.assignedToId ? { assignedToId: filter.assignedToId } : {}),
+      ...(filter.from || filter.to
+        ? {
+            createdAt: {
+              ...(filter.from ? { gte: filter.from } : {}),
+              ...(filter.to ? { lte: filter.to } : {}),
+            },
+          }
+        : {}),
+    };
   }
 
   /**

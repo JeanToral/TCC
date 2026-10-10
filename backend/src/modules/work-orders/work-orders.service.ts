@@ -7,7 +7,12 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SparePartsService } from '../spare-parts/spare-parts.service';
 import { encodeCursor } from '../../common/pagination/page-args';
-import { type WorkOrderRecord, WorkOrdersRepository } from './work-orders.repository';
+import {
+  type WorkOrderExportFilter,
+  type WorkOrderExportRow,
+  type WorkOrderRecord,
+  WorkOrdersRepository,
+} from './work-orders.repository';
 import type { CreateWorkOrderInput } from './dto/create-work-order.input';
 import type { RejectWorkOrderInput } from './dto/reject-work-order.input';
 import type { CompleteWorkOrderInput } from './dto/complete-work-order.input';
@@ -57,6 +62,17 @@ export class WorkOrdersService {
         endCursor: edges.length > 0 ? edges[edges.length - 1].cursor : null,
       },
     };
+  }
+
+  countForExport(filter: WorkOrderExportFilter): Promise<number> {
+    return this.repo.countForExport(filter);
+  }
+
+  iterateForExport(
+    filter: WorkOrderExportFilter,
+    batchSize: number,
+  ): AsyncGenerator<WorkOrderExportRow> {
+    return this.repo.iterateForExport(filter, batchSize);
   }
 
   async findById(id: number): Promise<WorkOrderRecord> {

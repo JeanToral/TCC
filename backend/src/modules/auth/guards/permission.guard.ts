@@ -1,9 +1,9 @@
 // ─────────────────────── Imports ────────────────────────
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { GqlExecutionContext } from '@nestjs/graphql';
 
 import { PERMISSION_KEY } from '../../../common/decorators/requires-permission.decorator';
+import { getRequestFromContext } from './jwt.guard';
 
 // ─────────────────────── Types ───────────────────────────
 interface AuthUser {
@@ -34,8 +34,7 @@ export class PermissionGuard implements CanActivate {
 
     if (!required) return true;
 
-    const ctx = GqlExecutionContext.create(context);
-    const user = ctx.getContext<{ req: { user?: AuthUser } }>().req.user;
+    const user = getRequestFromContext<{ user?: AuthUser }>(context).user;
 
     if (!user) return false;
 

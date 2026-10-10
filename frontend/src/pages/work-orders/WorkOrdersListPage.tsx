@@ -4,6 +4,7 @@ import { useQuery } from '@apollo/client/react'
 
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import ExportButton from '../../components/ui/ExportButton'
 import { NativeSelect } from '../../components/ui/select'
 import Spinner from '../../components/ui/Spinner'
 import { GET_WORK_ORDERS } from '../../graphql/work-orders/GetWorkOrders.gql'
@@ -160,6 +161,12 @@ export default function WorkOrdersListPage() {
               <option key={s} value={s}>{STATUS_LABELS[s]}</option>
             ))}
           </NativeSelect>
+          {/* Exporta o conjunto completo do filtro, não só as 20 linhas carregadas */}
+          <ExportButton
+            path="work-orders"
+            params={{ status: statusFilter || undefined }}
+            fallbackName="ordens-de-servico"
+          />
           <Button onClick={() => navigate('/dashboard/work-orders/new')}>
             Nova OS
           </Button>

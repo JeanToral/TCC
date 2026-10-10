@@ -22,6 +22,11 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
+      // Exportação de planilhas é REST, fora do GraphQL (ADR 0002)
+      '/export': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
     },
   },
   test: {

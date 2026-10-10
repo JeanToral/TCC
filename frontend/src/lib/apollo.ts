@@ -8,6 +8,11 @@ export function setAccessToken(token: string): void {
   accessToken = token;
 }
 
+/** Usado pelo download de planilhas, que sai por fetch e não pelo Apollo. */
+export function getAccessToken(): string {
+  return accessToken;
+}
+
 // ─────────────────────── Links ───────────────────────────
 const authLink = new ApolloLink((operation, forward) => {
   if (accessToken) {

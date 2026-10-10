@@ -18,6 +18,7 @@ import { WorkOrderCostsModule } from './modules/work-order-costs/work-order-cost
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { ExportModule } from './modules/export/export.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SparePartsModule } from './modules/spare-parts/spare-parts.module';
 import { PreventivePlansModule } from './modules/preventive-plans/preventive-plans.module';
@@ -44,7 +45,7 @@ import { PreventivePlansModule } from './modules/preventive-plans/preventive-pla
       // '/graphql' cobre a rota exata; '/{*path}' nunca é atingida antes do GraphQLModule.
       // Na prática, rotas NestJS têm prioridade sobre o static handler — exclude é redundante,
       // mas mantemos para clareza usando sintaxe válida de path-to-regexp v8.
-      exclude: ['/graphql', '/graphql/{*path}'],
+      exclude: ['/graphql', '/graphql/{*path}', '/export/{*path}'],
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
@@ -63,6 +64,7 @@ import { PreventivePlansModule } from './modules/preventive-plans/preventive-pla
     AuditLogModule,
     DashboardModule,
     FinanceModule,
+    ExportModule,
     NotificationsModule,
     SparePartsModule,
     PreventivePlansModule,

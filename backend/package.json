@@ -40,6 +40,7 @@
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
     "dataloader": "^2.2.3",
+    "exceljs": "^4.4.0",
     "graphql": "^16.13.2",
     "graphql-depth-limit": "^1.1.0",
     "passport": "^0.7.0",

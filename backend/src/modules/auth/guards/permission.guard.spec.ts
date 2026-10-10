@@ -10,8 +10,20 @@ jest.mock('@nestjs/graphql', () => ({
 
 const makeExecCtx = () =>
   ({
+    getType: jest.fn().mockReturnValue('graphql'),
     getHandler: jest.fn().mockReturnValue({}),
     getClass: jest.fn().mockReturnValue({}),
+  }) as unknown as ExecutionContext;
+
+/** Contexto de controller REST — usado pela exportação de planilhas (ADR 0002). */
+const makeHttpCtx = (permissions: string[] | null) =>
+  ({
+    getType: jest.fn().mockReturnValue('http'),
+    getHandler: jest.fn().mockReturnValue({}),
+    getClass: jest.fn().mockReturnValue({}),
+    switchToHttp: () => ({
+      getRequest: () => (permissions !== null ? { user: { permissions } } : {}),
+    }),
   }) as unknown as ExecutionContext;
 
 const makeGqlCtx = (permissions: string[] | null) => ({
@@ -129,6 +141,55 @@ describe('PermissionGuard', () => {
 
       // Assert
       expect(result).toBe(false);
+    });
+  });
+
+  // ── contexto HTTP (controllers REST) ────────────────────
+  describe('contexto HTTP', () => {
+    it('deve conceder acesso em controller REST quando a permissão está no array', () => {
+      // Arrange
+      (GqlExecutionContext.create as jest.Mock).mockClear();
+      reflector.getAllAndOverride.mockReturnValue('workorder.read');
+
+      // Act
+      const result = guard.canActivate(makeHttpCtx(['workorder.read']));
+
+      // Assert
+      expect(result).toBe(true);
+      expect(GqlExecutionContext.create).not.toHaveBeenCalled();
+    });
+
+    it('deve negar acesso em controller REST sem a permissão exigida', () => {
+      // Arrange
+      reflector.getAllAndOverride.mockReturnValue('cost.read');
+
+      // Act
+      const result = guard.canActivate(makeHttpCtx(['workorder.read']));
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('deve negar acesso em controller REST sem usuário autenticado', () => {
+      // Arrange
+      reflector.getAllAndOverride.mockReturnValue('workorder.read');
+
+      // Act
+      const result = guard.canActivate(makeHttpCtx(null));
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('deve conceder acesso ao Sysadmin com wildcard em controller REST', () => {
+      // Arrange
+      reflector.getAllAndOverride.mockReturnValue('cost.read');
+
+      // Act
+      const result = guard.canActivate(makeHttpCtx(['*']));
+
+      // Assert
+      expect(result).toBe(true);
     });
   });
 });

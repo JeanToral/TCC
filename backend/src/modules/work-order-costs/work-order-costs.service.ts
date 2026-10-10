@@ -24,6 +24,34 @@ export interface CostBreakdown {
   readonly isComplete: boolean;
 }
 
+// ─────────────────────── Cálculo ────────────────────────
+/**
+ * Decomposição de custo de uma OS. Função pura e exportada: é a única
+ * implementação dessa conta — a tela da OS e a exportação de planilhas usam
+ * esta mesma função, então os números não podem divergir.
+ *
+ * Valor ausente (peça sem preço, taxa nula) conta zero; `isComplete` vem do
+ * que foi apurado no congelamento.
+ */
+export function composeCostBreakdown(
+  inputs: Pick<WorkOrderCostInputs, 'laborHours' | 'laborRateSnapshot' | 'costIsComplete' | 'parts' | 'externalAmounts'>,
+): CostBreakdown {
+  const partsCost = inputs.parts.reduce(
+    (sum, part) => sum + part.quantityUsed * (part.unitCostSnapshot ?? 0),
+    0,
+  );
+  const laborCost = (inputs.laborHours ?? 0) * (inputs.laborRateSnapshot ?? 0);
+  const externalCost = inputs.externalAmounts.reduce((sum, amount) => sum + amount, 0);
+
+  return {
+    partsCost,
+    laborCost,
+    externalCost,
+    total: partsCost + laborCost + externalCost,
+    isComplete: inputs.costIsComplete,
+  };
+}
+
 // ─────────────────────── Constants ──────────────────────
 /**
  * Status em que lançar custo externo não faz sentido: a OS não gerou trabalho.
@@ -53,7 +81,7 @@ export class WorkOrderCostsService {
       throw new NotFoundException(
         `Ordem de serviço ${workOrderId} não encontrada`,
       );
-    return this.composeBreakdown(inputs);
+    return composeCostBreakdown(inputs);
   }
 
   async add(
@@ -127,28 +155,6 @@ export class WorkOrderCostsService {
   }
 
   // ── Internals ───────────────────────────────────────────
-  private composeBreakdown(inputs: WorkOrderCostInputs): CostBreakdown {
-    const partsCost = inputs.parts.reduce(
-      (sum, part) => sum + part.quantityUsed * (part.unitCostSnapshot ?? 0),
-      0,
-    );
-
-    const laborCost =
-      (inputs.laborHours ?? 0) * (inputs.laborRateSnapshot ?? 0);
-    const externalCost = inputs.externalAmounts.reduce(
-      (sum, amount) => sum + amount,
-      0,
-    );
-
-    return {
-      partsCost,
-      laborCost,
-      externalCost,
-      total: partsCost + laborCost + externalCost,
-      isComplete: inputs.costIsComplete,
-    };
-  }
-
   private async findByIdOrFail(id: number): Promise<ExternalCostRecord> {
     const record = await this.repo.findById(id);
     if (!record)

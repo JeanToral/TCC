@@ -107,7 +107,7 @@ async function main() {
     },
   })
 
-  await prisma.user.upsert({
+  const managerUser = await prisma.user.upsert({
     where: { email: 'manager@cmms.com' },
     update: { hourlyRate: 110 },
     create: {
@@ -192,6 +192,47 @@ async function main() {
 
   console.log('  ✓ Assets')
 
+  // ── Spare parts ──────────────────────────────────────────
+  //
+  // RET-4062 nasce SEM unitCost de propósito: é o caminho de "cobertura de
+  // custo incompleta" do módulo financeiro. Também já nasce abaixo do mínimo,
+  // para exercitar a notificação LOW_STOCK.
+
+  type SparePartSeed = {
+    name: string
+    partNumber: string
+    description: string
+    quantity: number
+    minimumStock: number
+    unitCost: number | null
+  }
+
+  const sparePartSeeds: SparePartSeed[] = [
+    { name: 'Rolamento 6205 2RS',           partNumber: 'ROL-6205',  description: 'Rolamento rígido de esferas, vedado',       quantity: 12, minimumStock: 4, unitCost: 135.5 },
+    { name: 'Correia em V A-52',            partNumber: 'COR-A52',   description: 'Correia de transmissão, perfil A',          quantity: 8,  minimumStock: 3, unitCost: 89.9 },
+    { name: 'Filtro de ar G4',              partNumber: 'FLT-AR01',  description: 'Elemento filtrante do compressor',          quantity: 20, minimumStock: 6, unitCost: 45 },
+    { name: 'Válvula de admissão',          partNumber: 'VLV-ADM1',  description: 'Válvula do cabeçote, 1º estágio',           quantity: 5,  minimumStock: 2, unitCost: 320 },
+    { name: 'Óleo lubrificante ISO VG 68',  partNumber: 'OLE-VG68',  description: 'Galão de 20 L',                             quantity: 15, minimumStock: 5, unitCost: 210.75 },
+    { name: 'Retentor 40x62x10',            partNumber: 'RET-4062',  description: 'Retentor de eixo — sem custo cadastrado',   quantity: 2,  minimumStock: 6, unitCost: null },
+  ]
+
+  const partsByNumber = new Map<string, { id: number; unitCost: number | null }>()
+
+  for (const seed of sparePartSeeds) {
+    const part = await prisma.sparePart.upsert({
+      where: { partNumber: seed.partNumber },
+      update: {
+        unitCost: seed.unitCost,
+        quantity: seed.quantity,
+        minimumStock: seed.minimumStock,
+      },
+      create: seed,
+    })
+    partsByNumber.set(part.partNumber, { id: part.id, unitCost: part.unitCost })
+  }
+
+  console.log('  ✓ Spare parts')
+
   // ── Completed corrective work orders ─────────────────────
   //
   // Torno CNC #1 — 4 ordens:
@@ -206,7 +247,18 @@ async function main() {
   //   MTTR esperado : (4h + 7h) / 2 = 5.5h
   //   MTBF esperado : 1414h (~58.9d) — intervalo único
 
+  type PartUse = { partNumber: string; quantityUsed: number }
+
+  type ExternalUse = {
+    description: string
+    supplier?: string
+    amount: number
+    /** Competência — pode cair em mês diferente do fechamento da OS. */
+    incurredAt: Date
+  }
+
   type WOSeed = {
+    type?: WorkOrderType
     title: string
     description: string
     priority: Priority
@@ -218,6 +270,10 @@ async function main() {
     startedAt: Date
     completedAt: Date
     closingNotes: string
+    /** Horas efetivamente trabalhadas — não o tempo de parada. */
+    laborHours?: number
+    parts?: PartUse[]
+    externals?: ExternalUse[]
   }
 
   const workOrderSeeds: WOSeed[] = [
@@ -234,6 +290,8 @@ async function main() {
       startedAt:      dt('2025-01-10T08:00:00Z'),
       completedAt:    dt('2025-01-10T12:00:00Z'), // 4h
       closingNotes: 'Rolamento SKF 6205 substituído. Teste de vibração realizado com sucesso.',
+      laborHours: 3.5,
+      parts: [{ partNumber: 'ROL-6205', quantityUsed: 2 }],
     },
     {
       title: 'Reparo no sistema de lubrificação',
@@ -247,6 +305,11 @@ async function main() {
       startedAt:      dt('2025-02-15T09:00:00Z'),
       completedAt:    dt('2025-02-15T13:30:00Z'), // 4.5h
       closingNotes: 'Vedação trocada e nível de óleo reabastecido. Sistema testado sem vazamentos.',
+      laborHours: 4,
+      parts: [
+        { partNumber: 'OLE-VG68', quantityUsed: 1 },
+        { partNumber: 'RET-4062', quantityUsed: 2 },
+      ],
     },
     {
       title: 'Ajuste de folga no carro porta-ferramenta',
@@ -260,6 +323,7 @@ async function main() {
       startedAt:      dt('2025-03-20T07:00:00Z'),
       completedAt:    dt('2025-03-20T11:00:00Z'), // 4h
       closingNotes: 'Folgas ajustadas conforme especificação. Peça de teste usinada e aprovada no controle dimensional.',
+      laborHours: 2.5,
     },
     {
       title: 'Troca de correia dentada do eixo X',
@@ -273,6 +337,8 @@ async function main() {
       startedAt:      dt('2025-04-25T14:00:00Z'),
       completedAt:    dt('2025-04-25T18:30:00Z'), // 4.5h
       closingNotes: 'Correia Gates PowerGrip GT3 instalada. Tensão ajustada conforme tabela do fabricante.',
+      laborHours: 3,
+      parts: [{ partNumber: 'COR-A52', quantityUsed: 1 }],
     },
 
     // ── Fresadora #2 ──────────────────────────────────────
@@ -288,6 +354,11 @@ async function main() {
       startedAt:      dt('2025-01-20T10:00:00Z'),
       completedAt:    dt('2025-01-20T12:00:00Z'), // 2h
       closingNotes: 'Bomba substituída por modelo equivalente. Fluxo de refrigerante verificado e dentro do padrão.',
+      laborHours: 6,
+      externals: [
+        { description: 'Recondicionamento da bomba de refrigerante', supplier: 'Retificadora Oeste', amount: 1850, incurredAt: dt('2025-03-05T00:00:00Z') },
+        { description: 'Frete da bomba', supplier: 'Transportes Oeste', amount: 240, incurredAt: dt('2025-03-05T00:00:00Z') },
+      ],
     },
     {
       title: 'Reparo no painel elétrico — fusível queimado',
@@ -301,6 +372,7 @@ async function main() {
       startedAt:      dt('2025-02-28T08:00:00Z'),
       completedAt:    dt('2025-02-28T12:00:00Z'), // 4h
       closingNotes: 'Fusível 16A substituído. Causa: surto de tensão. Instalado DPS no circuito.',
+      laborHours: 1,
     },
     {
       title: 'Troca de guias lineares do eixo Y',
@@ -314,6 +386,11 @@ async function main() {
       startedAt:      dt('2025-04-10T14:00:00Z'),
       completedAt:    dt('2025-04-10T18:00:00Z'), // 4h
       closingNotes: 'Guias INA KWVE 25 substituídas. Nivelamento e alinhamento conferidos com relógio comparador.',
+      laborHours: 5,
+      parts: [{ partNumber: 'OLE-VG68', quantityUsed: 2 }],
+      externals: [
+        { description: 'Locação de talha elétrica', supplier: 'Locadora Industrial', amount: 680, incurredAt: dt('2025-06-02T00:00:00Z') },
+      ],
     },
 
     // ── Compressor Industrial ─────────────────────────────
@@ -329,6 +406,8 @@ async function main() {
       startedAt:      dt('2025-02-01T06:00:00Z'),
       completedAt:    dt('2025-02-01T10:00:00Z'), // 4h
       closingNotes: 'Filtro de ar e válvula de segurança substituídos. Pressão de abertura verificada em 8,5 bar.',
+      laborHours: 2,
+      parts: [{ partNumber: 'FLT-AR01', quantityUsed: 1 }],
     },
     {
       title: 'Reparo no cabeçote — válvulas de admissão e descarga',
@@ -342,10 +421,131 @@ async function main() {
       startedAt:      dt('2025-04-01T08:00:00Z'),
       completedAt:    dt('2025-04-01T15:00:00Z'), // 7h
       closingNotes: 'Válvulas de admissão e descarga do 1º e 2º estágio substituídas. Teste de estanqueidade aprovado.',
+      laborHours: 6.5,
+      parts: [{ partNumber: 'VLV-ADM1', quantityUsed: 4 }],
+      externals: [
+        { description: 'Assistência técnica especializada', supplier: 'Atlas Copco Serviços', amount: 3400, incurredAt: dt('2025-05-12T00:00:00Z') },
+      ],
+    },
+    // ── Preventivas ───────────────────────────────────────
+    // Dão contraste para a quebra corretiva vs preventiva do financeiro.
+    {
+      title: 'Preventiva mensal — lubrificação e inspeção geral',
+      description: 'Rotina mensal: lubrificação das guias, inspeção de folgas e aperto de conexões.',
+      type: WorkOrderType.PREVENTIVE,
+      priority: Priority.LOW,
+      assetId: torno.id,
+      requestedById: managerUser.id,
+      assignedToId: techUser.id,
+      scheduledStart: dt('2025-07-07T08:00:00Z'),
+      scheduledEnd:   dt('2025-07-07T12:00:00Z'),
+      startedAt:      dt('2025-07-07T08:00:00Z'),
+      completedAt:    dt('2025-07-07T11:00:00Z'),
+      closingNotes: 'Rotina executada conforme plano. Nenhuma anomalia encontrada.',
+      laborHours: 3,
+      parts: [{ partNumber: 'OLE-VG68', quantityUsed: 1 }],
+    },
+    {
+      title: 'Preventiva trimestral — troca de filtro de ar',
+      description: 'Substituição programada do elemento filtrante do compressor.',
+      type: WorkOrderType.PREVENTIVE,
+      priority: Priority.LOW,
+      assetId: compressor.id,
+      requestedById: managerUser.id,
+      assignedToId: techUser.id,
+      scheduledStart: dt('2025-07-15T08:00:00Z'),
+      scheduledEnd:   dt('2025-07-15T10:00:00Z'),
+      startedAt:      dt('2025-07-15T08:00:00Z'),
+      completedAt:    dt('2025-07-15T09:30:00Z'),
+      closingNotes: 'Filtro substituído e horímetro do compressor registrado.',
+      laborHours: 1.5,
+      parts: [{ partNumber: 'FLT-AR01', quantityUsed: 2 }],
+    },
+    {
+      title: 'Preventiva semestral — alinhamento e balanceamento',
+      description: 'Verificação de alinhamento do eixo e balanceamento do conjunto rotativo.',
+      type: WorkOrderType.PREVENTIVE,
+      priority: Priority.MEDIUM,
+      assetId: fresadora.id,
+      requestedById: managerUser.id,
+      assignedToId: techUser.id,
+      scheduledStart: dt('2025-08-04T07:30:00Z'),
+      scheduledEnd:   dt('2025-08-04T12:00:00Z'),
+      startedAt:      dt('2025-08-04T07:30:00Z'),
+      completedAt:    dt('2025-08-04T11:30:00Z'),
+      closingNotes: 'Alinhamento corrigido em 0,04 mm. Balanceamento dentro da tolerância.',
+      laborHours: 4,
+      externals: [
+        { description: 'Serviço de balanceamento dinâmico', supplier: 'Balanceadora Sul', amount: 950, incurredAt: dt('2025-08-04T00:00:00Z') },
+      ],
     },
   ]
 
+  // ── OS abertas ───────────────────────────────────────────
+  // Alimentam o Custo Previsto: precificadas com valores ATUAIS, sem snapshot.
+
+  type OpenWOSeed = {
+    title: string
+    description: string
+    type: WorkOrderType
+    priority: Priority
+    status: WorkOrderStatus
+    assetId: number
+    requestedById: number
+    assignedToId?: number
+    scheduledStart?: Date
+    startedAt?: Date
+    laborHours?: number
+    parts?: PartUse[]
+  }
+
+  const openWorkOrderSeeds: OpenWOSeed[] = [
+    {
+      title: 'Vazamento de óleo na base do cabeçote',
+      description: 'Mancha de óleo recorrente sob o cabeçote; suspeita de retentor desgastado.',
+      type: WorkOrderType.CORRECTIVE,
+      priority: Priority.MEDIUM,
+      status: WorkOrderStatus.IN_PROGRESS,
+      assetId: torno.id,
+      requestedById: techUser.id,
+      assignedToId: techUser.id,
+      scheduledStart: dt('2025-09-10T08:00:00Z'),
+      startedAt: dt('2025-09-10T08:30:00Z'),
+      laborHours: 2,
+      parts: [
+        { partNumber: 'RET-4062', quantityUsed: 1 },
+        { partNumber: 'OLE-VG68', quantityUsed: 1 },
+      ],
+    },
+    {
+      title: 'Ruído intermitente no motor do eixo Z',
+      description: 'Operador relata ruído metálico em altas rotações.',
+      type: WorkOrderType.CORRECTIVE,
+      priority: Priority.HIGH,
+      status: WorkOrderStatus.SCHEDULED,
+      assetId: fresadora.id,
+      requestedById: managerUser.id,
+      assignedToId: techUser.id,
+      scheduledStart: dt('2025-09-20T07:30:00Z'),
+      parts: [{ partNumber: 'ROL-6205', quantityUsed: 2 }],
+    },
+    {
+      title: 'Solicitação de inspeção no sistema de ar comprimido',
+      description: 'Queda de pressão percebida na linha durante o turno da tarde.',
+      type: WorkOrderType.CORRECTIVE,
+      priority: Priority.LOW,
+      status: WorkOrderStatus.REQUESTED,
+      assetId: compressor.id,
+      requestedById: techUser.id,
+    },
+  ]
+
+  // Taxa horária do técnico que atende todas as OS do seed. Congelada na
+  // conclusão, como faz WorkOrdersRepository.completeWithCostSnapshot.
+  const TECH_RATE = techUser.hourlyRate
+
   let created = 0
+  let updated = 0
   for (const seed of workOrderSeeds) {
     const existing = await prisma.workOrder.findFirst({
       where: {
@@ -355,19 +555,104 @@ async function main() {
       },
     })
 
-    if (!existing) {
-      await prisma.workOrder.create({
-        data: {
-          ...seed,
-          type: WorkOrderType.CORRECTIVE,
-          status: WorkOrderStatus.COMPLETED,
+    const { parts = [], externals = [], laborHours, type, ...woData } = seed
+
+    // Reproduz o congelamento de custo da conclusão real (ADR 0001).
+    const allPartsPriced = parts.every(
+      (use) => partsByNumber.get(use.partNumber)?.unitCost != null,
+    )
+    const laborOk = !laborHours || laborHours <= 0 || TECH_RATE !== null
+
+    const costFields = {
+      laborHours: laborHours ?? null,
+      laborRateSnapshot: laborHours ? TECH_RATE : null,
+      costIsComplete: allPartsPriced && laborOk,
+    }
+
+    // O seed converge: OS criadas por versões anteriores (sem custo) são
+    // atualizadas em vez de ignoradas.
+    const workOrder = existing
+      ? await prisma.workOrder.update({ where: { id: existing.id }, data: costFields })
+      : await prisma.workOrder.create({
+          data: {
+            ...woData,
+            type: type ?? WorkOrderType.CORRECTIVE,
+            status: WorkOrderStatus.COMPLETED,
+            ...costFields,
+          },
+        })
+
+    if (!existing) created++
+    else updated++
+
+    for (const use of parts) {
+      const part = partsByNumber.get(use.partNumber)
+      if (!part) continue
+      await prisma.workOrderPart.upsert({
+        where: {
+          workOrderId_sparePartId: { workOrderId: workOrder.id, sparePartId: part.id },
+        },
+        update: { quantityUsed: use.quantityUsed, unitCostSnapshot: part.unitCost },
+        create: {
+          workOrderId: workOrder.id,
+          sparePartId: part.id,
+          quantityUsed: use.quantityUsed,
+          unitCostSnapshot: part.unitCost,
         },
       })
-      created++
+    }
+
+    for (const ext of externals) {
+      const alreadyThere = await prisma.workOrderExternalCost.findFirst({
+        where: { workOrderId: workOrder.id, description: ext.description },
+      })
+      if (alreadyThere) continue
+
+      await prisma.workOrderExternalCost.create({
+        data: {
+          workOrderId: workOrder.id,
+          description: ext.description,
+          supplier: ext.supplier,
+          amount: ext.amount,
+          incurredAt: ext.incurredAt,
+          createdById: managerUser.id,
+        },
+      })
     }
   }
 
-  console.log(`  ✓ Work orders (${created} criadas, ${workOrderSeeds.length - created} já existiam)`)
+  console.log(`  ✓ Work orders concluídas (${created} criadas, ${updated} atualizadas)`)
+
+  let openCreated = 0
+  for (const seed of openWorkOrderSeeds) {
+    const existing = await prisma.workOrder.findFirst({
+      where: { title: seed.title, assetId: seed.assetId },
+    })
+
+    const { parts = [], ...woData } = seed
+
+    const workOrder = existing ?? (await prisma.workOrder.create({ data: woData }))
+    if (!existing) openCreated++
+
+    // Sem unitCostSnapshot de propósito: OS aberta é estimada a preço atual.
+    for (const use of parts) {
+      const part = partsByNumber.get(use.partNumber)
+      if (!part) continue
+      await prisma.workOrderPart.upsert({
+        where: {
+          workOrderId_sparePartId: { workOrderId: workOrder.id, sparePartId: part.id },
+        },
+        update: { quantityUsed: use.quantityUsed },
+        create: {
+          workOrderId: workOrder.id,
+          sparePartId: part.id,
+          quantityUsed: use.quantityUsed,
+        },
+      })
+    }
+  }
+
+  console.log(`  ✓ Work orders abertas (${openCreated} criadas, ${openWorkOrderSeeds.length - openCreated} já existiam)`)
 
   console.log('')
   console.log('✅ Seed concluído!')
