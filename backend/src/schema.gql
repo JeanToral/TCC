@@ -16,6 +16,37 @@ input AddWorkOrderPartInput {
   workOrderId: Int!
 }
 
+type AssetCost {
+  assetId: Int!
+  assetName: String!
+  assetTag: String!
+  completedWorkOrders: Int!
+
+  """Estimativa de OS abertas, a preços atuais. Não somar ao realizado."""
+  forecastTotal: Float!
+
+  """Parcela do realizado em OS corretivas"""
+  realizedCorrectiveCost: Float!
+
+  """Serviços de terceiros, por competência"""
+  realizedExternalCost: Float!
+
+  """Horas apontadas × taxa congelada"""
+  realizedLaborCost: Float!
+
+  """Peças consumidas, a preço congelado"""
+  realizedPartsCost: Float!
+
+  """Parcela do realizado em OS preventivas"""
+  realizedPreventiveCost: Float!
+
+  """Custo realizado total do período"""
+  realizedTotal: Float!
+
+  """OS sem preço de peça ou sem taxa horária"""
+  workOrdersWithIncompleteCost: Int!
+}
+
 type AssetKpi {
   assetId: Int!
   assetName: String!
@@ -127,6 +158,12 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+input FinanceFilterInput {
+  assetId: Int
+  from: DateTime
+  to: DateTime
+}
+
 input LoginInput {
   email: String!
   password: String!
@@ -209,6 +246,7 @@ enum Priority {
 
 type Query {
   asset(id: Int!): AssetType!
+  assetCosts(filter: FinanceFilterInput): [AssetCost!]!
   assets: [AssetType!]!
   auditLogs(targetId: Int, targetType: String): [AuditLogType!]!
   dashboardKpis(filter: DashboardFilterInput): [AssetKpi!]!

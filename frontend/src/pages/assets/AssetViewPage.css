@@ -73,3 +73,34 @@
   color: var(--error);
   font-size: 0.875rem;
 }
+
+/* ── Card de custo ────────────────────────────────────────── */
+.asset-view-page__card-loading {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0;
+}
+
+.asset-view-page__cost-total {
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.asset-view-page__cost-warning {
+  margin-top: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--warning-bg);
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  color: #92400e;
+  font-size: 0.8125rem;
+}
+
+.asset-view-page__cost-link {
+  display: inline-block;
+  margin-top: 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--primary);
+}

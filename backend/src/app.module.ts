@@ -17,6 +17,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module';
 import { WorkOrderCostsModule } from './modules/work-order-costs/work-order-costs.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { FinanceModule } from './modules/finance/finance.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SparePartsModule } from './modules/spare-parts/spare-parts.module';
 import { PreventivePlansModule } from './modules/preventive-plans/preventive-plans.module';
@@ -61,6 +62,7 @@ import { PreventivePlansModule } from './modules/preventive-plans/preventive-pla
     WorkOrderCostsModule,
     AuditLogModule,
     DashboardModule,
+    FinanceModule,
     NotificationsModule,
     SparePartsModule,
     PreventivePlansModule,

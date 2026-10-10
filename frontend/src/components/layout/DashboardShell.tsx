@@ -6,6 +6,7 @@ import {
   CalendarIcon,
   ChevronDownIcon,
   ClipboardListIcon,
+  CurrencyIcon,
   DashboardIcon,
   GearIcon,
   KeyIcon,
@@ -22,6 +23,8 @@ interface NavItem {
   readonly path: string
   readonly icon: React.ReactNode
   readonly end?: boolean
+  /** Quando presente, o item só aparece para quem tem esta permissão. */
+  readonly permission?: string
 }
 
 const mainNav: readonly NavItem[] = [
@@ -30,6 +33,7 @@ const mainNav: readonly NavItem[] = [
   { label: 'Ordens de Serviço',    path: '/dashboard/work-orders',      icon: <ClipboardListIcon /> },
   { label: 'Peças de Reposição',   path: '/dashboard/spare-parts',      icon: <GearIcon /> },
   { label: 'Planos Preventivos',   path: '/dashboard/preventive-plans', icon: <CalendarIcon /> },
+  { label: 'Custos por Ativo',     path: '/dashboard/finance',          icon: <CurrencyIcon />, permission: 'cost.read' },
 ]
 
 const adminNav: readonly NavItem[] = [
@@ -57,7 +61,7 @@ function SidebarNavItem({ item }: { readonly item: NavItem }) {
 export default function DashboardShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { logout } = useAuth()
+  const { logout, hasPermission } = useAuth()
   const [adminOpen, setAdminOpen] = useState(() =>
     adminPaths.some((p) => pathname.startsWith(p)),
   )
@@ -80,11 +84,13 @@ export default function DashboardShell() {
 
         <nav className="shell__sidebar-nav" aria-label="Navegação principal">
           <ul className="shell-nav__list" role="list">
-            {mainNav.map((item) => (
-              <li key={item.path}>
-                <SidebarNavItem item={item} />
-              </li>
-            ))}
+            {mainNav
+              .filter((item) => !item.permission || hasPermission(item.permission))
+              .map((item) => (
+                <li key={item.path}>
+                  <SidebarNavItem item={item} />
+                </li>
+              ))}
           </ul>
 
           <div className="shell-nav__section">

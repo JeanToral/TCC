@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
+import { useAuth } from '../../contexts/AuthContext'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Spinner from '../../components/ui/Spinner'
@@ -9,7 +10,75 @@ import { DELETE_ASSET } from '../../graphql/assets/DeleteAsset.gql'
 import { GET_ASSET } from '../../graphql/assets/GetAsset.gql'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import type { DeleteAssetData, GetAssetData } from '../../graphql/assets/types'
+import { GET_ASSET_COSTS } from '../../graphql/finance/GetAssetCosts.gql'
+import type { GetAssetCostsData } from '../../graphql/finance/types'
 import './AssetViewPage.css'
+
+// ── AssetCostCard ─────────────────────────────────────────
+const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+
+/** Custo de manutenção do ativo nos últimos 12 meses. Exige cost.read. */
+function AssetCostCard({ assetId }: { readonly assetId: number }) {
+  const from = new Date()
+  from.setMonth(from.getMonth() - 12)
+
+  const { data, loading } = useQuery<GetAssetCostsData>(GET_ASSET_COSTS, {
+    variables: { filter: { assetId, from: from.toISOString() } },
+  })
+
+  const cost = data?.assetCosts?.[0]
+
+  return (
+    <div className="detail-card">
+      <h2 className="detail-card__title">Custo de manutenção</h2>
+      {loading ? (
+        <div className="asset-view-page__card-loading">
+          <Spinner size="sm" />
+        </div>
+      ) : (
+        <>
+          <dl className="detail-list">
+            <div className="detail-list__item">
+              <dt className="detail-list__label">Realizado (12 meses)</dt>
+              <dd className="detail-list__value asset-view-page__cost-total">
+                {BRL.format(cost?.realizedTotal ?? 0)}
+              </dd>
+            </div>
+            <div className="asset-view-page__row">
+              <div className="detail-list__item">
+                <dt className="detail-list__label">Corretiva</dt>
+                <dd className="detail-list__value">
+                  {BRL.format(cost?.realizedCorrectiveCost ?? 0)}
+                </dd>
+              </div>
+              <div className="detail-list__item">
+                <dt className="detail-list__label">Preventiva</dt>
+                <dd className="detail-list__value">
+                  {BRL.format(cost?.realizedPreventiveCost ?? 0)}
+                </dd>
+              </div>
+            </div>
+            <div className="detail-list__item">
+              <dt className="detail-list__label">Previsto (OS abertas)</dt>
+              <dd className="detail-list__value">{BRL.format(cost?.forecastTotal ?? 0)}</dd>
+            </div>
+          </dl>
+
+          {(cost?.workOrdersWithIncompleteCost ?? 0) > 0 && (
+            <p className="asset-view-page__cost-warning" role="status">
+              {cost?.workOrdersWithIncompleteCost} de {cost?.completedWorkOrders} OS
+              com custo incompleto.
+            </p>
+          )}
+
+          <Link to={`/dashboard/finance?assetId=${assetId}`} className="asset-view-page__cost-link">
+            Ver detalhamento financeiro →
+          </Link>
+        </>
+      )}
+    </div>
+  )
+}
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—'
@@ -24,6 +93,7 @@ function formatDateTime(iso: string | null): string {
 export default function AssetViewPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
@@ -114,6 +184,8 @@ export default function AssetViewPage() {
             </div>
           </dl>
         </div>
+
+        {hasPermission('cost.read') && <AssetCostCard assetId={asset.id} />}
 
         <div className="detail-card">
           <h2 className="detail-card__title">Metadados</h2>

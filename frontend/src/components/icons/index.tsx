@@ -207,3 +207,21 @@ export function SpinnerIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+export function CurrencyIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M14.8 9.2a2.6 2.6 0 0 0-2.3-1.2h-.4a2.3 2.3 0 0 0 0 4.6h.8a2.3 2.3 0 0 1 0 4.6h-.4a2.6 2.6 0 0 1-2.3-1.2" />
+      <path d="M12 6v12" />
+    </svg>
+  )
+}
