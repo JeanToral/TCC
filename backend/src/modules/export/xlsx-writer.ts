@@ -83,12 +83,15 @@ export function toXlsxValue(
 /**
  * Escreve o XLSX em streaming (memória constante): aba "Dados" com cabeçalho
  * congelado, autofiltro e tipos de célula reais; aba "Sobre" com os metadados.
+ *
+ * `footer` é a linha de totais: em negrito, por último e fora da contagem.
  */
 export async function writeXlsx<T>(
   out: Writable,
   columns: readonly ColumnDefinition<T>[],
-  rows: AsyncIterable<T>,
+  rows: AsyncIterable<T> | Iterable<T>,
   meta: ExportMetadata,
+  footer?: T,
 ): Promise<number> {
   const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
     stream: out,
@@ -109,18 +112,12 @@ export async function writeXlsx<T>(
     width: c.width ?? DEFAULT_WIDTH[c.type],
   }));
 
-  sheet.autoFilter = {
-    from: { row: 1, column: 1 },
-    to: { row: 1, column: columns.length },
-  };
-
   const header = sheet.getRow(1);
   header.font = { bold: true };
   header.fill = HEADER_FILL;
   header.commit();
 
-  let count = 0;
-  for await (const row of rows) {
+  const addRow = (row: T): ExcelJS.Row => {
     const excelRow = sheet.addRow(
       columns.map((c) => toXlsxValue(c.value(row), c.type)),
     );
@@ -128,8 +125,25 @@ export async function writeXlsx<T>(
       const fmt = NUM_FMT[c.type];
       if (fmt) excelRow.getCell(i + 1).numFmt = fmt;
     });
-    excelRow.commit();
+    return excelRow;
+  };
+
+  let count = 0;
+  for await (const row of rows) {
+    addRow(row).commit();
     count++;
+  }
+  // Gravado no commit: dá para limitar o filtro às linhas de dados, deixando
+  // a linha de totais fora de ordenação e filtro.
+  sheet.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: count + 1, column: columns.length },
+  };
+
+  if (footer !== undefined) {
+    const totals = addRow(footer);
+    totals.font = { bold: true };
+    totals.commit();
   }
 
   sheet.commit();

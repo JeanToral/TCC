@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
+import { Checkbox } from '../../components/ui/checkbox'
+import ExportButton from '../../components/ui/ExportButton'
 import { Input } from '../../components/ui/input'
 import Spinner from '../../components/ui/Spinner'
 import { GET_SPARE_PARTS } from '../../graphql/spare-parts/GetSpareParts.gql'
@@ -10,8 +12,13 @@ import { DELETE_SPARE_PART } from '../../graphql/spare-parts/DeleteSparePart.gql
 import type { GetSparePartsData, SparePart } from '../../graphql/spare-parts/types'
 import './SparePartsListPage.css'
 
+/** Mesma regra da notificação LOW_STOCK e da planilha de estoque. */
+function isLowStock(part: Pick<SparePart, 'quantity' | 'minimumStock'>): boolean {
+  return part.quantity < part.minimumStock
+}
+
 function StockBadge({ quantity, minimumStock }: { readonly quantity: number; readonly minimumStock: number }) {
-  const isLow = quantity <= minimumStock
+  const isLow = isLowStock({ quantity, minimumStock })
   return (
     <span className={`stock-badge ${isLow ? 'stock-badge--low' : 'stock-badge--ok'}`}>
       {quantity}
@@ -83,6 +90,7 @@ function SparePartRow({
 export default function SparePartsListPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [lowStockOnly, setLowStockOnly] = useState(false)
   const { data, loading, error } = useQuery<GetSparePartsData>(GET_SPARE_PARTS, {
     fetchPolicy: 'cache-and-network',
   })
@@ -99,11 +107,12 @@ export default function SparePartsListPage() {
   const all = data?.spareParts ?? []
   const filtered = all.filter(
     (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.partNumber.toLowerCase().includes(search.toLowerCase()),
+      (p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.partNumber.toLowerCase().includes(search.toLowerCase())) &&
+      (!lowStockOnly || isLowStock(p)),
   )
 
-  const lowStock = all.filter((p) => p.quantity <= p.minimumStock).length
+  const lowStock = all.filter(isLowStock).length
 
   return (
     <div className="spare-parts-list-page">
@@ -130,6 +139,22 @@ export default function SparePartsListPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="spare-parts-list-page__search"
           />
+          <label className="spare-parts-list-page__toggle" htmlFor="low-stock-only">
+            <Checkbox
+              id="low-stock-only"
+              checked={lowStockOnly}
+              onCheckedChange={(checked) => setLowStockOnly(checked === true)}
+            />
+            Apenas estoque baixo
+          </label>
+          <ExportButton
+            path="spare-parts"
+            params={{
+              search: search.trim() || undefined,
+              lowStockOnly: lowStockOnly ? 'true' : undefined,
+            }}
+            fallbackName="estoque-de-pecas"
+          />
           <Button onClick={() => navigate('/dashboard/spare-parts/new')}>
             Nova Peça
           </Button>
@@ -150,6 +175,8 @@ export default function SparePartsListPage() {
         <div className="page-empty">
           {search ? (
             <p>Nenhuma peça encontrada para "{search}".</p>
+          ) : lowStockOnly ? (
+            <p>Nenhuma peça com estoque baixo.</p>
           ) : (
             <p>Nenhuma peça de reposição cadastrada ainda.</p>
           )}

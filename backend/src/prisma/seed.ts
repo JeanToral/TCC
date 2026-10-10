@@ -5,6 +5,10 @@ const prisma = new PrismaClient()
 
 // ── Helpers ────────────────────────────────────────────────
 
+function hoursBefore(date: Date, hours: number): Date {
+  return new Date(date.getTime() - hours * 3_600_000)
+}
+
 function dt(iso: string): Date {
   return new Date(iso)
 }
@@ -269,6 +273,8 @@ async function main() {
     scheduledEnd: Date
     startedAt: Date
     completedAt: Date
+    /** Abertura da OS. Padrão: 1h antes do início — dentro de qualquer SLA. */
+    openedAt?: Date
     closingNotes: string
     /** Horas efetivamente trabalhadas — não o tempo de parada. */
     laborHours?: number
@@ -336,6 +342,7 @@ async function main() {
       scheduledEnd:   dt('2025-04-25T19:00:00Z'),
       startedAt:      dt('2025-04-25T14:00:00Z'),
       completedAt:    dt('2025-04-25T18:30:00Z'), // 4.5h
+      openedAt:       dt('2025-04-25T08:00:00Z'), // 6h até o início: fora do SLA de 2h
       closingNotes: 'Correia Gates PowerGrip GT3 instalada. Tensão ajustada conforme tabela do fabricante.',
       laborHours: 3,
       parts: [{ partNumber: 'COR-A52', quantityUsed: 1 }],
@@ -385,6 +392,7 @@ async function main() {
       scheduledEnd:   dt('2025-04-10T19:00:00Z'),
       startedAt:      dt('2025-04-10T14:00:00Z'),
       completedAt:    dt('2025-04-10T18:00:00Z'), // 4h
+      openedAt:       dt('2025-04-09T10:00:00Z'), // 28h até o início: fora do SLA de 8h
       closingNotes: 'Guias INA KWVE 25 substituídas. Nivelamento e alinhamento conferidos com relógio comparador.',
       laborHours: 5,
       parts: [{ partNumber: 'OLE-VG68', quantityUsed: 2 }],
@@ -555,7 +563,8 @@ async function main() {
       },
     })
 
-    const { parts = [], externals = [], laborHours, type, ...woData } = seed
+    const { parts = [], externals = [], laborHours, type, openedAt, ...woData } = seed
+    const createdAt = openedAt ?? hoursBefore(seed.startedAt, 1)
 
     // Reproduz o congelamento de custo da conclusão real (ADR 0001).
     const allPartsPriced = parts.every(
@@ -564,6 +573,7 @@ async function main() {
     const laborOk = !laborHours || laborHours <= 0 || TECH_RATE !== null
 
     const costFields = {
+      createdAt,
       laborHours: laborHours ?? null,
       laborRateSnapshot: laborHours ? TECH_RATE : null,
       costIsComplete: allPartsPriced && laborOk,
@@ -630,8 +640,13 @@ async function main() {
     })
 
     const { parts = [], ...woData } = seed
+    const reference = seed.startedAt ?? seed.scheduledStart
+    // Sem data de início ou agenda, a OS foi aberta agora — o padrão do banco.
+    const dates = reference ? { createdAt: hoursBefore(reference, 1) } : {}
 
-    const workOrder = existing ?? (await prisma.workOrder.create({ data: woData }))
+    const workOrder = existing
+      ? await prisma.workOrder.update({ where: { id: existing.id }, data: dates })
+      : await prisma.workOrder.create({ data: { ...woData, ...dates } })
     if (!existing) openCreated++
 
     // Sem unitCostSnapshot de propósito: OS aberta é estimada a preço atual.

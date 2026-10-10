@@ -1,12 +1,18 @@
 import { screen } from '@testing-library/react'
 import type { MockLink } from '@apollo/client/testing'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import FinancePage from './FinancePage'
+import { downloadExport } from '../../lib/download'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import { GET_ASSET_COSTS } from '../../graphql/finance/GetAssetCosts.gql'
 import type { AssetCost } from '../../graphql/finance/types'
 import { renderWithProviders } from '../../test/renderWithProviders'
+
+vi.mock('../../lib/download', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/download')>()
+  return { ...actual, downloadExport: vi.fn().mockResolvedValue(undefined) }
+})
 
 // ── Fixtures ───────────────────────────────────────────────
 const makeCost = (overrides: Partial<AssetCost> = {}): AssetCost => ({
@@ -245,5 +251,28 @@ describe('FinancePage', () => {
     // Assert
     expect(screen.getByLabelText('Ativo')).toHaveValue('')
     expect(screen.queryByRole('button', { name: 'Limpar filtros' })).not.toBeInTheDocument()
+  })
+
+  it('deve exportar o relatório com os filtros ativos da tela', async () => {
+    // Arrange — chega filtrada pelo ativo, como a partir da tela do ativo
+    const { user } = renderWithProviders(<FinancePage />, {
+      route: '/dashboard/finance?assetId=3',
+      path: '/dashboard/finance',
+      mocks: [assetsMock(), costsMock([makeCost()])],
+      permissions: ['cost.read'],
+    })
+    await screen.findByText('INJ-003')
+
+    // Act
+    await user.click(screen.getByRole('button', { name: 'Exportar' }))
+    await user.click(screen.getByRole('menuitem', { name: /Excel/ }))
+
+    // Assert
+    expect(vi.mocked(downloadExport)).toHaveBeenCalledWith(
+      'asset-costs',
+      'xlsx',
+      { assetId: 3 },
+      'custos-por-ativo',
+    )
   })
 })

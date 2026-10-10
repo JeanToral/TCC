@@ -20,7 +20,11 @@ export interface WorkOrderPartRecord {
   readonly id: number;
   readonly workOrderId: number;
   readonly sparePartId: number;
-  readonly sparePart: { readonly id: number; readonly name: string; readonly partNumber: string };
+  readonly sparePart: {
+    readonly id: number;
+    readonly name: string;
+    readonly partNumber: string;
+  };
   readonly quantityUsed: number;
   /** Preço congelado na conclusão da OS; nulo enquanto a OS não concluiu. */
   readonly unitCostSnapshot: number | null;
@@ -34,6 +38,12 @@ export interface DecrementedPartRecord {
   readonly partNumber: string;
   readonly quantity: number;
   readonly minimumStock: number;
+}
+
+export interface SparePartExportFilter {
+  readonly search?: string;
+  /** Mesma regra da notificação LOW_STOCK: quantity < minimumStock. */
+  readonly lowStockOnly?: boolean;
 }
 
 export interface CreateSparePartData {
@@ -88,6 +98,30 @@ export class SparePartsRepository {
       select: SPARE_PART_SELECT,
       orderBy: { name: 'asc' },
     }) as Promise<SparePartRecord[]>;
+  }
+
+  /** Catálogo de peças é pequeno: carga única, sem cursor. */
+  findForExport(filter: SparePartExportFilter): Promise<SparePartRecord[]> {
+    return this.prisma.sparePart.findMany({
+      where: {
+        deletedAt: null,
+        ...(filter.search
+          ? {
+              OR: [
+                { name: { contains: filter.search, mode: 'insensitive' } },
+                {
+                  partNumber: { contains: filter.search, mode: 'insensitive' },
+                },
+              ],
+            }
+          : {}),
+        ...(filter.lowStockOnly
+          ? { quantity: { lt: this.prisma.sparePart.fields.minimumStock } }
+          : {}),
+      },
+      select: SPARE_PART_SELECT,
+      orderBy: { name: 'asc' },
+    });
   }
 
   findById(id: number): Promise<SparePartRecord | null> {
@@ -166,8 +200,9 @@ export class SparePartsRepository {
 
   removeWorkOrderPart(workOrderId: number, sparePartId: number): Promise<void> {
     return this.prisma.workOrderPart
-      .delete({ where: { workOrderId_sparePartId: { workOrderId, sparePartId } } })
+      .delete({
+        where: { workOrderId_sparePartId: { workOrderId, sparePartId } },
+      })
       .then(() => undefined);
   }
-
 }

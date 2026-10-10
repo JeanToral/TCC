@@ -1,13 +1,16 @@
 // ─────────────────────── Imports ────────────────────────
 import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDate,
   IsEnum,
   IsIn,
   IsInt,
   IsOptional,
   IsPositive,
+  IsString,
+  MaxLength,
 } from 'class-validator';
 import type { Response } from 'express';
 import { WorkOrderStatus } from '../../generated/prisma';
@@ -52,6 +55,45 @@ export class ExportWorkOrdersQuery {
   readonly to?: Date;
 }
 
+export class ExportAssetCostsQuery {
+  @IsIn(['csv', 'xlsx'])
+  readonly format: ExportFormat;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  readonly assetId?: number;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  readonly from?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  readonly to?: Date;
+}
+
+export class ExportSparePartsQuery {
+  @IsIn(['csv', 'xlsx'])
+  readonly format: ExportFormat;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  readonly search?: string;
+
+  // `Boolean('false')` é true: a conversão precisa ser explícita.
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  readonly lowStockOnly?: boolean;
+}
+
 // ─────────────────────── Controller ─────────────────────
 /**
  * Exportação de planilhas por REST, fora do GraphQL: arquivo binário, em
@@ -73,5 +115,27 @@ export class ExportController {
   ): Promise<void> {
     const { format, ...filter } = query;
     return this.exportService.exportWorkOrders(format, filter, viewer, res);
+  }
+
+  @Get('asset-costs')
+  @RequiresPermission('cost.read')
+  assetCosts(
+    @Query() query: ExportAssetCostsQuery,
+    @CurrentUser() viewer: JwtUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { format, ...filter } = query;
+    return this.exportService.exportAssetCosts(format, filter, viewer, res);
+  }
+
+  @Get('spare-parts')
+  @RequiresPermission('sparepart.read')
+  spareParts(
+    @Query() query: ExportSparePartsQuery,
+    @CurrentUser() viewer: JwtUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { format, ...filter } = query;
+    return this.exportService.exportSpareParts(format, filter, viewer, res);
   }
 }

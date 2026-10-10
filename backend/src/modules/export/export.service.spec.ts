@@ -14,10 +14,23 @@ import {
 } from './csv-writer';
 import { toSaoPauloWallClock, writeXlsx } from './xlsx-writer';
 import {
+  assetCostColumns,
   buildFilename,
+  coverageNote,
+  describePeriod,
   ExportService,
+  sparePartColumns,
+  sumAssetCosts,
+  sumStockValue,
+  toSparePartExportRow,
   workOrderColumns,
 } from './export.service';
+import type {
+  FinanceService,
+  AssetCostRecord,
+} from '../finance/finance.service';
+import type { SparePartRecord } from '../spare-parts/spare-parts.repository';
+import type { SparePartsService } from '../spare-parts/spare-parts.service';
 import type { WorkOrdersService } from '../work-orders/work-orders.service';
 
 // ─────────────────────── Fixtures ────────────────────────
@@ -162,6 +175,31 @@ describe('CSV pt-BR', () => {
     expect(formatCsvCell(-15.5, 'number')).toBe('-15,50');
   });
 
+  it('deve escrever a linha de totais por último, fora da contagem', async () => {
+    // Arrange
+    const footer: Row = {
+      name: 'TOTAL',
+      qty: 3,
+      price: 1324.4,
+      day: ROWS[0].day,
+    };
+    let count = 0;
+
+    // Act
+    const text = (
+      await capture(async (out) => {
+        count = await writeCsv(out, COLUMNS, iterate(ROWS), footer);
+        return count;
+      })
+    ).toString('utf8');
+
+    // Assert
+    const lines = text.trimEnd().split('\r\n');
+    expect(lines).toHaveLength(4);
+    expect(lines[3]).toBe('TOTAL;3;1324,40;05/03/2025');
+    expect(count).toBe(2);
+  });
+
   it('deve separar linhas com CRLF e contar as linhas escritas', async () => {
     // Act
     let count = 0;
@@ -240,6 +278,34 @@ describe('XLSX', () => {
     expect(values).toContain('Aviso de teste');
   });
 
+  it('deve deixar a linha de totais em negrito e fora do autofiltro', async () => {
+    // Arrange
+    const footer: Row = {
+      name: 'TOTAL',
+      qty: 3,
+      price: 1324.4,
+      day: ROWS[0].day,
+    };
+    const bytes = await capture((out) =>
+      writeXlsx(out, COLUMNS, iterate(ROWS), META, footer),
+    );
+    const wb = new ExcelJS.Workbook();
+
+    // Act
+    await wb.xlsx.load(bytes);
+    const sheet = wb.getWorksheet('Dados')!;
+    const about = wb.getWorksheet('Sobre')!;
+
+    // Assert
+    expect(sheet.getCell('A4').value).toBe('TOTAL');
+    expect(sheet.getCell('A4').font?.bold).toBe(true);
+    expect(sheet.getCell('C4').numFmt).toBe('"R$" #,##0.00');
+    expect(sheet.autoFilter).toBe('A1:D3');
+    // "Total de linhas" conta só os dados
+    expect(about.getColumn(2).values).toContain(2);
+    expect(about.getColumn(2).values).not.toContain(3);
+  });
+
   it('deve deslocar data-hora para o relógio de Brasília', () => {
     // 12:00 UTC → 09:00 em Brasília, representado nos componentes UTC
     const shifted = toSaoPauloWallClock(new Date('2025-01-10T12:00:00Z'));
@@ -249,7 +315,11 @@ describe('XLSX', () => {
 
 // ─────────────────────── Serviço ─────────────────────────
 describe('ExportService', () => {
-  const service = new ExportService({} as WorkOrdersService);
+  const service = new ExportService(
+    {} as WorkOrdersService,
+    {} as FinanceService,
+    {} as SparePartsService,
+  );
 
   it('deve rejeitar exportação acima do teto com mensagem clara', () => {
     // Act & Assert
@@ -324,5 +394,185 @@ describe('ExportService', () => {
         new Date('2026-10-10T12:00:00Z'),
       ),
     ).toBe('ordens-de-servico_2026-10-10.csv');
+  });
+});
+
+// ─────────────────────── Custos por ativo ────────────────
+const makeCost = (
+  overrides: Partial<AssetCostRecord> = {},
+): AssetCostRecord => ({
+  assetId: 1,
+  assetName: 'Torno CNC',
+  assetTag: 'TRN-001',
+  realizedPartsCost: 271,
+  realizedLaborCost: 157.5,
+  realizedExternalCost: 0,
+  realizedTotal: 428.5,
+  realizedCorrectiveCost: 428.5,
+  realizedPreventiveCost: 0,
+  forecastTotal: 90,
+  completedWorkOrders: 1,
+  workOrdersWithIncompleteCost: 0,
+  ...overrides,
+});
+
+describe('Relatório de custos por ativo', () => {
+  it('deve somar todas as colunas na linha de totais', () => {
+    // Arrange
+    const records = [
+      makeCost(),
+      makeCost({
+        assetId: 2,
+        assetTag: 'INJ-003',
+        realizedPartsCost: 200,
+        realizedLaborCost: 135,
+        realizedExternalCost: 380,
+        realizedTotal: 715,
+        realizedCorrectiveCost: 335,
+        realizedPreventiveCost: 380,
+        completedWorkOrders: 4,
+        workOrdersWithIncompleteCost: 1,
+      }),
+    ];
+
+    // Act
+    const totals = sumAssetCosts(records);
+
+    // Assert
+    expect(totals).toMatchObject({
+      assetTag: 'TOTAL',
+      realizedPartsCost: 471,
+      realizedLaborCost: 292.5,
+      realizedExternalCost: 380,
+      realizedTotal: 1143.5,
+      realizedCorrectiveCost: 763.5,
+      realizedPreventiveCost: 380,
+      completedWorkOrders: 5,
+      workOrdersWithIncompleteCost: 1,
+    });
+  });
+
+  it('deve repetir o período em todas as linhas', () => {
+    // Arrange
+    const col = assetCostColumns('01/01/2025 a 31/12/2025').find(
+      (c) => c.key === 'period',
+    )!;
+
+    // Act & Assert
+    expect(col.value(makeCost())).toBe('01/01/2025 a 31/12/2025');
+  });
+
+  it('não deve somar o previsto ao custo total', () => {
+    // Arrange
+    const col = assetCostColumns('x').find((c) => c.key === 'total')!;
+
+    // Act & Assert
+    expect(col.value(makeCost({ forecastTotal: 999 }))).toBe(428.5);
+  });
+
+  it('deve descrever o período no horário de Brasília', () => {
+    // Meia-noite local de Brasília = 03:00 UTC
+    expect(
+      describePeriod(
+        new Date('2025-01-01T03:00:00Z'),
+        new Date('2025-12-31T03:00:00Z'),
+      ),
+    ).toBe('01/01/2025 a 31/12/2025');
+    expect(describePeriod()).toBe('Todo o histórico');
+  });
+
+  it('deve declarar cobertura incompleta com a contagem de OS', () => {
+    // Act
+    const note = coverageNote(
+      makeCost({ completedWorkOrders: 5, workOrdersWithIncompleteCost: 2 }),
+    );
+
+    // Assert
+    expect(note).toMatch(/^Cobertura incompleta: 2 de 5 OS/);
+  });
+
+  it('deve declarar cobertura completa quando nenhuma OS falta', () => {
+    expect(coverageNote(makeCost({ completedWorkOrders: 5 }))).toMatch(
+      /^Cobertura completa/,
+    );
+  });
+});
+
+// ─────────────────────── Estoque de peças ────────────────
+const makePart = (
+  overrides: Partial<SparePartRecord> = {},
+): SparePartRecord => ({
+  id: 1,
+  name: 'Rolamento 6205',
+  partNumber: 'ROL-6205',
+  description: null,
+  quantity: 10,
+  minimumStock: 4,
+  unitCost: 135.5,
+  deletedAt: null,
+  createdAt: new Date('2025-01-01T00:00:00Z'),
+  updatedAt: new Date('2025-01-01T00:00:00Z'),
+  ...overrides,
+});
+
+describe('Relatório de estoque', () => {
+  it('deve calcular valor em estoque como quantity × unitCost', () => {
+    expect(toSparePartExportRow(makePart()).stockValue).toBe(1355);
+  });
+
+  it('deve deixar o valor vazio, não zero, para peça sem custo unitário', () => {
+    expect(
+      toSparePartExportRow(makePart({ unitCost: null })).stockValue,
+    ).toBeNull();
+  });
+
+  it('deve marcar estoque baixo só quando quantity < minimumStock', () => {
+    // Arrange & Act
+    const below = toSparePartExportRow(makePart({ quantity: 3 }));
+    const equal = toSparePartExportRow(makePart({ quantity: 4 }));
+
+    // Assert — mesma regra da notificação LOW_STOCK
+    expect(below.situation).toBe('Estoque baixo');
+    expect(equal.situation).toBe('Normal');
+  });
+
+  it('deve omitir custo unitário e valor sem cost.read', () => {
+    // Act
+    const keys = sparePartColumns(false).map((c) => c.key);
+
+    // Assert
+    expect(keys).not.toContain('unitCost');
+    expect(keys).not.toContain('stockValue');
+    expect(keys.at(-1)).toBe('situation');
+  });
+
+  it('deve incluir custo unitário e valor com cost.read', () => {
+    expect(sparePartColumns(true).map((c) => c.key)).toEqual([
+      'partNumber',
+      'name',
+      'description',
+      'quantity',
+      'minimumStock',
+      'unitCost',
+      'stockValue',
+      'situation',
+    ]);
+  });
+
+  it('deve totalizar só o valor em estoque, ignorando peças sem custo', () => {
+    // Arrange
+    const rows = [
+      makePart(),
+      makePart({ id: 2, quantity: 3, unitCost: 20 }),
+      makePart({ id: 3, unitCost: null }),
+    ].map(toSparePartExportRow);
+
+    // Act
+    const totals = sumStockValue(rows);
+
+    // Assert
+    expect(totals.partNumber).toBe('TOTAL');
+    expect(totals.stockValue).toBe(1415);
+    expect(totals.quantity).toBeNull();
   });
 });

@@ -5,6 +5,7 @@ import { NotificationType } from '../../generated/prisma';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
   type DecrementedPartRecord,
+  type SparePartExportFilter,
   type SparePartRecord,
   type WorkOrderPartRecord,
   SparePartsRepository,
@@ -22,6 +23,10 @@ export class SparePartsService {
 
   findAll(search?: string): Promise<SparePartRecord[]> {
     return this.repo.findAll(search);
+  }
+
+  findForExport(filter: SparePartExportFilter): Promise<SparePartRecord[]> {
+    return this.repo.findForExport(filter);
   }
 
   async findById(id: number): Promise<SparePartRecord> {

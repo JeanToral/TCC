@@ -100,11 +100,14 @@ export function buildCsvRow<T>(
 /**
  * Escreve o CSV em streaming, respeitando backpressure do destino.
  * Memória constante, independente do número de linhas.
+ *
+ * `footer` é a linha de totais: escrita por último e fora da contagem.
  */
 export async function writeCsv<T>(
   out: Writable,
   columns: readonly ColumnDefinition<T>[],
-  rows: AsyncIterable<T>,
+  rows: AsyncIterable<T> | Iterable<T>,
+  footer?: T,
 ): Promise<number> {
   let count = 0;
 
@@ -112,6 +115,9 @@ export async function writeCsv<T>(
   for await (const row of rows) {
     await write(out, buildCsvRow(columns, row) + CSV_EOL);
     count++;
+  }
+  if (footer !== undefined) {
+    await write(out, buildCsvRow(columns, footer) + CSV_EOL);
   }
 
   return count;

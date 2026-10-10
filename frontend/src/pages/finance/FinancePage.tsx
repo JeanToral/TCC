@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 import type { DateRange } from 'react-day-picker'
 
+import ExportButton from '../../components/ui/ExportButton'
 import { NativeSelect } from '../../components/ui/select'
 import { DateRangePicker } from '../../components/ui/date-range-picker'
 import Spinner from '../../components/ui/Spinner'
@@ -116,6 +117,9 @@ export default function FinancePage() {
       <header className="page-header">
         <div className="page-header__info">
           <h1 className="page-header__title">Custos por Ativo</h1>
+        </div>
+        <div className="page-header__actions">
+          <ExportButton path="asset-costs" params={filter} fallbackName="custos-por-ativo" />
         </div>
       </header>
 

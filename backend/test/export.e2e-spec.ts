@@ -7,6 +7,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 
 import { AppModule } from '../src/app.module';
+import { FinanceService } from '../src/modules/finance/finance.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 // Depende do banco de desenvolvimento com o seed aplicado.
@@ -236,5 +237,181 @@ describe('Exportação de planilhas (e2e)', () => {
 
     expect(sheet.actualRowCount - 1).toBe(totalWorkOrders);
     expect(wb.getWorksheet('Sobre')).toBeDefined();
+  });
+
+  // ── Custos por ativo ─────────────────────────────────────
+  describe('GET /export/asset-costs', () => {
+    it('deve retornar 403 sem a permissão cost.read', async () => {
+      await request(app.getHttpServer())
+        .get('/export/asset-costs?format=csv')
+        .set('Authorization', `Bearer ${techToken}`)
+        .expect(403);
+    });
+
+    it('deve exportar uma linha por ativo no relatório de custos', async () => {
+      // Arrange
+      const assets = await app.get(FinanceService).getAssetCosts({});
+
+      // Act
+      const res = await request(app.getHttpServer())
+        .get('/export/asset-costs?format=csv')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+
+      // Assert — cabeçalho + uma por ativo + totais
+      const lines = (res.body as Buffer)
+        .toString('utf8')
+        .trimEnd()
+        .split('\r\n');
+      expect(assets.length).toBeGreaterThan(0);
+      expect(lines.length - 2).toBe(assets.length);
+      expect(res.headers['content-disposition']).toMatch(
+        /filename="custos-por-ativo_/,
+      );
+    });
+
+    it('deve incluir linha de totais no relatório de custos', async () => {
+      // Arrange
+      const assets = await app.get(FinanceService).getAssetCosts({});
+      const expected = assets.reduce((sum, a) => sum + a.realizedTotal, 0);
+
+      // Act
+      const res = await request(app.getHttpServer())
+        .get('/export/asset-costs?format=xlsx')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(res.body as Buffer);
+      const sheet = wb.getWorksheet('Dados')!;
+      const header = sheet.getRow(1).values as unknown[];
+      const last = sheet.getRow(sheet.actualRowCount);
+
+      // Assert
+      expect(last.getCell(1).value).toBe('TOTAL');
+      expect(last.getCell(header.indexOf('Custo total')).value).toBeCloseTo(
+        expected,
+        2,
+      );
+    });
+
+    it('deve declarar a cobertura na aba de metadados', async () => {
+      // Act
+      const res = await request(app.getHttpServer())
+        .get('/export/asset-costs?format=xlsx')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(res.body as Buffer);
+      const notes = wb.getWorksheet('Sobre')!.getColumn(2).values;
+
+      // Assert
+      expect(
+        notes.some((v) => typeof v === 'string' && v.startsWith('Cobertura')),
+      ).toBe(true);
+    });
+  });
+
+  // ── Estoque de peças ─────────────────────────────────────
+  describe('GET /export/spare-parts', () => {
+    it('deve retornar 403 sem a permissão sparepart.read', async () => {
+      await request(app.getHttpServer())
+        .get('/export/spare-parts?format=csv')
+        .set('Authorization', `Bearer ${noReadToken}`)
+        .expect(403);
+    });
+
+    it('deve retornar 400 para lowStockOnly não booleano', async () => {
+      await request(app.getHttpServer())
+        .get('/export/spare-parts?format=csv&lowStockOnly=talvez')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .expect(400);
+    });
+
+    it('deve calcular valor total em estoque como quantity × unitCost', async () => {
+      // Arrange
+      const part = await prisma.sparePart.findFirstOrThrow({
+        where: {
+          deletedAt: null,
+          unitCost: { not: null },
+          quantity: { gt: 0 },
+        },
+      });
+
+      // Act
+      const res = await request(app.getHttpServer())
+        .get('/export/spare-parts?format=xlsx')
+        .set('Authorization', `Bearer ${managerToken}`)
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(res.body as Buffer);
+      const sheet = wb.getWorksheet('Dados')!;
+      const header = sheet.getRow(1).values as unknown[];
+      let row: ExcelJS.Row | undefined;
+      sheet.eachRow((r) => {
+        if (r.getCell(1).value === part.partNumber) row = r;
+      });
+
+      // Assert
+      expect(row).toBeDefined();
+      expect(
+        row!.getCell(header.indexOf('Valor em estoque')).value,
+      ).toBeCloseTo(part.quantity * part.unitCost!, 2);
+      expect(sheet.getRow(sheet.actualRowCount).getCell(1).value).toBe('TOTAL');
+    });
+
+    it('deve omitir colunas de custo do estoque para usuário sem cost.read', async () => {
+      // Act
+      const res = await request(app.getHttpServer())
+        .get('/export/spare-parts?format=csv')
+        .set('Authorization', `Bearer ${techToken}`)
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      const lines = (res.body as Buffer)
+        .toString('utf8')
+        .trimEnd()
+        .split('\r\n');
+
+      // Assert — sem custo também não há linha de totais
+      expect(lines[0]).not.toContain('Custo unitário');
+      expect(lines[0]).not.toContain('Valor em estoque');
+      expect(lines.at(-1)).not.toMatch(/^TOTAL;/);
+    });
+
+    it('deve filtrar apenas peças em estoque baixo quando lowStockOnly=true', async () => {
+      // Arrange — mesma regra da notificação LOW_STOCK
+      const lowStock = await prisma.sparePart.count({
+        where: {
+          deletedAt: null,
+          quantity: { lt: prisma.sparePart.fields.minimumStock },
+        },
+      });
+
+      // Act
+      const res = await request(app.getHttpServer())
+        .get('/export/spare-parts?format=csv&lowStockOnly=true')
+        .set('Authorization', `Bearer ${techToken}`)
+        .buffer(true)
+        .parse(binaryParser)
+        .expect(200);
+      const lines = (res.body as Buffer)
+        .toString('utf8')
+        .trimEnd()
+        .split('\r\n');
+
+      // Assert
+      expect(lines.length - 1).toBe(lowStock);
+      expect(lines.slice(1).every((l) => l.endsWith(';Estoque baixo'))).toBe(
+        true,
+      );
+    });
   });
 });

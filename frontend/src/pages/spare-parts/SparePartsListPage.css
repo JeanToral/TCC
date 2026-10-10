@@ -24,6 +24,16 @@
   width: 260px;
 }
 
+.spare-parts-list-page__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .spare-parts-table-card {
   background: #fff;
   border: 1px solid #e5e7eb;
