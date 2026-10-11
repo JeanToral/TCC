@@ -1,6 +1,5 @@
 import { type ChangeEvent, type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CombinedGraphQLErrors } from '@apollo/client'
 import { useMutation, useQuery } from '@apollo/client/react'
 
 import { useAuth } from '../../contexts/AuthContext'
@@ -14,6 +13,7 @@ import {
   FormSection,
 } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
+import { errorMessage } from '../../lib/utils'
 import Spinner from '../../components/ui/Spinner'
 import { GET_ME } from '../../graphql/users/GetMe.gql'
 import { UPDATE_MY_PROFILE } from '../../graphql/users/UpdateMyProfile.gql'
@@ -33,11 +33,6 @@ interface FormState {
 type FormErrors = Partial<Record<keyof FormState, string>>
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-function errorMessage(err: unknown): string {
-  if (CombinedGraphQLErrors.is(err)) return err.errors[0]?.message ?? 'Erro ao salvar.'
-  return err instanceof Error ? err.message : 'Erro ao salvar.'
-}
 
 function ProfileForm({ profile }: { readonly profile: MyProfile }) {
   const navigate = useNavigate()

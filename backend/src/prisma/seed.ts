@@ -9,8 +9,27 @@ function hoursBefore(date: Date, hours: number): Date {
   return new Date(date.getTime() - hours * 3_600_000)
 }
 
+/**
+ * O roteiro foi escrito de jan a set/2025. Na hora de rodar, tudo é deslocado
+ * em meses inteiros para que set/2025 caia no mês atual: o período padrão do
+ * Dashboard e dos Relatórios (últimos 6 meses) abre com corretivas (abril do
+ * roteiro), preventivas e OS em aberto.
+ */
+const SCRIPT_LAST_MONTH = 2025 * 12 + 8 // set/2025, mês base 0
+const today = new Date()
+const MONTH_SHIFT = today.getUTCFullYear() * 12 + today.getUTCMonth() - SCRIPT_LAST_MONTH
+
 function dt(iso: string): Date {
-  return new Date(iso)
+  const date = new Date(iso)
+  // Dia 29–31 transbordaria para o mês seguinte ao somar meses.
+  if (date.getUTCDate() > 28) throw new Error(`Data do seed com dia > 28: ${iso}`)
+  date.setUTCMonth(date.getUTCMonth() + MONTH_SHIFT)
+  return date
+}
+
+/** OS já iniciada não pode ter início no futuro (seed rodado antes do dia do roteiro). */
+function notAfterNow(date: Date): Date {
+  return date.getTime() > today.getTime() ? hoursBefore(today, 2) : date
 }
 
 async function hashPassword(plain: string): Promise<string> {
@@ -517,8 +536,8 @@ async function main() {
       assetId: torno.id,
       requestedById: techUser.id,
       assignedToId: techUser.id,
-      scheduledStart: dt('2025-09-10T08:00:00Z'),
-      startedAt: dt('2025-09-10T08:30:00Z'),
+      scheduledStart: notAfterNow(dt('2025-09-10T08:00:00Z')),
+      startedAt: notAfterNow(dt('2025-09-10T08:30:00Z')),
       laborHours: 2,
       parts: [
         { partNumber: 'RET-4062', quantityUsed: 1 },
@@ -581,8 +600,19 @@ async function main() {
 
     // O seed converge: OS criadas por versões anteriores (sem custo) são
     // atualizadas em vez de ignoradas.
+    // Datas também convergem: rodar o seed de novo traz o roteiro para o mês atual.
+    const dateFields = {
+      scheduledStart: woData.scheduledStart,
+      scheduledEnd: woData.scheduledEnd,
+      startedAt: woData.startedAt,
+      completedAt: woData.completedAt,
+    }
+
     const workOrder = existing
-      ? await prisma.workOrder.update({ where: { id: existing.id }, data: costFields })
+      ? await prisma.workOrder.update({
+          where: { id: existing.id },
+          data: { ...costFields, ...dateFields },
+        })
       : await prisma.workOrder.create({
           data: {
             ...woData,
@@ -616,7 +646,13 @@ async function main() {
       const alreadyThere = await prisma.workOrderExternalCost.findFirst({
         where: { workOrderId: workOrder.id, description: ext.description },
       })
-      if (alreadyThere) continue
+      if (alreadyThere) {
+        await prisma.workOrderExternalCost.update({
+          where: { id: alreadyThere.id },
+          data: { incurredAt: ext.incurredAt },
+        })
+        continue
+      }
 
       await prisma.workOrderExternalCost.create({
         data: {
@@ -642,7 +678,11 @@ async function main() {
     const { parts = [], ...woData } = seed
     const reference = seed.startedAt ?? seed.scheduledStart
     // Sem data de início ou agenda, a OS foi aberta agora — o padrão do banco.
-    const dates = reference ? { createdAt: hoursBefore(reference, 1) } : {}
+    const dates = {
+      ...(reference ? { createdAt: hoursBefore(reference, 1) } : {}),
+      scheduledStart: seed.scheduledStart,
+      startedAt: seed.startedAt,
+    }
 
     const workOrder = existing
       ? await prisma.workOrder.update({ where: { id: existing.id }, data: dates })

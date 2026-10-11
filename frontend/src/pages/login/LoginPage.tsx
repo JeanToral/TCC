@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useMutation } from '@apollo/client/react'
 
@@ -7,6 +7,7 @@ import { AlertIcon, CheckIcon, EyeIcon, EyeOffIcon, GearIcon, SpinnerIcon } from
 import { useAuth } from '../../contexts/AuthContext'
 import { LOGIN } from '../../graphql/auth/Login.gql'
 import type { LoginMutationResult, LoginMutationVariables } from '../../graphql/auth/Login.gql'
+import { errorMessage } from '../../lib/utils'
 import './LoginPage.css'
 
 interface LoginFormState {
@@ -49,7 +50,7 @@ export default function LoginPage() {
       navigate(from, { replace: true })
     },
     onError(error) {
-      const message = error.graphQLErrors[0]?.message ?? 'Erro ao conectar com o servidor.'
+      const message = errorMessage(error, 'Erro ao conectar com o servidor.')
       const isCredentials = message.toLowerCase().includes('credenciais') || message.toLowerCase().includes('unauthorized')
       setErrors({ general: isCredentials ? 'E-mail ou senha incorretos.' : message })
     },
@@ -63,7 +64,7 @@ export default function LoginPage() {
     }
   }
 
-  function handleSubmit(e: SubmitEvent) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const validationErrors = validate(values)
     if (Object.keys(validationErrors).length > 0) {

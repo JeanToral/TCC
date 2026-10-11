@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import PreventivePlanEditPage from './PreventivePlanEditPage'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import { CREATE_PREVENTIVE_PLAN } from '../../graphql/preventive-plans/CreatePreventivePlan.gql'
+import { GET_PREVENTIVE_PLAN } from '../../graphql/preventive-plans/GetPreventivePlan.gql'
 import { GET_PREVENTIVE_PLANS } from '../../graphql/preventive-plans/GetPreventivePlans.gql'
 import { renderWithProviders } from '../../test/renderWithProviders'
 
@@ -157,5 +158,41 @@ describe('PreventivePlanEditPage — modo criação', () => {
         nextDueAt: '2026-10-15T00:00:00.000Z',
       },
     })
+  })
+})
+
+describe('PreventivePlanEditPage — modo edição', () => {
+  it('deve preencher o formulário com o plano carregado', async () => {
+    // Arrange
+    const planMock: MockLink.MockedResponse = {
+      request: { query: GET_PREVENTIVE_PLAN, variables: { id: 9 } },
+      result: {
+        data: {
+          preventivePlan: {
+            id: 9,
+            name: 'Lubrificação mensal',
+            description: 'Guias e fusos',
+            assetId: 3,
+            asset: { id: 3, name: 'Injetora 03', tag: 'INJ-003' },
+            intervalDays: 30,
+            lastGeneratedAt: null,
+            nextDueAt: '2026-11-01T00:00:00.000Z',
+            isActive: true,
+          },
+        },
+      },
+    }
+
+    // Act
+    renderWithProviders(<PreventivePlanEditPage />, {
+      route: '/preventive-plans/9/edit',
+      path: '/preventive-plans/:id/edit',
+      mocks: [planMock, assetsMock(), plansMock()],
+    })
+
+    // Assert
+    expect(await screen.findByDisplayValue('Lubrificação mensal')).toBeInTheDocument()
+    expect(screen.getByLabelText('Descrição')).toHaveValue('Guias e fusos')
+    expect(screen.getByLabelText('Intervalo (dias) *')).toHaveValue(30)
   })
 })

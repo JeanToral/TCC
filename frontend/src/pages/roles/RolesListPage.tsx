@@ -8,6 +8,7 @@ import Spinner from '../../components/ui/Spinner'
 import { GET_ROLES_MGMT } from '../../graphql/roles/GetRoles.gql'
 import { DELETE_ROLE } from '../../graphql/roles/DeleteRole.gql'
 import type { DeleteRoleData, GetRolesData, RoleItem } from '../../graphql/roles/types'
+import { errorMessage } from '../../lib/utils'
 import './RolesListPage.css'
 
 function RoleRow({
@@ -25,7 +26,9 @@ function RoleRow({
       <td className="roles-table__cell roles-table__cell--name">
         <span className="roles-table__name">{role.name}</span>
         {role.isSystem && (
-          <Badge variant="info" className="roles-table__system-badge">Sistema</Badge>
+          <span className="roles-table__system-badge">
+            <Badge variant="info">Sistema</Badge>
+          </span>
         )}
       </td>
       <td className="roles-table__cell roles-table__cell--muted">
@@ -78,7 +81,7 @@ export default function RolesListPage() {
     onCompleted: () => setDeleteTarget(null),
     onError: (err) => {
       setDeleteTarget(null)
-      alert(err.graphQLErrors[0]?.message ?? err.message)
+      alert(errorMessage(err))
     },
   })
 

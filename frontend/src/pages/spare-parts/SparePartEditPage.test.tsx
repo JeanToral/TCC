@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 import SparePartEditPage from './SparePartEditPage'
 import { CREATE_SPARE_PART } from '../../graphql/spare-parts/CreateSparePart.gql'
+import { GET_SPARE_PART } from '../../graphql/spare-parts/GetSparePart.gql'
+import { UPDATE_SPARE_PART } from '../../graphql/spare-parts/UpdateSparePart.gql'
 import { GET_SPARE_PARTS } from '../../graphql/spare-parts/GetSpareParts.gql'
 import { renderWithProviders } from '../../test/renderWithProviders'
 
@@ -189,5 +191,63 @@ describe('SparePartEditPage — aviso de custo', () => {
 
     // Assert
     expect(screen.getByLabelText('Custo Unitário (R$)')).toBeInTheDocument()
+  })
+})
+
+describe('SparePartEditPage — modo edição', () => {
+  const part = {
+    id: 5,
+    name: 'Rolamento 6205',
+    partNumber: 'ROL-6205',
+    description: 'Blindado',
+    quantity: 12,
+    minimumStock: 4,
+    unitCost: 45.9,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  }
+
+  it('deve preencher o formulário e não enviar o código na atualização', async () => {
+    // Arrange
+    const sent: Record<string, unknown>[] = []
+    const mocks: MockLink.MockedResponse[] = [
+      { request: { query: GET_SPARE_PART, variables: { id: 5 } }, result: { data: { sparePart: part } } },
+      {
+        request: {
+          query: UPDATE_SPARE_PART,
+          variables: (vars) => {
+            sent.push(vars)
+            return true
+          },
+        },
+        result: { data: { updateSparePart: { ...part, quantity: 20 } } },
+      },
+      sparePartsMock(),
+    ]
+    const { user } = renderWithProviders(<SparePartEditPage />, {
+      route: '/spare-parts/5/edit',
+      path: '/spare-parts/:id/edit',
+      mocks,
+    })
+    const quantity = await screen.findByDisplayValue('12')
+    expect(screen.getByLabelText('Nome *')).toHaveValue('Rolamento 6205')
+
+    // Act
+    await user.clear(quantity)
+    await user.type(quantity, '20')
+    await user.click(screen.getByRole('button', { name: /Salvar/ }))
+
+    // Assert
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toEqual({
+      id: 5,
+      input: {
+        name: 'Rolamento 6205',
+        description: 'Blindado',
+        quantity: 20,
+        minimumStock: 4,
+        unitCost: 45.9,
+      },
+    })
   })
 })

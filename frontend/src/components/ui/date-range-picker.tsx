@@ -67,7 +67,7 @@ export function DateRangePicker({
             onSelect={onSelect}
             locale={ptBR}
             numberOfMonths={2}
-            initialFocus
+            autoFocus
           />
         </PopoverContent>
       </Popover>

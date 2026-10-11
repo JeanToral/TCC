@@ -20,6 +20,7 @@ import type { GetAssetsData } from '../../graphql/assets/types'
 import { CREATE_WORK_ORDER } from '../../graphql/work-orders/CreateWorkOrder.gql'
 import { GET_WORK_ORDERS } from '../../graphql/work-orders/GetWorkOrders.gql'
 import type { CreateWorkOrderData } from '../../graphql/work-orders/types'
+import { errorMessage } from '../../lib/utils'
 import './WorkOrderCreatePage.css'
 
 interface FormState {
@@ -68,7 +69,7 @@ export default function WorkOrderCreatePage() {
   const [createWorkOrder, { loading: submitting }] = useMutation<CreateWorkOrderData>(CREATE_WORK_ORDER, {
     refetchQueries: [{ query: GET_WORK_ORDERS }],
     onCompleted: (data) => navigate(`/dashboard/work-orders/${data.createWorkOrder.id}`),
-    onError: (e) => setSubmitError(e.graphQLErrors[0]?.message ?? e.message),
+    onError: (e) => setSubmitError(errorMessage(e)),
   })
 
   function handleChange(field: keyof FormState, value: string) {

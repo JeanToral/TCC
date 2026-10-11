@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
@@ -60,7 +60,11 @@ export default function PreventivePlanEditPage() {
 
   const { data: assetsData } = useQuery<GetAssetsData>(GET_ASSETS)
 
-  useEffect(() => {
+  // Preenche o formulário quando os dados chegam — ajuste de estado no render,
+  // não em efeito (react.dev/learn/you-might-not-need-an-effect).
+  const [loadedData, setLoadedData] = useState<typeof planData>(undefined)
+  if (planData !== loadedData) {
+    setLoadedData(planData)
     if (planData?.preventivePlan) {
       const p = planData.preventivePlan
       setForm({
@@ -72,7 +76,7 @@ export default function PreventivePlanEditPage() {
         isActive: p.isActive,
       })
     }
-  }, [planData])
+  }
 
   const refetchQueries = [{ query: GET_PREVENTIVE_PLANS }]
 

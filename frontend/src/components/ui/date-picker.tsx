@@ -62,7 +62,7 @@ export function DatePicker({
               setOpen(false)
             }}
             locale={ptBR}
-            initialFocus
+            autoFocus
           />
         </PopoverContent>
       </Popover>

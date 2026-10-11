@@ -1,4 +1,4 @@
-import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
@@ -28,6 +28,7 @@ import type {
   GetUserData,
   UpdateUserData,
 } from '../../graphql/users/types'
+import { errorMessage } from '../../lib/utils'
 import './UserEditPage.css'
 
 interface FormState {
@@ -69,8 +70,11 @@ export default function UserEditPage() {
   // Fetch available roles
   const { data: rolesData, loading: rolesLoading } = useQuery<GetRolesData>(GET_ROLES)
 
-  // Pre-populate form when user data loads
-  useEffect(() => {
+  // Preenche o formulário quando os dados chegam — ajuste de estado no render,
+  // não em efeito (react.dev/learn/you-might-not-need-an-effect).
+  const [loadedData, setLoadedData] = useState<typeof userData>(undefined)
+  if (userData !== loadedData) {
+    setLoadedData(userData)
     if (userData?.user) {
       const { user } = userData
       setForm({
@@ -82,7 +86,7 @@ export default function UserEditPage() {
         hourlyRate: user.hourlyRate != null ? String(user.hourlyRate) : '',
       })
     }
-  }, [userData])
+  }
 
   const [createUser, { loading: creating }] = useMutation<CreateUserData>(
     CREATE_USER,
@@ -90,7 +94,7 @@ export default function UserEditPage() {
       refetchQueries: [{ query: GET_USERS }],
       onCompleted: (data) =>
         navigate(`/dashboard/users/${data.createUser.id}`),
-      onError: (err) => setSubmitError(err.graphQLErrors[0]?.message ?? err.message),
+      onError: (err) => setSubmitError(errorMessage(err)),
     },
   )
 
@@ -99,7 +103,7 @@ export default function UserEditPage() {
     {
       refetchQueries: [{ query: GET_USERS }],
       onCompleted: () => navigate(`/dashboard/users/${id}`),
-      onError: (err) => setSubmitError(err.graphQLErrors[0]?.message ?? err.message),
+      onError: (err) => setSubmitError(errorMessage(err)),
     },
   )
 

@@ -1,4 +1,4 @@
-import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
@@ -19,6 +19,7 @@ import { GET_ASSET } from '../../graphql/assets/GetAsset.gql'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import { UPDATE_ASSET } from '../../graphql/assets/UpdateAsset.gql'
 import type { CreateAssetData, GetAssetData, UpdateAssetData } from '../../graphql/assets/types'
+import { errorMessage } from '../../lib/utils'
 import './AssetEditPage.css'
 
 interface FormState {
@@ -59,7 +60,11 @@ export default function AssetEditPage() {
     { variables: { id: Number(id) }, skip: !isEdit },
   )
 
-  useEffect(() => {
+  // Preenche o formulário quando os dados chegam — ajuste de estado no render,
+  // não em efeito (react.dev/learn/you-might-not-need-an-effect).
+  const [loadedData, setLoadedData] = useState<typeof assetData>(undefined)
+  if (assetData !== loadedData) {
+    setLoadedData(assetData)
     if (assetData?.asset) {
       const { asset } = assetData
       setForm({
@@ -72,18 +77,18 @@ export default function AssetEditPage() {
       })
       setInstallDate(asset.installDate ? new Date(asset.installDate) : undefined)
     }
-  }, [assetData])
+  }
 
   const [createAsset, { loading: creating }] = useMutation<CreateAssetData>(CREATE_ASSET, {
     refetchQueries: [{ query: GET_ASSETS }],
     onCompleted: (data) => navigate(`/dashboard/assets/${data.createAsset.id}`),
-    onError: (err) => setSubmitError(err.graphQLErrors[0]?.message ?? err.message),
+    onError: (err) => setSubmitError(errorMessage(err)),
   })
 
   const [updateAsset, { loading: updating }] = useMutation<UpdateAssetData>(UPDATE_ASSET, {
     refetchQueries: [{ query: GET_ASSETS }, { query: GET_ASSET, variables: { id: Number(id) } }],
     onCompleted: () => navigate(`/dashboard/assets/${id}`),
-    onError: (err) => setSubmitError(err.graphQLErrors[0]?.message ?? err.message),
+    onError: (err) => setSubmitError(errorMessage(err)),
   })
 
   const submitting = creating || updating

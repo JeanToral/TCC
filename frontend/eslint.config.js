@@ -19,5 +19,12 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Context + hook no mesmo arquivo é intencional; só custa um reload completo no HMR.
+      'react-refresh/only-export-components': [
+        'error',
+        { allowConstantExport: true, allowExportNames: ['AuthContext', 'useAuth', 'useAppearance'] },
+      ],
+    },
   },
 ])

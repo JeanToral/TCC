@@ -30,6 +30,7 @@ import type {
   StartWorkOrderData,
   WorkOrderStatus,
 } from '../../graphql/work-orders/types'
+import { errorMessage } from '../../lib/utils'
 import './WorkOrderViewPage.css'
 
 // ── Helpers ────────────────────────────────────────────────
@@ -495,38 +496,38 @@ export default function WorkOrderViewPage() {
     variables: { id: Number(id) },
     refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
     onCompleted: () => setApproveOpen(false),
-    onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
+    onError: (e) => setActionError(errorMessage(e)),
   })
 
   const [rejectWorkOrder, { loading: rejecting }] = useMutation<RejectWorkOrderData>(REJECT_WORK_ORDER, {
     refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
     onCompleted: () => { setRejectOpen(false); setRejectReason('') },
-    onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
+    onError: (e) => setActionError(errorMessage(e)),
   })
 
   const [scheduleWorkOrder, { loading: scheduling }] = useMutation<ScheduleWorkOrderData>(SCHEDULE_WORK_ORDER, {
     refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
     onCompleted: () => { setScheduleOpen(false); setScheduleForm({ assignedToId: '', scheduledStart: undefined, scheduledEnd: undefined }) },
-    onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
+    onError: (e) => setActionError(errorMessage(e)),
   })
 
   const [startWorkOrder, { loading: starting }] = useMutation<StartWorkOrderData>(START_WORK_ORDER, {
     variables: { id: Number(id) },
     refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
     onCompleted: () => setStartOpen(false),
-    onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
+    onError: (e) => setActionError(errorMessage(e)),
   })
 
   const [completeWorkOrder, { loading: completing }] = useMutation<CompleteWorkOrderData>(COMPLETE_WORK_ORDER, {
     refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
     onCompleted: () => { setCompleteOpen(false); setClosingNotes(''); setLaborHours('') },
-    onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
+    onError: (e) => setActionError(errorMessage(e)),
   })
 
   const [cancelWorkOrder, { loading: cancelling }] = useMutation<CancelWorkOrderData>(CANCEL_WORK_ORDER, {
     refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
     onCompleted: () => { setCancelOpen(false); setCancelReason('') },
-    onError: (e) => setActionError(e.graphQLErrors[0]?.message ?? e.message),
+    onError: (e) => setActionError(errorMessage(e)),
   })
 
   if (loading) {

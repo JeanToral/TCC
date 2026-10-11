@@ -14,13 +14,17 @@ import AssetEditPage from './pages/assets/AssetEditPage'
 import WorkOrdersListPage from './pages/work-orders/WorkOrdersListPage'
 import WorkOrderViewPage from './pages/work-orders/WorkOrderViewPage'
 import WorkOrderCreatePage from './pages/work-orders/WorkOrderCreatePage'
-import DashboardPage from './pages/dashboard/DashboardPage'
 import ProfilePage from './pages/profile/ProfilePage'
 import SparePartsListPage from './pages/spare-parts/SparePartsListPage'
 import SparePartEditPage from './pages/spare-parts/SparePartEditPage'
 import PreventivePlansListPage from './pages/preventive-plans/PreventivePlansListPage'
 import PreventivePlanEditPage from './pages/preventive-plans/PreventivePlanEditPage'
-import ReportsPage from './pages/reports/ReportsPage'
+
+// Dashboard e Relatórios carregam sob demanda: o Recharts sai do pacote inicial.
+const lazyDashboard = () =>
+  import('./pages/dashboard/DashboardPage').then((m) => ({ Component: m.default }))
+const lazyReports = () =>
+  import('./pages/reports/ReportsPage').then((m) => ({ Component: m.default }))
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
@@ -29,7 +33,7 @@ export const router = createBrowserRouter([
     path: '/dashboard',
     element: <RequireAuth><DashboardShell /></RequireAuth>,
     children: [
-      { index: true, element: <DashboardPage /> },
+      { index: true, lazy: lazyDashboard },
       { path: 'users',                element: <UsersListPage /> },
       { path: 'users/new',            element: <UserEditPage /> },
       { path: 'users/:id',            element: <UserViewPage /> },
@@ -49,8 +53,8 @@ export const router = createBrowserRouter([
         path: 'finance',
         loader: ({ request }) => redirect(`/dashboard/reports/costs${new URL(request.url).search}`),
       },
-      { path: 'reports',              element: <ReportsPage /> },
-      { path: 'reports/:tab',         element: <ReportsPage /> },
+      { path: 'reports',              lazy: lazyReports },
+      { path: 'reports/:tab',         lazy: lazyReports },
       { path: 'profile',              element: <ProfilePage /> },
       { path: 'spare-parts',                element: <SparePartsListPage /> },
       { path: 'spare-parts/new',            element: <SparePartEditPage /> },

@@ -1,10 +1,12 @@
 import { screen, waitFor } from '@testing-library/react'
 import type { MockLink } from '@apollo/client/testing'
+import { GraphQLError } from 'graphql'
 import { describe, expect, it } from 'vitest'
 
 import UserEditPage from './UserEditPage'
 import { CREATE_USER } from '../../graphql/users/CreateUser.gql'
 import { GET_ROLES } from '../../graphql/users/GetRoles.gql'
+import { GET_USER } from '../../graphql/users/GetUser.gql'
 import { GET_USERS } from '../../graphql/users/GetUsers.gql'
 import { renderWithProviders } from '../../test/renderWithProviders'
 
@@ -241,5 +243,64 @@ describe('UserEditPage — taxa horária (dado salarial)', () => {
 
     // Assert
     expect(await screen.findByText('Informe um valor válido.')).toBeInTheDocument()
+  })
+})
+
+describe('UserEditPage — modo edição e erros do servidor', () => {
+  it('deve preencher o formulário com o usuário carregado', async () => {
+    // Arrange
+    const userMock: MockLink.MockedResponse = {
+      request: { query: GET_USER, variables: { id: 7 } },
+      result: {
+        data: {
+          user: {
+            id: 7,
+            name: 'Maria Souza',
+            email: 'maria@empresa.com',
+            isActive: false,
+            hourlyRate: null,
+            roleId: 2,
+            role: { id: 2, name: 'Technician', description: 'Técnico', permissions: [], isSystem: true },
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            deletedAt: null,
+          },
+        },
+      },
+    }
+
+    // Act
+    renderWithProviders(<UserEditPage />, {
+      route: '/users/7/edit',
+      path: '/users/:id/edit',
+      mocks: [userMock, rolesMock(), usersMock()],
+    })
+
+    // Assert
+    expect(await screen.findByLabelText('Nome completo')).toHaveValue('Maria Souza')
+    expect(screen.getByLabelText('E-mail')).toHaveValue('maria@empresa.com')
+    expect(screen.getByLabelText('Nova senha (opcional)')).toHaveValue('')
+  })
+
+  it('deve exibir a mensagem de erro devolvida pelo servidor', async () => {
+    // Arrange
+    const createMock: MockLink.MockedResponse = {
+      request: { query: CREATE_USER, variables: () => true },
+      result: { errors: [new GraphQLError('E-mail já cadastrado')] },
+    }
+    const { user } = renderWithProviders(<UserEditPage />, {
+      mocks: [rolesMock(), createMock, usersMock()],
+    })
+    await screen.findByRole('option', { name: 'Technician' })
+
+    // Act
+    await user.type(screen.getByLabelText('Nome completo'), 'João da Silva')
+    await user.type(screen.getByLabelText('E-mail'), 'joao@empresa.com')
+    await user.type(screen.getByLabelText('Senha'), 'senha1234')
+    await user.selectOptions(screen.getByLabelText('Função'), '2')
+    await user.click(screen.getByRole('button', { name: 'Criar usuário' }))
+
+    // Assert
+    expect(await screen.findByRole('alert')).toHaveTextContent('E-mail já cadastrado')
   })
 })

@@ -125,7 +125,7 @@
   font-weight: 600;
 }
 
-.roles-table__system-badge {
+.roles-table__system-badge .badge {
   font-size: 0.7rem;
 }
 

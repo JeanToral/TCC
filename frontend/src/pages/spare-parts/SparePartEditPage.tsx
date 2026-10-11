@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@apollo/client/react'
 
@@ -19,6 +19,7 @@ import { GET_SPARE_PARTS } from '../../graphql/spare-parts/GetSpareParts.gql'
 import { CREATE_SPARE_PART } from '../../graphql/spare-parts/CreateSparePart.gql'
 import { UPDATE_SPARE_PART } from '../../graphql/spare-parts/UpdateSparePart.gql'
 import type { GetSparePartData } from '../../graphql/spare-parts/types'
+import { errorMessage } from '../../lib/utils'
 import './SparePartEditPage.css'
 
 interface FormState {
@@ -52,7 +53,11 @@ export default function SparePartEditPage() {
     skip: isNew,
   })
 
-  useEffect(() => {
+  // Preenche o formulário quando os dados chegam — ajuste de estado no render,
+  // não em efeito (react.dev/learn/you-might-not-need-an-effect).
+  const [loadedData, setLoadedData] = useState<typeof data>(undefined)
+  if (data !== loadedData) {
+    setLoadedData(data)
     if (data?.sparePart) {
       const p = data.sparePart
       setForm({
@@ -64,7 +69,7 @@ export default function SparePartEditPage() {
         unitCost: p.unitCost != null ? String(p.unitCost) : '',
       })
     }
-  }, [data])
+  }
 
   const [createSparePart, { loading: creating }] = useMutation(CREATE_SPARE_PART, {
     refetchQueries: [{ query: GET_SPARE_PARTS }],
@@ -84,9 +89,9 @@ export default function SparePartEditPage() {
     e.preventDefault()
     setError(null)
 
-    const input = {
+    // O código da peça não muda depois de criada; o input de edição não o aceita.
+    const updateInput = {
       name: form.name.trim(),
-      partNumber: form.partNumber.trim(),
       description: form.description.trim() || undefined,
       quantity: parseInt(form.quantity, 10) || 0,
       minimumStock: parseInt(form.minimumStock, 10) || 0,
@@ -95,15 +100,15 @@ export default function SparePartEditPage() {
 
     try {
       if (isNew) {
-        await createSparePart({ variables: { input } })
+        await createSparePart({
+          variables: { input: { ...updateInput, partNumber: form.partNumber.trim() } },
+        })
       } else {
-        const { partNumber: _, ...updateInput } = input
         await updateSparePart({ variables: { id: Number(id), input: updateInput } })
       }
       navigate('/dashboard/spare-parts')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao salvar'
-      setError(msg)
+      setError(errorMessage(err))
     }
   }
 

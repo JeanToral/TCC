@@ -12,6 +12,7 @@ import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import type { DeleteAssetData, GetAssetData } from '../../graphql/assets/types'
 import { GET_ASSET_COSTS } from '../../graphql/finance/GetAssetCosts.gql'
 import type { GetAssetCostsData } from '../../graphql/finance/types'
+import { errorMessage } from '../../lib/utils'
 import './AssetViewPage.css'
 
 // ── AssetCostCard ─────────────────────────────────────────
@@ -106,7 +107,7 @@ export default function AssetViewPage() {
     variables: { id: Number(id) },
     refetchQueries: [{ query: GET_ASSETS }],
     onCompleted: () => navigate('/dashboard/assets'),
-    onError: (e) => setDeleteError(e.graphQLErrors[0]?.message ?? e.message),
+    onError: (e) => setDeleteError(errorMessage(e)),
   })
 
   if (loading) {

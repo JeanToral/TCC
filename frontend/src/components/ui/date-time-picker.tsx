@@ -87,7 +87,7 @@ export function DateTimePicker({
             selected={value}
             onSelect={handleDaySelect}
             locale={ptBR}
-            initialFocus
+            autoFocus
           />
           <div className="border-t border-border px-4 py-3 flex items-center gap-3">
             <span className="text-sm text-muted-foreground whitespace-nowrap">Horário</span>

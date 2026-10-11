@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
@@ -20,6 +20,7 @@ import { GET_ROLES_MGMT } from '../../graphql/roles/GetRoles.gql'
 import { CREATE_ROLE } from '../../graphql/roles/CreateRole.gql'
 import { UPDATE_ROLE } from '../../graphql/roles/UpdateRole.gql'
 import type { CreateRoleData, GetRoleData, UpdateRoleData } from '../../graphql/roles/types'
+import { errorMessage } from '../../lib/utils'
 import './RoleEditPage.css'
 
 // ── Permissions catalog ────────────────────────────────────
@@ -80,7 +81,11 @@ export default function RoleEditPage() {
     { variables: { id: Number(id) }, skip: !isEdit },
   )
 
-  useEffect(() => {
+  // Preenche o formulário quando os dados chegam — ajuste de estado no render,
+  // não em efeito (react.dev/learn/you-might-not-need-an-effect).
+  const [loadedData, setLoadedData] = useState<typeof roleData>(undefined)
+  if (roleData !== loadedData) {
+    setLoadedData(roleData)
     if (roleData?.role) {
       const { role } = roleData
       setForm({
@@ -89,18 +94,18 @@ export default function RoleEditPage() {
         permissions: new Set(role.permissions as string[]),
       })
     }
-  }, [roleData])
+  }
 
   const [createRole, { loading: creating }] = useMutation<CreateRoleData>(CREATE_ROLE, {
     refetchQueries: [{ query: GET_ROLES_MGMT }],
     onCompleted: () => navigate('/dashboard/roles'),
-    onError: (err) => setSubmitError(err.graphQLErrors[0]?.message ?? err.message),
+    onError: (err) => setSubmitError(errorMessage(err)),
   })
 
   const [updateRole, { loading: updating }] = useMutation<UpdateRoleData>(UPDATE_ROLE, {
     refetchQueries: [{ query: GET_ROLES_MGMT }],
     onCompleted: () => navigate('/dashboard/roles'),
-    onError: (err) => setSubmitError(err.graphQLErrors[0]?.message ?? err.message),
+    onError: (err) => setSubmitError(errorMessage(err)),
   })
 
   const submitting = creating || updating

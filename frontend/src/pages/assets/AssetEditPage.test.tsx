@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import AssetEditPage from './AssetEditPage'
 import { CREATE_ASSET } from '../../graphql/assets/CreateAsset.gql'
+import { GET_ASSET } from '../../graphql/assets/GetAsset.gql'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import { renderWithProviders } from '../../test/renderWithProviders'
 
@@ -109,5 +110,44 @@ describe('AssetEditPage — modo criação', () => {
         installDate: undefined,
       },
     })
+  })
+})
+
+describe('AssetEditPage — modo edição', () => {
+  it('deve preencher o formulário com o ativo carregado', async () => {
+    // Arrange
+    const assetMock: MockLink.MockedResponse = {
+      request: { query: GET_ASSET, variables: { id: 3 } },
+      result: {
+        data: {
+          asset: {
+            id: 3,
+            name: 'Injetora 03',
+            tag: 'INJ-003',
+            location: 'Galpão B',
+            manufacturer: 'Romi',
+            model: null,
+            serialNumber: null,
+            installDate: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            deletedAt: null,
+          },
+        },
+      },
+    }
+
+    // Act
+    renderWithProviders(<AssetEditPage />, {
+      route: '/assets/3/edit',
+      path: '/assets/:id/edit',
+      mocks: [assetMock],
+    })
+
+    // Assert
+    expect(await screen.findByDisplayValue('Injetora 03')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('INJ-003')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Galpão B')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Romi')).toBeInTheDocument()
   })
 })
