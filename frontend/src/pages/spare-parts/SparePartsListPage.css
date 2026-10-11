@@ -13,9 +13,9 @@
 .page-header__alert {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #b45309;
-  background: #fef3c7;
-  border: 1px solid #fcd34d;
+  color: var(--warning-text);
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
   border-radius: 999px;
   padding: 0.1rem 0.6rem;
 }
@@ -29,14 +29,14 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--text-body);
   white-space: nowrap;
   cursor: pointer;
 }
 
 .spare-parts-table-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: var(--surface-white);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
   overflow: hidden;
 }
@@ -51,11 +51,11 @@
   text-align: left;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
 }
 
 .spare-parts-table__th--center { text-align: center; }
@@ -66,13 +66,13 @@
   transition: background 0.1s;
 }
 
-.spare-parts-table__row:hover { background: #f9fafb; }
+.spare-parts-table__row:hover { background: var(--surface-muted); }
 
 .spare-parts-table__cell {
   padding: 0.875rem 1rem;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--surface-subtle);
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--text-body);
   vertical-align: middle;
 }
 
@@ -89,10 +89,10 @@
 .spare-parts-table__pn {
   font-family: monospace;
   font-size: 0.8rem;
-  background: #f3f4f6;
+  background: var(--surface-subtle);
   border-radius: 0.25rem;
   padding: 0.1rem 0.4rem;
-  color: #374151;
+  color: var(--text-body);
 }
 
 .spare-parts-table__name {
@@ -103,7 +103,7 @@
 .spare-parts-table__desc {
   display: block;
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--text-muted);
   margin-top: 0.1rem;
 }
 
@@ -116,11 +116,11 @@
 }
 
 .stock-badge--ok {
-  color: #065f46;
-  background: #d1fae5;
+  color: var(--success-text);
+  background: var(--success-soft);
 }
 
 .stock-badge--low {
-  color: #92400e;
-  background: #fef3c7;
+  color: var(--warning-text);
+  background: var(--warning-soft);
 }

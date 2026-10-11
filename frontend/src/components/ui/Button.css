@@ -85,13 +85,13 @@
 
 .btn--secondary:hover:not(:disabled) {
   background: var(--surface-muted);
-  border-color: #d1d5db;
+  border-color: var(--border-strong);
 }
 
 .btn--danger {
   background: var(--surface-white);
   color: var(--error);
-  border-color: rgba(220, 38, 38, 0.35);
+  border-color: color-mix(in srgb, var(--error) 35%, transparent);
 }
 
 .btn--danger:hover:not(:disabled) {

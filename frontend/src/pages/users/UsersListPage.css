@@ -48,7 +48,7 @@
 .page-error {
   padding: 1rem 1.25rem;
   background: var(--error-bg);
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  border: 1px solid color-mix(in srgb, var(--error) 20%, transparent);
   border-radius: var(--radius-md);
   color: var(--error);
   font-size: 0.875rem;
@@ -99,7 +99,7 @@
 }
 
 .users-table__row:hover {
-  background: #f9fafb;
+  background: var(--surface-muted);
 }
 
 .users-table__row:focus-visible {
@@ -146,7 +146,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   flex-shrink: 0;
-  border: 1.5px solid rgba(209, 60, 38, 0.15);
+  border: 1.5px solid color-mix(in srgb, var(--primary) 15%, transparent);
 }
 
 .users-table__name-group {

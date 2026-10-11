@@ -5,6 +5,22 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
+    <script>
+      // Aplica tema e tamanho antes do primeiro render — espelha src/lib/appearance.ts
+      (function () {
+        var theme = 'system', size = 'medium'
+        try {
+          var saved = JSON.parse(localStorage.getItem('cmms.appearance') || '{}')
+          if (['light', 'dark', 'system'].indexOf(saved.theme) >= 0) theme = saved.theme
+          if (['small', 'medium', 'large'].indexOf(saved.size) >= 0) size = saved.size
+        } catch (e) {}
+        if (theme === 'system') {
+          theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        }
+        document.documentElement.dataset.theme = theme
+        document.documentElement.dataset.size = size
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

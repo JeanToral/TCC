@@ -42,6 +42,7 @@ export function renderWithProviders(
 
   const auth = {
     isAuthenticated: true,
+    email: 'usuario@cmms.local',
     permissions,
     hasPermission: (perm: string) => permissions.includes('*') || permissions.includes(perm),
     login: () => undefined,

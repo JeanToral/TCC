@@ -68,7 +68,7 @@
   margin-top: 0.75rem;
   padding: 0.625rem 0.875rem;
   background: var(--error-bg);
-  border: 1px solid rgba(220, 38, 38, 0.2);
+  border: 1px solid color-mix(in srgb, var(--error) 20%, transparent);
   border-radius: var(--radius-sm);
   color: var(--error);
   font-size: 0.875rem;
@@ -91,9 +91,9 @@
   margin-top: 0.875rem;
   padding: 0.625rem 0.875rem;
   background: var(--warning-bg);
-  border: 1px solid #fde68a;
+  border: 1px solid var(--warning-border);
   border-radius: var(--radius-md);
-  color: #92400e;
+  color: var(--warning-text);
   font-size: 0.8125rem;
 }
 

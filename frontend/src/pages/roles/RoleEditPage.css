@@ -2,9 +2,9 @@
 .role-edit-page__system-notice {
   padding: 0.875rem 1.25rem;
   background: var(--warning-bg);
-  border: 1px solid #fde68a;
+  border: 1px solid var(--warning-border);
   border-radius: var(--radius-md);
-  color: #92400e;
+  color: var(--warning-text);
   font-size: 0.875rem;
   font-weight: 500;
   margin-bottom: 1.25rem;

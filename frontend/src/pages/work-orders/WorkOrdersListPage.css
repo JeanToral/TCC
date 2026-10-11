@@ -51,7 +51,7 @@
 }
 
 .wo-table__row:hover {
-  background: #f9fafb;
+  background: var(--surface-muted);
 }
 
 .wo-table__row:focus-visible {

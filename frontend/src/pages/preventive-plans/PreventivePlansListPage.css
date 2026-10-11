@@ -120,8 +120,8 @@
 }
 
 .due-badge--ok {
-  background: color-mix(in srgb, #22c55e 12%, transparent);
-  color: #15803d;
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
 }
 
 .due-badge--overdue {
@@ -139,8 +139,8 @@
 }
 
 .status-badge--active {
-  background: color-mix(in srgb, #22c55e 12%, transparent);
-  color: #15803d;
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--success);
 }
 
 .status-badge--inactive {

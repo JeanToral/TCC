@@ -13,31 +13,31 @@
 
 /* ── Variants ─────────────────────────────────────────────── */
 .badge--default {
-  background: #f3f4f6;
-  color: #374151;
-  border-color: #e5e7eb;
+  background: var(--surface-subtle);
+  color: var(--text-body);
+  border-color: var(--border);
 }
 
 .badge--success {
   background: var(--success-bg);
   color: var(--success);
-  border-color: rgba(22, 163, 74, 0.2);
+  border-color: color-mix(in srgb, var(--success) 20%, transparent);
 }
 
 .badge--warning {
   background: var(--warning-bg);
   color: var(--warning);
-  border-color: rgba(217, 119, 6, 0.2);
+  border-color: color-mix(in srgb, var(--warning) 20%, transparent);
 }
 
 .badge--error {
   background: var(--error-bg);
   color: var(--error);
-  border-color: rgba(220, 38, 38, 0.2);
+  border-color: color-mix(in srgb, var(--error) 20%, transparent);
 }
 
 .badge--info {
   background: var(--info-bg);
   color: var(--info);
-  border-color: rgba(37, 99, 235, 0.2);
+  border-color: color-mix(in srgb, var(--info) 20%, transparent);
 }

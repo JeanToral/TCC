@@ -39,7 +39,7 @@
   height: 2.5rem;
   background-color: var(--primary);
   border-radius: var(--radius-md);
-  color: #fff;
+  color: var(--text-inverse);
   flex-shrink: 0;
 }
 
@@ -184,7 +184,7 @@
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   background: var(--error-bg);
-  border: 1px solid rgba(220, 38, 38, 0.25);
+  border: 1px solid color-mix(in srgb, var(--error) 25%, transparent);
   border-radius: var(--radius-md);
   color: var(--error);
   font-size: 0.875rem;
@@ -255,7 +255,7 @@
 }
 
 .login-form__input--error:focus {
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 10%, transparent);
 }
 
 .login-form__input--password {

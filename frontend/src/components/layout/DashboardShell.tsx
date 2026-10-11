@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
 import {
   BuildingIcon,
@@ -10,12 +10,11 @@ import {
   DashboardIcon,
   GearIcon,
   KeyIcon,
-  LogOutIcon,
-  UserCircleIcon,
   UserGroupIcon,
 } from '../icons'
 import { useAuth } from '../../contexts/AuthContext'
 import NotificationDropdown from './NotificationDropdown'
+import UserMenu from './UserMenu'
 import './DashboardShell.css'
 
 interface NavItem {
@@ -60,16 +59,10 @@ function SidebarNavItem({ item }: { readonly item: NavItem }) {
 
 export default function DashboardShell() {
   const { pathname } = useLocation()
-  const navigate = useNavigate()
-  const { logout, hasPermission } = useAuth()
+  const { hasPermission } = useAuth()
   const [adminOpen, setAdminOpen] = useState(() =>
     adminPaths.some((p) => pathname.startsWith(p)),
   )
-
-  function handleLogout() {
-    logout()
-    navigate('/login', { replace: true })
-  }
 
   return (
     <div className="shell">
@@ -117,22 +110,6 @@ export default function DashboardShell() {
             )}
           </div>
         </nav>
-
-        <div className="shell__sidebar-footer">
-          <div className="shell__sidebar-user">
-            <span className="shell__sidebar-user-avatar">
-              <UserCircleIcon />
-            </span>
-          </div>
-          <button
-            type="button"
-            className="shell__sidebar-logout"
-            aria-label="Sair do sistema"
-            onClick={handleLogout}
-          >
-            <LogOutIcon />
-          </button>
-        </div>
       </aside>
 
       {/* ── Content ─────────────────────────────────── */}
@@ -141,6 +118,7 @@ export default function DashboardShell() {
           <div className="shell__topbar-left" />
           <div className="shell__topbar-right">
             <NotificationDropdown />
+            <UserMenu />
           </div>
         </header>
 

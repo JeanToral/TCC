@@ -8,6 +8,7 @@ import { REFRESH_TOKEN } from '../graphql/auth/RefreshToken.gql'
 // ─────────────────────── Types ───────────────────────────
 interface AuthContextValue {
   readonly isAuthenticated: boolean
+  readonly email: string | null
   readonly permissions: readonly string[]
   readonly hasPermission: (perm: string) => boolean
   readonly login: (accessToken: string) => void
@@ -28,22 +29,17 @@ interface JwtPayload {
 // ─────────────────────── Helpers ─────────────────────────
 const REFRESH_BUFFER_MS = 60_000
 
-function decodePermissions(token: string): string[] {
+function decodePayload(token: string): Partial<JwtPayload> {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1])) as JwtPayload
-    return Array.isArray(payload.permissions) ? payload.permissions : []
+    return JSON.parse(atob(token.split('.')[1])) as Partial<JwtPayload>
   } catch {
-    return []
+    return {}
   }
 }
 
 function getTokenExpiryMs(token: string): number {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1])) as JwtPayload
-    return payload.exp * 1000
-  } catch {
-    return 0
-  }
+  const { exp } = decodePayload(token)
+  return typeof exp === 'number' ? exp * 1000 : 0
 }
 
 // ─────────────────────── Context ─────────────────────────
@@ -52,6 +48,7 @@ export const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { readonly children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [email, setEmail] = useState<string | null>(null)
   const [permissions, setPermissions] = useState<string[]>([])
   const [initializing, setInitializing] = useState(true)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -64,13 +61,16 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
   function logout() {
     clearTimer()
     setAccessToken('')
+    setEmail(null)
     setPermissions([])
     setIsAuthenticated(false)
   }
 
   function applyToken(token: string) {
+    const payload = decodePayload(token)
     setAccessToken(token)
-    setPermissions(decodePermissions(token))
+    setEmail(typeof payload.email === 'string' ? payload.email : null)
+    setPermissions(Array.isArray(payload.permissions) ? payload.permissions : [])
     setIsAuthenticated(true)
     clearTimer()
     const delay = getTokenExpiryMs(token) - Date.now() - REFRESH_BUFFER_MS
@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
   if (initializing) return null
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, permissions, hasPermission, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, email, permissions, hasPermission, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
