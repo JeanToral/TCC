@@ -169,6 +169,43 @@ input LoginInput {
   password: String!
 }
 
+type MonthlyCostPoint {
+  """Custo realizado em OS corretivas"""
+  corrective: Float!
+
+  """Mês no fuso da planta, formato YYYY-MM"""
+  month: String!
+
+  """Custo realizado em OS preventivas"""
+  preventive: Float!
+  total: Float!
+
+  """OS concluídas no mês sem preço de peça ou taxa horária"""
+  workOrdersWithIncompleteCost: Int!
+}
+
+type MonthlyTrendPoint {
+  """OS concluídas no mês (por completedAt)"""
+  completed: Int!
+  completedCorrective: Int!
+  completedPreventive: Int!
+
+  """Mês no fuso da planta, formato YYYY-MM"""
+  month: String!
+
+  """OS abertas no mês (por createdAt)"""
+  opened: Int!
+
+  """null quando não há OS no mês"""
+  slaPercentage: Int
+
+  """Concluídas no mês com início registrado"""
+  slaTotal: Int!
+
+  """Concluídas no mês que iniciaram dentro do SLA"""
+  slaWithin: Int!
+}
+
 type Mutation {
   addWorkOrderExternalCost(input: AddExternalCostInput!): WorkOrderExternalCost!
   addWorkOrderPart(input: AddWorkOrderPartInput!): WorkOrderPart!
@@ -251,8 +288,11 @@ type Query {
   assets: [AssetType!]!
   auditLogs(targetId: Int, targetType: String): [AuditLogType!]!
   dashboardKpis(filter: DashboardFilterInput): [AssetKpi!]!
+  dashboardMonthlyTrend(filter: DashboardFilterInput): [MonthlyTrendPoint!]!
   dashboardSlaRate(filter: DashboardFilterInput): SlaRate!
+  dashboardStatusCounts(filter: DashboardFilterInput): [StatusCount!]!
   me: UserType!
+  monthlyCosts(filter: FinanceFilterInput): [MonthlyCostPoint!]!
   notifications(unreadOnly: Boolean = false): [Notification!]!
   preventivePlan(id: Int!): PreventivePlan!
   preventivePlans(assetId: Int): [PreventivePlan!]!
@@ -309,6 +349,11 @@ type SparePartSummary {
   id: Int!
   name: String!
   partNumber: String!
+}
+
+type StatusCount {
+  count: Int!
+  status: WorkOrderStatus!
 }
 
 input UpdateAssetInput {

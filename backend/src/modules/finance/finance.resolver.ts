@@ -7,7 +7,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { AssetCostType } from './dto/asset-cost.type';
 import { FinanceFilterInput } from './dto/finance-filter.input';
-import { type AssetCostRecord, FinanceService } from './finance.service';
+import { MonthlyCostPointType } from './dto/monthly-cost-point.type';
+import {
+  type AssetCostRecord,
+  FinanceService,
+  type MonthlyCostRecord,
+} from './finance.service';
 
 // ─────────────────────── Resolver ────────────────────────
 @Resolver()
@@ -21,5 +26,13 @@ export class FinanceResolver {
     @Args('filter', { nullable: true }) filter?: FinanceFilterInput,
   ): Promise<AssetCostRecord[]> {
     return this.financeService.getAssetCosts(filter);
+  }
+
+  @Query(() => [MonthlyCostPointType])
+  @RequiresPermission('cost.read')
+  monthlyCosts(
+    @Args('filter', { nullable: true }) filter?: FinanceFilterInput,
+  ): Promise<MonthlyCostRecord[]> {
+    return this.financeService.getMonthlyCosts(filter);
   }
 }

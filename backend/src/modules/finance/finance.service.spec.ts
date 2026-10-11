@@ -20,6 +20,7 @@ const makeCompleted = (
   assetId: injetora.id,
   asset: injetora,
   type: WorkOrderType.CORRECTIVE,
+  completedAt: new Date('2026-05-10T12:00:00Z'),
   laborHours: 3,
   laborRateSnapshot: 45,
   costIsComplete: true,
@@ -31,6 +32,7 @@ const makeExternal = (
   overrides: Partial<ExternalCostRow> = {},
 ): ExternalCostRow => ({
   amount: 380,
+  incurredAt: new Date('2026-05-12T12:00:00Z'),
   workOrder: {
     assetId: injetora.id,
     asset: injetora,
@@ -300,5 +302,101 @@ describe('FinanceService', () => {
       filter.to,
     );
     expect(repo.findOpen).toHaveBeenCalledWith(3);
+  });
+
+  // ── Série mensal ──────────────────────────────────────────
+  describe('getMonthlyCosts', () => {
+    const MAY_TO_JULY = {
+      from: new Date('2026-05-01T03:00:00Z'),
+      to: new Date('2026-07-31T23:00:00Z'),
+    };
+
+    it('deve devolver um ponto por mês, zerado quando não há custo', async () => {
+      // Act
+      const result = await service.getMonthlyCosts(MAY_TO_JULY);
+
+      // Assert
+      expect(result).toEqual([
+        { month: '2026-05', corrective: 0, preventive: 0, total: 0, workOrdersWithIncompleteCost: 0 },
+        { month: '2026-06', corrective: 0, preventive: 0, total: 0, workOrdersWithIncompleteCost: 0 },
+        { month: '2026-07', corrective: 0, preventive: 0, total: 0, workOrdersWithIncompleteCost: 0 },
+      ]);
+    });
+
+    it('deve lançar peças e mão de obra no mês de conclusão, a valores congelados', async () => {
+      // Arrange — 2 × 100 + 3h × 45 = 335, concluída em junho
+      repo.findCompleted.mockResolvedValue([
+        makeCompleted({ completedAt: new Date('2026-06-15T12:00:00Z') }),
+      ]);
+
+      // Act
+      const result = await service.getMonthlyCosts(MAY_TO_JULY);
+
+      // Assert
+      expect(result[0].total).toBe(0);
+      expect(result[1].corrective).toBe(335);
+    });
+
+    it('deve lançar serviço externo no mês de competência, não no de conclusão', async () => {
+      // Arrange — OS concluída em maio, serviço com competência em julho
+      repo.findCompleted.mockResolvedValue([
+        makeCompleted({ laborHours: 0, parts: [], completedAt: new Date('2026-05-10T12:00:00Z') }),
+      ]);
+      repo.findExternalCosts.mockResolvedValue([
+        makeExternal({ amount: 380, incurredAt: new Date('2026-07-05T12:00:00Z') }),
+      ]);
+
+      // Act
+      const result = await service.getMonthlyCosts(MAY_TO_JULY);
+
+      // Assert
+      expect(result[0].total).toBe(0);
+      expect(result[2].corrective).toBe(380);
+    });
+
+    it('deve separar corretiva de preventiva', async () => {
+      // Arrange
+      repo.findCompleted.mockResolvedValue([
+        makeCompleted({ id: 1, type: WorkOrderType.CORRECTIVE }),
+        makeCompleted({ id: 2, type: WorkOrderType.PREVENTIVE }),
+      ]);
+      repo.findExternalCosts.mockResolvedValue([
+        makeExternal({
+          amount: 100,
+          workOrder: { assetId: injetora.id, asset: injetora, type: WorkOrderType.PREVENTIVE },
+        }),
+      ]);
+
+      // Act
+      const [may] = await service.getMonthlyCosts(MAY_TO_JULY);
+
+      // Assert
+      expect(may.corrective).toBe(335);
+      expect(may.preventive).toBe(435);
+      expect(may.total).toBe(770);
+    });
+
+    it('deve contar no mês as OS com custo incompleto', async () => {
+      // Arrange
+      repo.findCompleted.mockResolvedValue([
+        makeCompleted({ id: 1, costIsComplete: false }),
+        makeCompleted({ id: 2, costIsComplete: true }),
+      ]);
+
+      // Act
+      const [may] = await service.getMonthlyCosts(MAY_TO_JULY);
+
+      // Assert
+      expect(may.workOrdersWithIncompleteCost).toBe(1);
+    });
+
+    it('deve repassar ativo e período resolvido ao repositório', async () => {
+      // Act
+      await service.getMonthlyCosts({ ...MAY_TO_JULY, assetId: 3 });
+
+      // Assert
+      expect(repo.findCompleted).toHaveBeenCalledWith(3, MAY_TO_JULY.from, MAY_TO_JULY.to);
+      expect(repo.findExternalCosts).toHaveBeenCalledWith(3, MAY_TO_JULY.from, MAY_TO_JULY.to);
+    });
   });
 });

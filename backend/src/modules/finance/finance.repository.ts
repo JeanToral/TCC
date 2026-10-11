@@ -16,6 +16,7 @@ export interface CompletedCostRow {
   readonly assetId: number;
   readonly asset: AssetSummary;
   readonly type: WorkOrderType;
+  readonly completedAt: Date | null;
   readonly laborHours: number | null;
   readonly laborRateSnapshot: number | null;
   readonly costIsComplete: boolean;
@@ -28,6 +29,7 @@ export interface CompletedCostRow {
 /** Lançamento externo, atribuído ao período pela competência. */
 export interface ExternalCostRow {
   readonly amount: number;
+  readonly incurredAt: Date;
   readonly workOrder: {
     readonly assetId: number;
     readonly asset: AssetSummary;
@@ -87,6 +89,7 @@ export class FinanceRepository {
         assetId: true,
         asset: { select: ASSET_SELECT },
         type: true,
+        completedAt: true,
         laborHours: true,
         laborRateSnapshot: true,
         costIsComplete: true,
@@ -120,6 +123,7 @@ export class FinanceRepository {
       },
       select: {
         amount: true,
+        incurredAt: true,
         workOrder: {
           select: {
             assetId: true,

@@ -29,3 +29,16 @@ export interface FinanceFilterInput {
 export interface GetAssetCostsData {
   readonly assetCosts: readonly AssetCost[]
 }
+
+export interface MonthlyCostPoint {
+  /** `YYYY-MM`, no fuso da planta. */
+  readonly month: string
+  readonly corrective: number
+  readonly preventive: number
+  readonly total: number
+  readonly workOrdersWithIncompleteCost: number
+}
+
+export interface GetMonthlyCostsData {
+  readonly monthlyCosts: readonly MonthlyCostPoint[]
+}

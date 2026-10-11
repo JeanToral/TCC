@@ -78,6 +78,14 @@
   color: var(--text-secondary);
 }
 
+/* ── Gráficos ─────────────────────────────────────────── */
+.dashboard-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
 /* ── Tabela ───────────────────────────────────────────── */
 .kpi-table-card {
   background: var(--surface-white);
@@ -148,9 +156,3 @@
   color: var(--text-secondary);
 }
 
-/* ── Empty state ──────────────────────────────────────── */
-.dashboard-empty__hint {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  margin-top: 0.25rem;
-}

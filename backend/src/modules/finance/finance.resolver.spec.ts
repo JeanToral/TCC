@@ -33,6 +33,7 @@ describe('FinanceResolver', () => {
           provide: FinanceService,
           useValue: {
             getAssetCosts: jest.fn(),
+            getMonthlyCosts: jest.fn(),
           } satisfies Partial<jest.Mocked<FinanceService>>,
         },
       ],
@@ -69,5 +70,31 @@ describe('FinanceResolver', () => {
     // Assert
     expect(required).toBe('cost.read');
     expect(PermissionGuard).toBeDefined();
+  });
+
+  it('deve delegar monthlyCosts ao FinanceService', async () => {
+    // Arrange
+    service.getMonthlyCosts.mockResolvedValue([]);
+    const filter = { assetId: 3 };
+
+    // Act
+    await resolver.monthlyCosts(filter);
+
+    // Assert
+    expect(service.getMonthlyCosts).toHaveBeenCalledWith(filter);
+  });
+
+  it('deve exigir a permissão cost.read na query monthlyCosts', () => {
+    // Arrange
+    const reflector = new Reflector();
+
+    // Act
+    const required = reflector.get<string>(
+      'required_permission',
+      Object.getPrototypeOf(resolver).monthlyCosts,
+    );
+
+    // Assert
+    expect(required).toBe('cost.read');
   });
 });

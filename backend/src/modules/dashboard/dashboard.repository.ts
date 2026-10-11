@@ -27,6 +27,16 @@ export interface SlaWorkOrderRecord {
   readonly startedAt: Date | null;
 }
 
+export interface StatusCountRecord {
+  readonly status: WorkOrderStatus;
+  readonly count: number;
+}
+
+export interface CompletedTrendRecord extends SlaWorkOrderRecord {
+  readonly type: WorkOrderType;
+  readonly completedAt: Date;
+}
+
 // ─────────────────────── Constants ──────────────────────
 const CORRECTIVE_WO_SELECT = {
   id: true,
@@ -69,7 +79,11 @@ export class DashboardRepository {
     }) as Promise<CorrectiveWorkOrderRecord[]>;
   }
 
-  findCompletedForSla(from?: Date, to?: Date): Promise<SlaWorkOrderRecord[]> {
+  findCompletedForSla(
+    from?: Date,
+    to?: Date,
+    assetId?: number,
+  ): Promise<SlaWorkOrderRecord[]> {
     return this.prisma.workOrder.findMany({
       where: {
         status: WorkOrderStatus.COMPLETED,
@@ -79,6 +93,7 @@ export class DashboardRepository {
           ...(from ? [{ completedAt: { gte: from } }] : []),
           ...(to ? [{ completedAt: { lte: to } }] : []),
         ],
+        ...(assetId !== undefined ? { assetId } : {}),
       },
       select: {
         id: true,
@@ -104,5 +119,58 @@ export class DashboardRepository {
       map.set(g.assetId, g._count.id);
     }
     return map;
+  }
+
+  /** Status atual das OS abertas no período (por createdAt). */
+  async countByStatus(
+    from: Date,
+    to: Date,
+    assetId?: number,
+  ): Promise<StatusCountRecord[]> {
+    const groups = await this.prisma.workOrder.groupBy({
+      by: ['status'],
+      where: {
+        deletedAt: null,
+        createdAt: { gte: from, lte: to },
+        ...(assetId !== undefined ? { assetId } : {}),
+      },
+      _count: { id: true },
+    });
+    return groups.map((g) => ({ status: g.status, count: g._count.id }));
+  }
+
+  async findCreatedDates(from: Date, to: Date, assetId?: number): Promise<Date[]> {
+    const rows = await this.prisma.workOrder.findMany({
+      where: {
+        deletedAt: null,
+        createdAt: { gte: from, lte: to },
+        ...(assetId !== undefined ? { assetId } : {}),
+      },
+      select: { createdAt: true },
+    });
+    return rows.map((r) => r.createdAt);
+  }
+
+  findCompletedForTrend(
+    from: Date,
+    to: Date,
+    assetId?: number,
+  ): Promise<CompletedTrendRecord[]> {
+    return this.prisma.workOrder.findMany({
+      where: {
+        status: WorkOrderStatus.COMPLETED,
+        deletedAt: null,
+        completedAt: { gte: from, lte: to },
+        ...(assetId !== undefined ? { assetId } : {}),
+      },
+      select: {
+        id: true,
+        type: true,
+        priority: true,
+        createdAt: true,
+        startedAt: true,
+        completedAt: true,
+      },
+    }) as Promise<CompletedTrendRecord[]>;
   }
 }

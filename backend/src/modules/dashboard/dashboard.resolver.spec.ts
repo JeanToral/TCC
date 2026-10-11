@@ -1,4 +1,8 @@
 import { Test, type TestingModule } from '@nestjs/testing';
+import { Reflector } from '@nestjs/core';
+import { WorkOrderStatus } from '../../generated/prisma';
+
+import { PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 
 import { DashboardResolver } from './dashboard.resolver';
 import { DashboardService, type AssetKpiRecord } from './dashboard.service';
@@ -26,6 +30,8 @@ describe('DashboardResolver', () => {
           provide: DashboardService,
           useValue: {
             getKpis: jest.fn(),
+            getStatusCounts: jest.fn(),
+            getMonthlyTrend: jest.fn(),
           } satisfies Partial<jest.Mocked<DashboardService>>,
         },
       ],
@@ -101,5 +107,41 @@ describe('DashboardResolver', () => {
     expect(result[0].mttr).toBeNull();
     expect(result[0].mtbf).toBeNull();
     expect(result[0].completedWorkOrders).toBe(1);
+  });
+
+  it('deve delegar dashboardStatusCounts ao DashboardService.getStatusCounts', async () => {
+    // Arrange
+    const counts = [{ status: WorkOrderStatus.REQUESTED, count: 3 }];
+    service.getStatusCounts.mockResolvedValue(counts);
+    const filter: DashboardFilterInput = { assetId: 1 };
+
+    // Act
+    const result = await resolver.dashboardStatusCounts(filter);
+
+    // Assert
+    expect(service.getStatusCounts).toHaveBeenCalledWith(filter);
+    expect(result).toBe(counts);
+  });
+
+  it('deve delegar dashboardMonthlyTrend ao DashboardService.getMonthlyTrend', async () => {
+    // Arrange
+    service.getMonthlyTrend.mockResolvedValue([]);
+
+    // Act
+    await resolver.dashboardMonthlyTrend(undefined);
+
+    // Assert
+    expect(service.getMonthlyTrend).toHaveBeenCalledWith(undefined);
+  });
+
+  it('deve exigir dashboard.read nas queries de série', () => {
+    // Arrange
+    const reflector = new Reflector();
+    const proto = Object.getPrototypeOf(resolver) as DashboardResolver;
+
+    // Act / Assert
+    for (const handler of [proto.dashboardStatusCounts, proto.dashboardMonthlyTrend]) {
+      expect(reflector.get<string>(PERMISSION_KEY, handler)).toBe('dashboard.read');
+    }
   });
 });

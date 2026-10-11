@@ -2,6 +2,8 @@
 import { Injectable } from '@nestjs/common';
 import { WorkOrderType } from '../../generated/prisma';
 
+import { monthKey, monthKeysBetween, resolvePeriod } from '../../common/reporting/month-buckets';
+
 import {
   type AssetSummary,
   type CompletedCostRow,
@@ -32,6 +34,14 @@ export interface AssetCostRecord {
 
   /** Cobertura: quantas OS do recorte tiveram o custo calculável por inteiro. */
   readonly completedWorkOrders: number;
+  readonly workOrdersWithIncompleteCost: number;
+}
+
+export interface MonthlyCostRecord {
+  readonly month: string;
+  readonly corrective: number;
+  readonly preventive: number;
+  readonly total: number;
   readonly workOrdersWithIncompleteCost: number;
 }
 
@@ -74,6 +84,47 @@ export class FinanceService {
       );
   }
 
+  /**
+   * Custo Realizado por mês, corretiva × preventiva. Peças e mão de obra entram
+   * pelo mês de conclusão; serviço externo pelo mês de competência (ADR 0001).
+   */
+  async getMonthlyCosts(filter?: FinanceFilterInput): Promise<MonthlyCostRecord[]> {
+    const { from, to } = resolvePeriod(filter?.from, filter?.to);
+    const [completed, externals] = await Promise.all([
+      this.repo.findCompleted(filter?.assetId, from, to),
+      this.repo.findExternalCosts(filter?.assetId, from, to),
+    ]);
+
+    const months = new Map(
+      monthKeysBetween(from, to).map((month) => [
+        month,
+        { month, corrective: 0, preventive: 0, workOrdersWithIncompleteCost: 0 },
+      ]),
+    );
+
+    const add = (date: Date, type: WorkOrderType, amount: number) => {
+      const bucket = months.get(monthKey(date));
+      if (!bucket) return;
+      if (type === WorkOrderType.CORRECTIVE) bucket.corrective += amount;
+      else bucket.preventive += amount;
+    };
+
+    for (const wo of completed) {
+      if (!wo.completedAt) continue;
+      add(wo.completedAt, wo.type, this.partsCost(wo) + this.laborCost(wo));
+      if (!wo.costIsComplete) {
+        const bucket = months.get(monthKey(wo.completedAt));
+        if (bucket) bucket.workOrdersWithIncompleteCost += 1;
+      }
+    }
+
+    for (const cost of externals) {
+      add(cost.incurredAt, cost.workOrder.type, cost.amount);
+    }
+
+    return [...months.values()].map((m) => ({ ...m, total: m.corrective + m.preventive }));
+  }
+
   // ── Acumuladores ────────────────────────────────────────
   private accumulateCompleted(
     byAsset: Map<number, Accumulator>,
@@ -82,12 +133,8 @@ export class FinanceService {
     for (const wo of rows) {
       const acc = this.bucket(byAsset, wo.assetId, wo.asset);
 
-      // Valor ausente conta zero — e a OS é marcada como cobertura incompleta.
-      const partsCost = wo.parts.reduce(
-        (sum, part) => sum + part.quantityUsed * (part.unitCostSnapshot ?? 0),
-        0,
-      );
-      const laborCost = (wo.laborHours ?? 0) * (wo.laborRateSnapshot ?? 0);
+      const partsCost = this.partsCost(wo);
+      const laborCost = this.laborCost(wo);
 
       acc.realizedPartsCost += partsCost;
       acc.realizedLaborCost += laborCost;
@@ -135,6 +182,18 @@ export class FinanceService {
   }
 
   // ── Internals ───────────────────────────────────────────
+  /** Valor ausente conta zero — e a OS é marcada como cobertura incompleta. */
+  private partsCost(wo: CompletedCostRow): number {
+    return wo.parts.reduce(
+      (sum, part) => sum + part.quantityUsed * (part.unitCostSnapshot ?? 0),
+      0,
+    );
+  }
+
+  private laborCost(wo: CompletedCostRow): number {
+    return (wo.laborHours ?? 0) * (wo.laborRateSnapshot ?? 0);
+  }
+
   private bucket(
     byAsset: Map<number, Accumulator>,
     assetId: number,

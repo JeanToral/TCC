@@ -10,14 +10,10 @@ import { GET_DASHBOARD_SLA_RATE } from '../../graphql/dashboard/GetDashboardSlaR
 import type { AssetKpi, DashboardFilterInput, GetDashboardKpisData, GetDashboardSlaRateData } from '../../graphql/dashboard/types'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import type { GetAssetsData } from '../../graphql/assets/types'
+import { useAuth } from '../../contexts/AuthContext'
+import { defaultDateRange, formatHours, toPeriodFilter } from '../../lib/period'
+import DashboardCharts from './DashboardCharts'
 import './DashboardPage.css'
-
-function formatHours(hours: number | null): string {
-  if (hours === null) return '—'
-  if (hours < 1) return `${Math.round(hours * 60)}min`
-  if (hours < 24) return `${hours.toFixed(1)}h`
-  return `${(hours / 24).toFixed(1)}d`
-}
 
 interface KpiCardProps {
   readonly label: string
@@ -76,31 +72,27 @@ function computeSummary(kpis: readonly AssetKpi[]) {
 }
 
 export default function DashboardPage() {
+  const { hasPermission } = useAuth()
+  const [initialRange] = useState<DateRange>(() => defaultDateRange())
   const [assetId, setAssetId] = useState<number | undefined>(undefined)
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(initialRange)
 
   const filter: DashboardFilterInput = {
     ...(assetId !== undefined ? { assetId } : {}),
-    ...(dateRange?.from ? { from: dateRange.from.toISOString() } : {}),
-    ...(dateRange?.to ? { to: dateRange.to.toISOString() } : {}),
+    ...toPeriodFilter(dateRange),
   }
-
-  const filterVars = Object.keys(filter).length > 0 ? filter : undefined
 
   const { data, loading, error } = useQuery<GetDashboardKpisData>(GET_DASHBOARD_KPIS, {
-    variables: { filter: filterVars },
+    variables: { filter },
     fetchPolicy: 'cache-and-network',
   })
-
-  const slaFilter: DashboardFilterInput = {
-    ...(dateRange?.from ? { from: dateRange.from.toISOString() } : {}),
-    ...(dateRange?.to ? { to: dateRange.to.toISOString() } : {}),
-  }
 
   const { data: slaData } = useQuery<GetDashboardSlaRateData>(GET_DASHBOARD_SLA_RATE, {
-    variables: { filter: Object.keys(slaFilter).length > 0 ? slaFilter : undefined },
+    variables: { filter },
     fetchPolicy: 'cache-and-network',
   })
+
+  const isFiltered = assetId !== undefined || dateRange !== initialRange
 
   const { data: assetsData } = useQuery<GetAssetsData>(GET_ASSETS, {
     fetchPolicy: 'cache-first',
@@ -145,22 +137,22 @@ export default function DashboardPage() {
           placeholder="Selecionar intervalo"
         />
 
-        {(assetId !== undefined || dateRange?.from || dateRange?.to) && (
+        {isFiltered && (
           <button
             type="button"
             className="dashboard-filters__clear"
             onClick={() => {
               setAssetId(undefined)
-              setDateRange(undefined)
+              setDateRange(initialRange)
             }}
           >
-            Limpar filtros
+            Restaurar padrão
           </button>
         )}
       </div>
 
       {/* ── Cards de resumo ──────────────────────────── */}
-      {!loading && (kpis.length > 0 || slaRate !== undefined) && (
+      {(kpis.length > 0 || slaRate !== undefined) && (
         <div className="kpi-summary">
           <KpiCard
             label="MTTR médio"
@@ -198,7 +190,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Estados ─────────────────────────────────── */}
-      {loading && !data && (
+      {loading && !data && !slaData && (
         <div className="page-loading">
           <Spinner size="lg" />
         </div>
@@ -210,17 +202,13 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!loading && !error && kpis.length === 0 && (
-        <div className="page-empty">
-          <p>
-            Nenhuma ordem de serviço corretiva concluída encontrada
-            {assetId !== undefined || dateRange?.from || dateRange?.to ? ' para os filtros selecionados' : ''}.
-          </p>
-          <p className="dashboard-empty__hint">
-            Complete ordens de serviço do tipo <strong>Corretiva</strong> para visualizar os KPIs.
-          </p>
-        </div>
-      )}
+      {/* ── Gráficos ────────────────────────────────── */}
+      <DashboardCharts
+        filter={filter}
+        kpis={kpis}
+        kpisLoading={loading}
+        canReadCost={hasPermission('cost.read')}
+      />
 
       {/* ── Tabela por ativo ────────────────────────── */}
       {kpis.length > 0 && (
