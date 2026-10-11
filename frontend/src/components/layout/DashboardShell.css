@@ -343,10 +343,18 @@
   color: var(--text-muted);
 }
 
-.user-menu__header-email {
+.user-menu__header-name {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu__header-email {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

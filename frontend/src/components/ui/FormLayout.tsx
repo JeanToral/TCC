@@ -80,13 +80,16 @@ export function FormActions({ children, className }: FormActionsProps) {
 
 // ── FormAlert ─────────────────────────────────────────────
 export interface FormAlertProps {
-  readonly variant?: 'error' | 'warning'
+  readonly variant?: 'error' | 'warning' | 'success'
   readonly children: ReactNode
 }
 
 export function FormAlert({ variant = 'error', children }: FormAlertProps) {
   return (
-    <div className={cn('form-alert', `form-alert--${variant}`)} role="alert">
+    <div
+      className={cn('form-alert', `form-alert--${variant}`)}
+      role={variant === 'success' ? 'status' : 'alert'}
+    >
       {children}
     </div>
   )

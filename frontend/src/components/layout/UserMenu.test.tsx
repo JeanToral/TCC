@@ -1,4 +1,6 @@
 import { render, screen } from '@testing-library/react'
+import { MockedProvider } from '@apollo/client/testing/react'
+import type { MockLink } from '@apollo/client/testing'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,7 +8,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import UserMenu from './UserMenu'
 import { AppearanceProvider } from '../../contexts/AppearanceContext'
 import { AuthContext } from '../../contexts/AuthContext'
+import { GET_ME } from '../../graphql/users/GetMe.gql'
 import { APPEARANCE_STORAGE_KEY } from '../../lib/appearance'
+
+function meMock(): MockLink.MockedResponse {
+  return {
+    request: { query: GET_ME },
+    maxUsageCount: Number.POSITIVE_INFINITY,
+    result: {
+      data: {
+        me: {
+          __typename: 'UserType',
+          id: 4,
+          name: 'Ana Técnica',
+          email: 'tecnico@cmms.local',
+          role: { __typename: 'RoleType', id: 4, name: 'Technician' },
+        },
+      },
+    },
+  }
+}
 
 function renderMenu(logout: () => void = vi.fn()) {
   const auth = {
@@ -16,19 +37,23 @@ function renderMenu(logout: () => void = vi.fn()) {
     hasPermission: () => false,
     login: vi.fn(),
     logout,
+    refreshSession: vi.fn(() => Promise.resolve()),
   }
 
   render(
-    <AppearanceProvider>
-      <AuthContext.Provider value={auth}>
-        <MemoryRouter initialEntries={['/dashboard']}>
-          <Routes>
-            <Route path="/dashboard" element={<UserMenu />} />
-            <Route path="/login" element={<p>Tela de login</p>} />
-          </Routes>
-        </MemoryRouter>
-      </AuthContext.Provider>
-    </AppearanceProvider>,
+    <MockedProvider mocks={[meMock()]}>
+      <AppearanceProvider>
+        <AuthContext.Provider value={auth}>
+          <MemoryRouter initialEntries={['/dashboard']}>
+            <Routes>
+              <Route path="/dashboard" element={<UserMenu />} />
+              <Route path="/dashboard/profile" element={<p>Tela de perfil</p>} />
+              <Route path="/login" element={<p>Tela de login</p>} />
+            </Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </AppearanceProvider>
+    </MockedProvider>,
   )
 
   return { user: userEvent.setup() }
@@ -41,7 +66,7 @@ describe('UserMenu', () => {
     delete document.documentElement.dataset.size
   })
 
-  it('deve mostrar o usuário logado no gatilho do menu', () => {
+  it('deve mostrar o e-mail do token enquanto o perfil carrega', () => {
     // Arrange / Act
     renderMenu()
 
@@ -51,7 +76,15 @@ describe('UserMenu', () => {
     )
   })
 
-  it('deve abrir com Meu perfil (desabilitado), Aparência e Sair', async () => {
+  it('deve mostrar o nome do usuário depois de carregar o perfil', async () => {
+    // Arrange / Act
+    renderMenu()
+
+    // Assert
+    expect(await screen.findByText('Ana Técnica')).toBeInTheDocument()
+  })
+
+  it('deve abrir com Meu perfil, Aparência e Sair', async () => {
     // Arrange
     const { user } = renderMenu()
 
@@ -59,9 +92,21 @@ describe('UserMenu', () => {
     await user.click(screen.getByRole('button', { name: 'Menu do usuário' }))
 
     // Assert
-    expect(screen.getByRole('button', { name: 'Meu perfil' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Meu perfil' })).toBeEnabled()
     expect(screen.getByText('Aparência')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument()
+  })
+
+  it('deve levar à página Meu perfil e fechar o menu', async () => {
+    // Arrange
+    const { user } = renderMenu()
+    await user.click(screen.getByRole('button', { name: 'Menu do usuário' }))
+
+    // Act
+    await user.click(screen.getByRole('button', { name: 'Meu perfil' }))
+
+    // Assert
+    expect(screen.getByText('Tela de perfil')).toBeInTheDocument()
   })
 
   it('deve marcar os padrões Sistema e Médio', async () => {

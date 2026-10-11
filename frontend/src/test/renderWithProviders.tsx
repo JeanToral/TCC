@@ -19,6 +19,8 @@ export interface RenderWithProvidersOptions {
    * Omitido = nenhuma permissão.
    */
   readonly permissions?: readonly string[]
+  /** Espião para telas que renovam a sessão (ex.: troca de e-mail em Meu perfil). */
+  readonly refreshSession?: () => Promise<void>
 }
 
 export interface RenderWithProvidersResult extends RenderResult {
@@ -30,7 +32,13 @@ export interface RenderWithProvidersResult extends RenderResult {
  */
 export function renderWithProviders(
   ui: ReactElement,
-  { route = '/', path, mocks = [], permissions = [] }: RenderWithProvidersOptions = {},
+  {
+    route = '/',
+    path,
+    mocks = [],
+    permissions = [],
+    refreshSession = () => Promise.resolve(),
+  }: RenderWithProvidersOptions = {},
 ): RenderWithProvidersResult {
   const element: ReactNode = path ? (
     <Routes>
@@ -47,6 +55,7 @@ export function renderWithProviders(
     hasPermission: (perm: string) => permissions.includes('*') || permissions.includes(perm),
     login: () => undefined,
     logout: () => undefined,
+    refreshSession,
   }
 
   const result = render(

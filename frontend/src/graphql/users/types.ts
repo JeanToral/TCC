@@ -58,3 +58,25 @@ export interface UpdateUserData {
 export interface RemoveUserData {
   readonly removeUser: { readonly id: string }
 }
+
+export interface MyProfile {
+  readonly id: number
+  readonly name: string
+  readonly email: string
+  readonly role: RoleBasic
+}
+
+export interface GetMeData {
+  readonly me: MyProfile
+}
+
+export interface UpdateMyProfileInput {
+  readonly name?: string
+  readonly email?: string
+  /** Obrigatória só quando o e-mail muda. */
+  readonly currentPassword?: string
+}
+
+export interface UpdateMyProfileData {
+  readonly updateMyProfile: MyProfile
+}

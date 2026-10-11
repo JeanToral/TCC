@@ -13,6 +13,8 @@ interface AuthContextValue {
   readonly hasPermission: (perm: string) => boolean
   readonly login: (accessToken: string) => void
   readonly logout: () => void
+  /** Renova o access token — usado quando um dado do JWT (ex.: e-mail) muda. */
+  readonly refreshSession: () => Promise<void>
 }
 
 interface RefreshTokenResult {
@@ -115,7 +117,7 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
   if (initializing) return null
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, email, permissions, hasPermission, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, email, permissions, hasPermission, login, logout, refreshSession: silentRefresh }}>
       {children}
     </AuthContext.Provider>
   )

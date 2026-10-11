@@ -1,10 +1,17 @@
 // ─────────────────────── Imports ────────────────────────
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { type UserRecord, UsersRepository } from './users.repository';
 import type { CreateUserInput } from './dto/create-user.input';
+import type { UpdateMyProfileInput } from './dto/update-my-profile.input';
 import type { UpdateUserInput } from './dto/update-user.input';
 
 // ─────────────────────── Service ────────────────────────
@@ -97,6 +104,45 @@ export class UsersService {
         isActive: after.isActive,
         hasHourlyRate: after.hourlyRate !== null,
       },
+    );
+
+    return after;
+  }
+
+  /**
+   * Autoedição de nome e e-mail. Sempre o usuário do token — nunca recebe id.
+   * Trocar o e-mail exige a senha atual: ele é o login, e sem a confirmação quem
+   * encontrar uma sessão aberta trancaria o dono fora da conta.
+   * Senha errada é BadRequest, não Unauthorized: a sessão continua válida.
+   */
+  async updateMyProfile(userId: number, input: UpdateMyProfileInput): Promise<UserRecord> {
+    const before = await this.findById(userId);
+
+    const data: { name?: string; email?: string } = {};
+    if (input.name !== undefined && input.name !== before.name) data.name = input.name;
+    if (input.email !== undefined && input.email !== before.email) data.email = input.email;
+
+    if (data.email !== undefined) {
+      if (!input.currentPassword) {
+        throw new BadRequestException('Informe a senha atual para alterar o e-mail');
+      }
+      const hash = await this.repo.findPasswordHash(userId);
+      if (!hash || !(await bcrypt.compare(input.currentPassword, hash))) {
+        throw new BadRequestException('Senha atual incorreta');
+      }
+      const conflict = await this.repo.findByEmail(data.email);
+      if (conflict && conflict.id !== userId) {
+        throw new ConflictException('E-mail já cadastrado');
+      }
+    }
+
+    if (Object.keys(data).length === 0) return before;
+
+    const after = await this.repo.update(userId, data);
+
+    this.audit.log(userId, 'user.updateSelf', 'User', userId,
+      { name: before.name, email: before.email },
+      { name: after.name, email: after.email },
     );
 
     return after;

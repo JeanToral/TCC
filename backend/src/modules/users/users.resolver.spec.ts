@@ -1,6 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 
+import { PERMISSION_KEY } from '../../common/decorators/requires-permission.decorator';
 import { UsersResolver } from './users.resolver';
 import { UsersService } from './users.service';
 import type { UserRecord } from './users.repository';
@@ -53,6 +54,7 @@ describe('UsersResolver', () => {
             create: jest.fn(),
             update: jest.fn(),
             remove: jest.fn(),
+            updateMyProfile: jest.fn(),
           } satisfies Partial<jest.Mocked<UsersService>>,
         },
       ],
@@ -127,6 +129,48 @@ describe('UsersResolver', () => {
     // Assert
     expect(service.remove).toHaveBeenCalledWith(1, mockActor.id);
     expect(result.deletedAt).not.toBeNull();
+  });
+
+  // ── Autoatendimento (Meu perfil) ────────────────────────
+  describe('me / updateMyProfile', () => {
+    it('deve devolver o cadastro do usuário do token em me()', async () => {
+      // Arrange
+      const self = makeUser({ id: mockActor.id });
+      service.findById.mockResolvedValue(self);
+
+      // Act
+      const result = await resolver.me(mockActor);
+
+      // Assert
+      expect(service.findById).toHaveBeenCalledWith(mockActor.id);
+      expect(result).toEqual(self);
+    });
+
+    it('deve delegar updateMyProfile com o id do token', async () => {
+      // Arrange
+      const technician = actorWith(['workorder.read']);
+      const input = { name: 'Novo Nome' };
+      service.updateMyProfile.mockResolvedValue(makeUser({ id: technician.id, name: 'Novo Nome' }));
+
+      // Act
+      await resolver.updateMyProfile(input, technician);
+
+      // Assert
+      expect(service.updateMyProfile).toHaveBeenCalledWith(technician.id, input);
+    });
+
+    it('não deve exigir permissão em me nem em updateMyProfile', () => {
+      // Arrange
+      const requiredPermission = (method: keyof UsersResolver): unknown => {
+        const handler: unknown = Object.getOwnPropertyDescriptor(UsersResolver.prototype, method)?.value;
+        return Reflect.getMetadata(PERMISSION_KEY, handler as object);
+      };
+
+      // Act / Assert
+      expect(requiredPermission('me')).toBeUndefined();
+      expect(requiredPermission('updateMyProfile')).toBeUndefined();
+      expect(requiredPermission('updateUser')).toBe('user.update');
+    });
   });
 
   // ── hourlyRate (dado salarial) ──────────────────────────

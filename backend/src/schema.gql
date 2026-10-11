@@ -198,6 +198,7 @@ type Mutation {
   scheduleWorkOrder(id: Int!, input: ScheduleWorkOrderInput!): WorkOrder!
   startWorkOrder(id: Int!): WorkOrder!
   updateAsset(id: Int!, input: UpdateAssetInput!): AssetType!
+  updateMyProfile(input: UpdateMyProfileInput!): UserType!
   updatePreventivePlan(id: Int!, input: UpdatePreventivePlanInput!): PreventivePlan!
   updateRole(id: Int!, input: UpdateRoleInput!): RoleType!
   updateSparePart(id: Int!, input: UpdateSparePartInput!): SparePart!
@@ -251,6 +252,7 @@ type Query {
   auditLogs(targetId: Int, targetType: String): [AuditLogType!]!
   dashboardKpis(filter: DashboardFilterInput): [AssetKpi!]!
   dashboardSlaRate(filter: DashboardFilterInput): SlaRate!
+  me: UserType!
   notifications(unreadOnly: Boolean = false): [Notification!]!
   preventivePlan(id: Int!): PreventivePlan!
   preventivePlans(assetId: Int): [PreventivePlan!]!
@@ -324,6 +326,12 @@ input UpdateExternalCostInput {
   description: String
   incurredAt: DateTime
   supplier: String
+}
+
+input UpdateMyProfileInput {
+  currentPassword: String
+  email: String
+  name: String
 }
 
 input UpdatePreventivePlanInput {

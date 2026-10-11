@@ -16,6 +16,7 @@ import WorkOrderViewPage from './pages/work-orders/WorkOrderViewPage'
 import WorkOrderCreatePage from './pages/work-orders/WorkOrderCreatePage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import FinancePage from './pages/finance/FinancePage'
+import ProfilePage from './pages/profile/ProfilePage'
 import SparePartsListPage from './pages/spare-parts/SparePartsListPage'
 import SparePartEditPage from './pages/spare-parts/SparePartEditPage'
 import PreventivePlansListPage from './pages/preventive-plans/PreventivePlansListPage'
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
       { path: 'work-orders/new',      element: <WorkOrderCreatePage /> },
       { path: 'work-orders/:id',      element: <WorkOrderViewPage /> },
       { path: 'finance',              element: <FinancePage /> },
+      { path: 'profile',              element: <ProfilePage /> },
       { path: 'spare-parts',                element: <SparePartsListPage /> },
       { path: 'spare-parts/new',            element: <SparePartEditPage /> },
       { path: 'spare-parts/:id/edit',       element: <SparePartEditPage /> },

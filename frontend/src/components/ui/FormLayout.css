@@ -155,3 +155,9 @@
   border: 1px solid var(--warning-border);
   color: var(--warning-text);
 }
+
+.form-alert--success {
+  background: var(--success-bg);
+  border: 1px solid color-mix(in srgb, var(--success) 25%, transparent);
+  color: var(--success);
+}

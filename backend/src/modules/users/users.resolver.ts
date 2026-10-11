@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { hasPermission, PermissionGuard } from '../auth/guards/permission.guard';
 import type { JwtUser } from '../auth/jwt.strategy';
 import { CreateUserInput } from './dto/create-user.input';
+import { UpdateMyProfileInput } from './dto/update-my-profile.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UserType } from './dto/user.type';
 import { UsersService } from './users.service';
@@ -29,6 +30,21 @@ export class UsersResolver {
   @RequiresPermission('user.read')
   user(@Args('id', { type: () => Int }) id: number): Promise<UserRecord> {
     return this.usersService.findById(id);
+  }
+
+  /** Sem @RequiresPermission: todo usuário autenticado lê o próprio cadastro. */
+  @Query(() => UserType)
+  me(@CurrentUser() actor: JwtUser): Promise<UserRecord> {
+    return this.usersService.findById(actor.id);
+  }
+
+  /** Sem @RequiresPermission e sem id: altera sempre o usuário do token. */
+  @Mutation(() => UserType)
+  updateMyProfile(
+    @Args('input') input: UpdateMyProfileInput,
+    @CurrentUser() actor: JwtUser,
+  ): Promise<UserRecord> {
+    return this.usersService.updateMyProfile(actor.id, input);
   }
 
   @Mutation(() => UserType)

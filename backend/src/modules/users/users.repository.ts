@@ -89,6 +89,15 @@ export class UsersRepository {
     }) as Promise<UserRecord | null>;
   }
 
+  /** Só para conferir a senha atual na autoedição — o hash nunca sai do service. */
+  async findPasswordHash(id: number): Promise<string | null> {
+    const user = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { passwordHash: true },
+    });
+    return user?.passwordHash ?? null;
+  }
+
   findManyByIds(ids: number[]): Promise<UserRecord[]> {
     return this.prisma.user.findMany({
       where: { id: { in: ids }, deletedAt: null },

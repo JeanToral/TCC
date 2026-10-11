@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@apollo/client/react'
 
 import { ChevronDownIcon, LogOutIcon, UserCircleIcon } from '../icons'
 import { useAuth } from '../../contexts/AuthContext'
 import { useAppearance } from '../../contexts/AppearanceContext'
+import { GET_ME } from '../../graphql/users/GetMe.gql'
+import type { GetMeData } from '../../graphql/users/types'
 import type { SizePreference, ThemePreference } from '../../lib/appearance'
 
 interface Choice<T extends string> {
@@ -56,6 +59,7 @@ export default function UserMenu() {
   const navigate = useNavigate()
   const { email, logout } = useAuth()
   const { theme, size, setTheme, setSize } = useAppearance()
+  const { data } = useQuery<GetMeData>(GET_ME)
   const containerRef = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
 
@@ -82,7 +86,14 @@ export default function UserMenu() {
     navigate('/login', { replace: true })
   }
 
-  const displayName = email ?? 'Usuário'
+  function handleProfile() {
+    setIsOpen(false)
+    navigate('/dashboard/profile')
+  }
+
+  const me = data?.me
+  const displayName = me?.name ?? email ?? 'Usuário'
+  const displayEmail = me?.email ?? email ?? ''
 
   return (
     <div className="user-menu" ref={containerRef}>
@@ -106,10 +117,11 @@ export default function UserMenu() {
         <div className="user-menu__panel" role="dialog" aria-label="Menu do usuário">
           <div className="user-menu__header">
             <span className="user-menu__header-label">Conectado como</span>
-            <span className="user-menu__header-email">{displayName}</span>
+            <span className="user-menu__header-name">{displayName}</span>
+            {displayEmail && <span className="user-menu__header-email">{displayEmail}</span>}
           </div>
 
-          <button type="button" className="user-menu__item" disabled title="Disponível em breve">
+          <button type="button" className="user-menu__item" onClick={handleProfile}>
             <UserCircleIcon />
             Meu perfil
           </button>
