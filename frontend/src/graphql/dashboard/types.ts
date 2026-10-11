@@ -1,4 +1,4 @@
-import type { WorkOrderStatus } from '../work-orders/types'
+import type { Priority, WorkOrderStatus, WorkOrderType } from '../work-orders/types'
 
 export interface AssetKpi {
   readonly assetId: number
@@ -53,4 +53,39 @@ export interface GetDashboardStatusCountsData {
 
 export interface GetDashboardMonthlyTrendData {
   readonly dashboardMonthlyTrend: readonly MonthlyTrendPoint[]
+}
+
+export interface SlaBreach {
+  readonly workOrderId: number
+  readonly title: string
+  readonly assetId: number
+  readonly assetTag: string
+  readonly assetName: string
+  readonly priority: Priority
+  readonly type: WorkOrderType
+  readonly createdAt: string
+  readonly startedAt: string
+  readonly completedAt: string
+  readonly limitHours: number
+  readonly delayHours: number
+}
+
+export interface StockReportRow {
+  readonly sparePartId: number
+  readonly partNumber: string
+  readonly name: string
+  readonly quantity: number
+  readonly minimumStock: number
+  readonly belowMinimum: boolean
+  /** Unidades baixadas em OS concluídas no período. */
+  readonly consumed: number
+  readonly workOrders: number
+}
+
+export interface GetSlaBreachesData {
+  readonly slaBreaches: readonly SlaBreach[]
+}
+
+export interface GetStockReportData {
+  readonly stockReport: readonly StockReportRow[]
 }

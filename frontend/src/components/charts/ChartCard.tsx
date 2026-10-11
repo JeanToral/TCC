@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import type { TooltipPayloadEntry } from 'recharts'
 
 import Spinner from '../ui/Spinner'
@@ -30,6 +31,8 @@ export interface ChartCardProps {
   readonly emptyMessage: string
   readonly table: ChartTable
   readonly footnote?: ReactNode
+  /** Leva ao relatório completo, com os mesmos filtros. */
+  readonly reportHref?: string
   readonly children: ReactNode
 }
 
@@ -43,6 +46,7 @@ export function ChartCard({
   emptyMessage,
   table,
   footnote,
+  reportHref,
   children,
 }: ChartCardProps) {
   const firstLoad = loading && isEmpty
@@ -81,7 +85,16 @@ export function ChartCard({
         {!firstLoad && !error && !isEmpty && children}
       </div>
 
-      {footnote && <p className="chart-card__footnote">{footnote}</p>}
+      {(footnote || reportHref) && (
+        <footer className="chart-card__footer">
+          {footnote && <p className="chart-card__footnote">{footnote}</p>}
+          {reportHref && (
+            <Link to={reportHref} className="chart-card__report-link">
+              Ver relatório →
+            </Link>
+          )}
+        </footer>
+      )}
 
       {!isEmpty && (
         <table className="sr-only">

@@ -4,7 +4,11 @@ import { WorkOrderStatus, WorkOrderType } from '../../generated/prisma';
 
 import { DashboardService } from './dashboard.service';
 import { DashboardRepository } from './dashboard.repository';
-import type { CompletedTrendRecord, CorrectiveWorkOrderRecord } from './dashboard.repository';
+import type {
+  CompletedTrendRecord,
+  CorrectiveWorkOrderRecord,
+  SlaDetailRecord,
+} from './dashboard.repository';
 
 const makeWo = (
   id: number,
@@ -56,6 +60,10 @@ describe('DashboardService', () => {
             countByStatus: jest.fn().mockResolvedValue([]),
             findCreatedDates: jest.fn().mockResolvedValue([]),
             findCompletedForTrend: jest.fn().mockResolvedValue([]),
+            findCompletedSlaDetail: jest.fn().mockResolvedValue([]),
+            findPartsBelowMinimum: jest.fn().mockResolvedValue([]),
+            findPartsByIds: jest.fn().mockResolvedValue([]),
+            sumConsumption: jest.fn().mockResolvedValue([]),
           },
         },
       ],
@@ -355,6 +363,135 @@ describe('DashboardService', () => {
       // Assert
       expect(repo.findCreatedDates).toHaveBeenCalledWith(MAY_TO_JULY.from, MAY_TO_JULY.to, 9);
       expect(repo.findCompletedForTrend).toHaveBeenCalledWith(MAY_TO_JULY.from, MAY_TO_JULY.to, 9);
+    });
+  });
+
+  describe('getSlaBreaches', () => {
+    const created = new Date('2026-05-10T00:00:00Z');
+    const makeDetail = (overrides: Partial<SlaDetailRecord> = {}): SlaDetailRecord => ({
+      ...makeCompleted(),
+      id: 1,
+      title: 'Falha no motor',
+      priority: 'HIGH',
+      createdAt: created,
+      startedAt: new Date(created.getTime() + hours(10)),
+      asset: { id: 3, tag: 'TRN-001', name: 'Torno' },
+      ...overrides,
+    });
+
+    it('deve listar só as OS que começaram depois do prazo, com o atraso em horas', async () => {
+      // Arrange — HIGH = 8h: 10h está fora (2h de atraso), 5h está dentro
+      repo.findCompletedSlaDetail.mockResolvedValue([
+        makeDetail({ id: 1 }),
+        makeDetail({ id: 2, startedAt: new Date(created.getTime() + hours(5)) }),
+      ]);
+
+      // Act
+      const result = await service.getSlaBreaches(MAY_TO_JULY);
+
+      // Assert
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        workOrderId: 1,
+        assetTag: 'TRN-001',
+        priority: 'HIGH',
+        limitHours: 8,
+        delayHours: 2,
+      });
+    });
+
+    it('deve ordenar do maior para o menor atraso', async () => {
+      // Arrange — CRITICAL (2h) com 20h de atraso; HIGH (8h) com 2h
+      repo.findCompletedSlaDetail.mockResolvedValue([
+        makeDetail({ id: 1 }),
+        makeDetail({
+          id: 2,
+          priority: 'CRITICAL',
+          startedAt: new Date(created.getTime() + hours(22)),
+        }),
+      ]);
+
+      // Act
+      const result = await service.getSlaBreaches(MAY_TO_JULY);
+
+      // Assert
+      expect(result.map((r) => r.workOrderId)).toEqual([2, 1]);
+    });
+
+    it('deve repassar período e ativo ao repositório', async () => {
+      // Act
+      await service.getSlaBreaches({ ...MAY_TO_JULY, assetId: 3 });
+
+      // Assert
+      expect(repo.findCompletedSlaDetail).toHaveBeenCalledWith(
+        MAY_TO_JULY.from,
+        MAY_TO_JULY.to,
+        3,
+      );
+    });
+  });
+
+  describe('getStockReport', () => {
+    const part = (id: number, quantity: number, minimumStock: number) => ({
+      id,
+      partNumber: `P-${id}`,
+      name: `Peça ${id}`,
+      quantity,
+      minimumStock,
+    });
+
+    it('deve juntar peças abaixo do mínimo e peças consumidas no período', async () => {
+      // Arrange — peça 1 abaixo do mínimo sem consumo; peça 2 normal com consumo
+      repo.findPartsBelowMinimum.mockResolvedValue([part(1, 2, 5)]);
+      repo.sumConsumption.mockResolvedValue([{ sparePartId: 2, consumed: 6, workOrders: 3 }]);
+      repo.findPartsByIds.mockResolvedValue([part(2, 20, 4)]);
+
+      // Act
+      const result = await service.getStockReport(MAY_TO_JULY);
+
+      // Assert
+      expect(result).toEqual([
+        expect.objectContaining({ sparePartId: 1, belowMinimum: true, consumed: 0 }),
+        expect.objectContaining({ sparePartId: 2, belowMinimum: false, consumed: 6, workOrders: 3 }),
+      ]);
+      expect(repo.findPartsByIds).toHaveBeenCalledWith([2]);
+    });
+
+    it('não deve buscar de novo a peça que já veio na lista de abaixo do mínimo', async () => {
+      // Arrange
+      repo.findPartsBelowMinimum.mockResolvedValue([part(1, 2, 5)]);
+      repo.sumConsumption.mockResolvedValue([{ sparePartId: 1, consumed: 4, workOrders: 2 }]);
+
+      // Act
+      const result = await service.getStockReport(MAY_TO_JULY);
+
+      // Assert
+      expect(repo.findPartsByIds).not.toHaveBeenCalled();
+      expect(result).toEqual([expect.objectContaining({ sparePartId: 1, consumed: 4 })]);
+    });
+
+    it('deve ordenar abaixo do mínimo primeiro e depois por consumo', async () => {
+      // Arrange
+      repo.findPartsBelowMinimum.mockResolvedValue([part(3, 0, 1)]);
+      repo.sumConsumption.mockResolvedValue([
+        { sparePartId: 1, consumed: 2, workOrders: 1 },
+        { sparePartId: 2, consumed: 9, workOrders: 4 },
+      ]);
+      repo.findPartsByIds.mockResolvedValue([part(1, 10, 1), part(2, 10, 1)]);
+
+      // Act
+      const result = await service.getStockReport(MAY_TO_JULY);
+
+      // Assert
+      expect(result.map((r) => r.sparePartId)).toEqual([3, 2, 1]);
+    });
+
+    it('deve filtrar o consumo por ativo e período', async () => {
+      // Act
+      await service.getStockReport({ ...MAY_TO_JULY, assetId: 4 });
+
+      // Assert
+      expect(repo.sumConsumption).toHaveBeenCalledWith(MAY_TO_JULY.from, MAY_TO_JULY.to, 4);
     });
   });
 });

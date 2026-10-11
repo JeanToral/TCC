@@ -71,7 +71,7 @@ function AssetCostCard({ assetId }: { readonly assetId: number }) {
             </p>
           )}
 
-          <Link to={`/dashboard/finance?assetId=${assetId}`} className="asset-view-page__cost-link">
+          <Link to={`/dashboard/reports/costs?assetId=${assetId}`} className="asset-view-page__cost-link">
             Ver detalhamento financeiro →
           </Link>
         </>

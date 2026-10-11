@@ -1,17 +1,12 @@
-import { useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
-import type { DateRange } from 'react-day-picker'
 
-import ExportButton from '../../components/ui/ExportButton'
-import { NativeSelect } from '../../components/ui/select'
-import { DateRangePicker } from '../../components/ui/date-range-picker'
 import Spinner from '../../components/ui/Spinner'
-import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
-import type { GetAssetsData } from '../../graphql/assets/types'
+import type { DashboardFilterInput } from '../../graphql/dashboard/types'
 import { GET_ASSET_COSTS } from '../../graphql/finance/GetAssetCosts.gql'
 import type { AssetCost, GetAssetCostsData } from '../../graphql/finance/types'
-import './FinancePage.css'
+import { CostTrendChart } from '../dashboard/DashboardCharts'
+import './CostsReport.css'
 
 // ── Helpers ────────────────────────────────────────────────
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -83,81 +78,23 @@ function SummaryCard({
   )
 }
 
-// ── FinancePage ────────────────────────────────────────────
-export default function FinancePage() {
-  // Permite chegar filtrado a partir da tela do ativo (?assetId=3).
-  const [searchParams] = useSearchParams()
-  const initialAssetId = Number(searchParams.get('assetId')) || undefined
+// ── CostsReport ────────────────────────────────────────────
+interface ReportTabProps {
+  readonly filter: DashboardFilterInput
+}
 
-  const [assetId, setAssetId] = useState<number | undefined>(initialAssetId)
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
-
-  const filter = useMemo(
-    () => ({
-      ...(assetId !== undefined ? { assetId } : {}),
-      ...(dateRange?.from ? { from: dateRange.from.toISOString() } : {}),
-      ...(dateRange?.to ? { to: dateRange.to.toISOString() } : {}),
-    }),
-    [assetId, dateRange],
-  )
-
-  const { data: assetsData } = useQuery<GetAssetsData>(GET_ASSETS)
-
+export default function CostsReport({ filter }: ReportTabProps) {
   const { data, loading, error } = useQuery<GetAssetCostsData>(GET_ASSET_COSTS, {
     variables: { filter },
   })
 
   const rows = data?.assetCosts ?? []
   const totals = sumTotals(rows)
-  const assets = assetsData?.assets ?? []
-  const hasFilter = assetId !== undefined || !!dateRange?.from || !!dateRange?.to
 
   return (
-    <div className="finance-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <h1 className="page-header__title">Custos por Ativo</h1>
-        </div>
-        <div className="page-header__actions">
-          <ExportButton path="asset-costs" params={filter} fallbackName="custos-por-ativo" />
-        </div>
-      </header>
-
-      {/* ── Filtros ───────────────────────────────────── */}
-      <div className="finance-filters">
-        <NativeSelect
-          id="finance-asset"
-          label="Ativo"
-          value={assetId !== undefined ? String(assetId) : ''}
-          onChange={(e) => setAssetId(e.target.value ? Number(e.target.value) : undefined)}
-        >
-          <option value="">Todos os ativos</option>
-          {assets.map((a) => (
-            <option key={a.id} value={String(a.id)}>
-              {a.tag} — {a.name}
-            </option>
-          ))}
-        </NativeSelect>
-
-        <DateRangePicker
-          label="Período"
-          value={dateRange}
-          onSelect={setDateRange}
-          placeholder="Selecionar intervalo"
-        />
-
-        {hasFilter && (
-          <button
-            type="button"
-            className="finance-filters__clear"
-            onClick={() => {
-              setAssetId(undefined)
-              setDateRange(undefined)
-            }}
-          >
-            Limpar filtros
-          </button>
-        )}
+    <>
+      <div className="chart-grid">
+        <CostTrendChart filter={filter} />
       </div>
 
       {error && (
@@ -278,6 +215,6 @@ export default function FinancePage() {
           )}
         </>
       )}
-    </div>
+    </>
   )
 }

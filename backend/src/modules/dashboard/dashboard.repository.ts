@@ -1,6 +1,6 @@
 // ─────────────────────── Imports ────────────────────────
 import { Injectable } from '@nestjs/common';
-import { WorkOrderStatus, WorkOrderType } from '../../generated/prisma';
+import { Priority, WorkOrderStatus, WorkOrderType } from '../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─────────────────────── Types ───────────────────────────
@@ -37,6 +37,27 @@ export interface CompletedTrendRecord extends SlaWorkOrderRecord {
   readonly completedAt: Date;
 }
 
+export interface SlaDetailRecord extends CompletedTrendRecord {
+  readonly title: string;
+  readonly priority: Priority;
+  readonly startedAt: Date;
+  readonly asset: { readonly id: number; readonly tag: string; readonly name: string };
+}
+
+export interface SparePartStockRecord {
+  readonly id: number;
+  readonly partNumber: string;
+  readonly name: string;
+  readonly quantity: number;
+  readonly minimumStock: number;
+}
+
+export interface PartConsumptionRecord {
+  readonly sparePartId: number;
+  readonly consumed: number;
+  readonly workOrders: number;
+}
+
 // ─────────────────────── Constants ──────────────────────
 const CORRECTIVE_WO_SELECT = {
   id: true,
@@ -49,6 +70,14 @@ const CORRECTIVE_WO_SELECT = {
       name: true,
     },
   },
+} as const;
+
+const PART_SELECT = {
+  id: true,
+  partNumber: true,
+  name: true,
+  quantity: true,
+  minimumStock: true,
 } as const;
 
 // ─────────────────────── Repository ─────────────────────
@@ -172,5 +201,77 @@ export class DashboardRepository {
         completedAt: true,
       },
     }) as Promise<CompletedTrendRecord[]>;
+  }
+
+  /** Mesma população do % de SLA (concluídas no período), com dados para a lista. */
+  findCompletedSlaDetail(
+    from: Date,
+    to: Date,
+    assetId?: number,
+  ): Promise<SlaDetailRecord[]> {
+    return this.prisma.workOrder.findMany({
+      where: {
+        status: WorkOrderStatus.COMPLETED,
+        deletedAt: null,
+        startedAt: { not: null },
+        completedAt: { gte: from, lte: to },
+        ...(assetId !== undefined ? { assetId } : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        priority: true,
+        createdAt: true,
+        startedAt: true,
+        completedAt: true,
+        asset: { select: { id: true, tag: true, name: true } },
+      },
+      orderBy: { completedAt: 'desc' },
+    }) as Promise<SlaDetailRecord[]>;
+  }
+
+  /** Saldo atual — não depende de período nem de ativo. */
+  findPartsBelowMinimum(): Promise<SparePartStockRecord[]> {
+    return this.prisma.sparePart.findMany({
+      where: {
+        deletedAt: null,
+        quantity: { lt: this.prisma.sparePart.fields.minimumStock },
+      },
+      select: PART_SELECT,
+    });
+  }
+
+  findPartsByIds(ids: number[]): Promise<SparePartStockRecord[]> {
+    return this.prisma.sparePart.findMany({
+      where: { id: { in: ids } },
+      select: PART_SELECT,
+    });
+  }
+
+  /** Consumo = peças baixadas em OS concluídas no período (por completedAt). */
+  async sumConsumption(
+    from: Date,
+    to: Date,
+    assetId?: number,
+  ): Promise<PartConsumptionRecord[]> {
+    const groups = await this.prisma.workOrderPart.groupBy({
+      by: ['sparePartId'],
+      where: {
+        workOrder: {
+          status: WorkOrderStatus.COMPLETED,
+          deletedAt: null,
+          completedAt: { gte: from, lte: to },
+          ...(assetId !== undefined ? { assetId } : {}),
+        },
+      },
+      _sum: { quantityUsed: true },
+      _count: { workOrderId: true },
+    });
+    return groups.map((g) => ({
+      sparePartId: g.sparePartId,
+      consumed: g._sum.quantityUsed ?? 0,
+      workOrders: g._count.workOrderId,
+    }));
   }
 }

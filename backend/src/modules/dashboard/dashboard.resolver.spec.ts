@@ -32,6 +32,8 @@ describe('DashboardResolver', () => {
             getKpis: jest.fn(),
             getStatusCounts: jest.fn(),
             getMonthlyTrend: jest.fn(),
+            getSlaBreaches: jest.fn(),
+            getStockReport: jest.fn(),
           } satisfies Partial<jest.Mocked<DashboardService>>,
         },
       ],
@@ -140,8 +142,28 @@ describe('DashboardResolver', () => {
     const proto = Object.getPrototypeOf(resolver) as DashboardResolver;
 
     // Act / Assert
-    for (const handler of [proto.dashboardStatusCounts, proto.dashboardMonthlyTrend]) {
+    for (const handler of [
+      proto.dashboardStatusCounts,
+      proto.dashboardMonthlyTrend,
+      proto.slaBreaches,
+      proto.stockReport,
+    ]) {
       expect(reflector.get<string>(PERMISSION_KEY, handler)).toBe('dashboard.read');
     }
+  });
+
+  it('deve delegar slaBreaches e stockReport ao DashboardService', async () => {
+    // Arrange
+    service.getSlaBreaches.mockResolvedValue([]);
+    service.getStockReport.mockResolvedValue([]);
+    const filter: DashboardFilterInput = { assetId: 2 };
+
+    // Act
+    await resolver.slaBreaches(filter);
+    await resolver.stockReport(filter);
+
+    // Assert
+    expect(service.getSlaBreaches).toHaveBeenCalledWith(filter);
+    expect(service.getStockReport).toHaveBeenCalledWith(filter);
   });
 });

@@ -5,8 +5,8 @@ import {
   BuildingIcon,
   CalendarIcon,
   ChevronDownIcon,
+  ChartBarIcon,
   ClipboardListIcon,
-  CurrencyIcon,
   DashboardIcon,
   GearIcon,
   KeyIcon,
@@ -32,7 +32,7 @@ const mainNav: readonly NavItem[] = [
   { label: 'Ordens de Serviço',    path: '/dashboard/work-orders',      icon: <ClipboardListIcon /> },
   { label: 'Peças de Reposição',   path: '/dashboard/spare-parts',      icon: <GearIcon /> },
   { label: 'Planos Preventivos',   path: '/dashboard/preventive-plans', icon: <CalendarIcon /> },
-  { label: 'Custos por Ativo',     path: '/dashboard/finance',          icon: <CurrencyIcon />, permission: 'cost.read' },
+  { label: 'Relatórios',           path: '/dashboard/reports',          icon: <ChartBarIcon />, permission: 'dashboard.read' },
 ]
 
 const adminNav: readonly NavItem[] = [

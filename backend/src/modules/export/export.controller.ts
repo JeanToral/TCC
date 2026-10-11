@@ -76,6 +76,9 @@ export class ExportAssetCostsQuery {
   readonly to?: Date;
 }
 
+/** Abas de Relatórios: mesmo recorte do dashboard (ativo + período). */
+export class ExportReportQuery extends ExportAssetCostsQuery {}
+
 export class ExportSparePartsQuery {
   @IsIn(['csv', 'xlsx'])
   readonly format: ExportFormat;
@@ -137,5 +140,38 @@ export class ExportController {
   ): Promise<void> {
     const { format, ...filter } = query;
     return this.exportService.exportSpareParts(format, filter, viewer, res);
+  }
+
+  @Get('reliability')
+  @RequiresPermission('dashboard.read')
+  reliability(
+    @Query() query: ExportReportQuery,
+    @CurrentUser() viewer: JwtUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { format, ...filter } = query;
+    return this.exportService.exportReliability(format, filter, viewer, res);
+  }
+
+  @Get('sla-breaches')
+  @RequiresPermission('dashboard.read')
+  slaBreaches(
+    @Query() query: ExportReportQuery,
+    @CurrentUser() viewer: JwtUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { format, ...filter } = query;
+    return this.exportService.exportSlaBreaches(format, filter, viewer, res);
+  }
+
+  @Get('stock-consumption')
+  @RequiresPermission('dashboard.read')
+  stockConsumption(
+    @Query() query: ExportReportQuery,
+    @CurrentUser() viewer: JwtUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { format, ...filter } = query;
+    return this.exportService.exportStockConsumption(format, filter, viewer, res);
   }
 }

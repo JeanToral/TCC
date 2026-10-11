@@ -7,8 +7,16 @@ import {
   WorkOrderType,
 } from '../../generated/prisma';
 
+import { resolvePeriod } from '../../common/reporting/month-buckets';
 import { hasPermission } from '../auth/guards/permission.guard';
 import type { JwtUser } from '../auth/jwt.strategy';
+import {
+  type AssetKpiRecord,
+  DashboardService,
+  type SlaBreachRecord,
+  type StockReportRecord,
+} from '../dashboard/dashboard.service';
+import type { DashboardFilterInput } from '../dashboard/dto/dashboard-filter.input';
 import type { FinanceFilterInput } from '../finance/dto/finance-filter.input';
 import {
   type AssetCostRecord,
@@ -436,6 +444,117 @@ export function sumStockValue(
   };
 }
 
+// ─────────────────────── Colunas: Relatórios ────────────
+export const RELIABILITY_COLUMNS: readonly ColumnDefinition<AssetKpiRecord>[] = [
+  { key: 'assetName', label: 'Ativo', type: 'text', width: 30, value: (r) => r.assetName },
+  {
+    key: 'mttr',
+    label: 'MTTR (h)',
+    type: 'number',
+    width: 12,
+    value: (r) => r.mttr,
+  },
+  {
+    key: 'mtbf',
+    label: 'MTBF (h)',
+    type: 'number',
+    width: 12,
+    value: (r) => r.mtbf,
+  },
+  {
+    key: 'completedWorkOrders',
+    label: 'Corretivas concluídas',
+    type: 'integer',
+    width: 20,
+    value: (r) => r.completedWorkOrders,
+  },
+  {
+    key: 'totalWorkOrders',
+    label: 'OS totais do ativo',
+    type: 'integer',
+    width: 18,
+    value: (r) => r.totalWorkOrders,
+  },
+];
+
+export const SLA_BREACH_COLUMNS: readonly ColumnDefinition<SlaBreachRecord>[] = [
+  { key: 'workOrderId', label: 'Nº', type: 'integer', width: 8, value: (r) => r.workOrderId },
+  { key: 'title', label: 'Título', type: 'text', width: 40, value: (r) => r.title },
+  { key: 'assetTag', label: 'Ativo (tag)', type: 'text', width: 12, value: (r) => r.assetTag },
+  { key: 'assetName', label: 'Ativo', type: 'text', width: 26, value: (r) => r.assetName },
+  {
+    key: 'priority',
+    label: 'Prioridade',
+    type: 'text',
+    width: 12,
+    value: (r) => PRIORITY_LABEL[r.priority],
+  },
+  { key: 'type', label: 'Tipo', type: 'text', width: 12, value: (r) => TYPE_LABEL[r.type] },
+  { key: 'createdAt', label: 'Aberta em', type: 'datetime', value: (r) => r.createdAt },
+  { key: 'startedAt', label: 'Iniciada em', type: 'datetime', value: (r) => r.startedAt },
+  { key: 'completedAt', label: 'Concluída em', type: 'datetime', value: (r) => r.completedAt },
+  {
+    key: 'limitHours',
+    label: 'Prazo para início (h)',
+    type: 'integer',
+    width: 18,
+    value: (r) => r.limitHours,
+  },
+  {
+    key: 'delayHours',
+    label: 'Atraso (h)',
+    type: 'number',
+    width: 12,
+    value: (r) => r.delayHours,
+  },
+];
+
+export const STOCK_CONSUMPTION_COLUMNS: readonly ColumnDefinition<StockReportRecord>[] = [
+  { key: 'partNumber', label: 'Código', type: 'text', width: 14, value: (r) => r.partNumber },
+  { key: 'name', label: 'Peça', type: 'text', width: 30, value: (r) => r.name },
+  { key: 'quantity', label: 'Saldo atual', type: 'integer', width: 12, value: (r) => r.quantity },
+  {
+    key: 'minimumStock',
+    label: 'Estoque mínimo',
+    type: 'integer',
+    width: 14,
+    value: (r) => r.minimumStock,
+  },
+  {
+    key: 'situation',
+    label: 'Situação',
+    type: 'text',
+    width: 14,
+    value: (r) => (r.belowMinimum ? 'Abaixo do mínimo' : 'Normal'),
+  },
+  {
+    key: 'consumed',
+    label: 'Consumido no período',
+    type: 'integer',
+    width: 20,
+    value: (r) => r.consumed,
+  },
+  {
+    key: 'workOrders',
+    label: 'OS que consumiram',
+    type: 'integer',
+    width: 18,
+    value: (r) => r.workOrders,
+  },
+];
+
+/** Filtros comuns aos relatórios, já com o período padrão resolvido. */
+function describeReportFilter(
+  filter: DashboardFilterInput,
+  from: Date,
+  to: Date,
+): ExportFilterDescription[] {
+  return [
+    { label: 'Período', value: describePeriod(from, to) },
+    ...(filter.assetId ? [{ label: 'Ativo (id)', value: String(filter.assetId) }] : []),
+  ];
+}
+
 // ─────────────────────── Helpers ────────────────────────
 const BR_DAY = new Intl.DateTimeFormat('pt-BR', {
   timeZone: SAO_PAULO_TZ,
@@ -452,8 +571,16 @@ export function describePeriod(from?: Date, to?: Date): string {
   return 'Todo o histórico';
 }
 
+const ISO_DAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: SAO_PAULO_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/** `yyyy-mm-dd` no fuso de Brasília: o fim do dia 30/09 (23:59 -03) é 01/10 em UTC. */
 function isoDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return ISO_DAY.format(date);
 }
 
 /** `ordens-de-servico_2025-01-01_2025-12-31.xlsx` ou datado pela geração. */
@@ -522,6 +649,7 @@ export class ExportService {
     private readonly workOrders: WorkOrdersService,
     private readonly finance: FinanceService,
     private readonly spareParts: SparePartsService,
+    private readonly dashboard: DashboardService,
   ) {}
 
   /**
@@ -679,6 +807,89 @@ export class ExportService {
         footer: includeCost ? sumStockValue(rows) : undefined,
       },
     );
+  }
+
+  /** Mesmos números da aba Confiabilidade: a agregação é a do DashboardService. */
+  async exportReliability(
+    format: ExportFormat,
+    filter: DashboardFilterInput,
+    viewer: JwtUser,
+    res: Response,
+  ): Promise<void> {
+    const { from, to } = resolvePeriod(filter.from, filter.to);
+    const rows = await this.dashboard.getKpis({ ...filter, from, to });
+    this.assertWithinLimit(rows.length);
+    const generatedAt = new Date();
+
+    await this.render(res, format, buildFilename('confiabilidade', format, generatedAt, from, to), {
+      columns: RELIABILITY_COLUMNS,
+      rows,
+      meta: {
+        title: 'Confiabilidade por Ativo',
+        generatedAt,
+        generatedBy: viewer.email,
+        filters: describeReportFilter(filter, from, to),
+        notes: [
+          'MTTR: média de (conclusão − início) das OS corretivas concluídas no período.',
+          'MTBF: média do intervalo entre o fim de uma corretiva e o início da seguinte; ' +
+            'vazio com menos de duas falhas no período.',
+        ],
+      },
+    });
+  }
+
+  async exportSlaBreaches(
+    format: ExportFormat,
+    filter: DashboardFilterInput,
+    viewer: JwtUser,
+    res: Response,
+  ): Promise<void> {
+    const { from, to } = resolvePeriod(filter.from, filter.to);
+    const rows = await this.dashboard.getSlaBreaches({ ...filter, from, to });
+    this.assertWithinLimit(rows.length);
+    const generatedAt = new Date();
+
+    await this.render(res, format, buildFilename('sla-estourado', format, generatedAt, from, to), {
+      columns: SLA_BREACH_COLUMNS,
+      rows,
+      meta: {
+        title: 'OS fora do SLA',
+        generatedAt,
+        generatedBy: viewer.email,
+        filters: describeReportFilter(filter, from, to),
+        notes: [
+          'OS concluídas no período cujo início passou do prazo da prioridade ' +
+            '(Crítica 2h, Alta 8h, Média 48h, Baixa 168h).',
+        ],
+      },
+    });
+  }
+
+  async exportStockConsumption(
+    format: ExportFormat,
+    filter: DashboardFilterInput,
+    viewer: JwtUser,
+    res: Response,
+  ): Promise<void> {
+    const { from, to } = resolvePeriod(filter.from, filter.to);
+    const rows = await this.dashboard.getStockReport({ ...filter, from, to });
+    this.assertWithinLimit(rows.length);
+    const generatedAt = new Date();
+
+    await this.render(res, format, buildFilename('consumo-de-pecas', format, generatedAt, from, to), {
+      columns: STOCK_CONSUMPTION_COLUMNS,
+      rows,
+      meta: {
+        title: 'Estoque e Consumo de Peças',
+        generatedAt,
+        generatedBy: viewer.email,
+        filters: describeReportFilter(filter, from, to),
+        notes: [
+          'Saldo e situação são de agora; o consumo é das OS concluídas no período.',
+          'Peças abaixo do mínimo aparecem mesmo sem consumo no período.',
+        ],
+      },
+    });
   }
 
   private render<T>(

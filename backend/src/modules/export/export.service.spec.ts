@@ -19,7 +19,10 @@ import {
   coverageNote,
   describePeriod,
   ExportService,
+  RELIABILITY_COLUMNS,
+  SLA_BREACH_COLUMNS,
   sparePartColumns,
+  STOCK_CONSUMPTION_COLUMNS,
   sumAssetCosts,
   sumStockValue,
   toSparePartExportRow,
@@ -29,6 +32,11 @@ import type {
   FinanceService,
   AssetCostRecord,
 } from '../finance/finance.service';
+import type {
+  DashboardService,
+  SlaBreachRecord,
+  StockReportRecord,
+} from '../dashboard/dashboard.service';
 import type { SparePartRecord } from '../spare-parts/spare-parts.repository';
 import type { SparePartsService } from '../spare-parts/spare-parts.service';
 import type { WorkOrdersService } from '../work-orders/work-orders.service';
@@ -319,6 +327,7 @@ describe('ExportService', () => {
     {} as WorkOrdersService,
     {} as FinanceService,
     {} as SparePartsService,
+    {} as DashboardService,
   );
 
   it('deve rejeitar exportação acima do teto com mensagem clara', () => {
@@ -380,10 +389,21 @@ describe('ExportService', () => {
         'ordens-de-servico',
         'xlsx',
         new Date('2026-10-10T12:00:00Z'),
-        new Date('2025-01-01T00:00:00Z'),
-        new Date('2025-12-31T00:00:00Z'),
+        new Date('2025-01-01T00:00:00-03:00'),
+        new Date('2025-12-31T23:59:59.999-03:00'),
       ),
     ).toBe('ordens-de-servico_2025-01-01_2025-12-31.xlsx');
+  });
+
+  it('deve usar o dia de Brasília no nome, mesmo quando o fim do dia já é amanhã em UTC', () => {
+    // Arrange — 30/09 23:59 em Brasília = 01/10 02:59 UTC
+    const endOfDay = new Date('2025-10-01T02:59:59.999Z');
+
+    // Act
+    const name = buildFilename('sla-estourado', 'csv', endOfDay, new Date('2025-04-01T03:00:00Z'), endOfDay);
+
+    // Assert
+    expect(name).toBe('sla-estourado_2025-04-01_2025-09-30.csv');
   });
 
   it('deve nomear o arquivo pela data de geração quando não há período', () => {
@@ -574,5 +594,70 @@ describe('Relatório de estoque', () => {
     expect(totals.partNumber).toBe('TOTAL');
     expect(totals.stockValue).toBe(1415);
     expect(totals.quantity).toBeNull();
+  });
+});
+
+// ─────────────────────── Relatórios ─────────────────────
+describe('Exportações de Relatórios', () => {
+  const cell = <T>(cols: readonly ColumnDefinition<T>[], key: string, row: T) =>
+    cols.find((c) => c.key === key)?.value(row);
+
+  it('deve rotular prioridade e tipo em português na lista de SLA estourado', () => {
+    // Arrange
+    const breach: SlaBreachRecord = {
+      workOrderId: 7,
+      title: 'Vazamento',
+      assetId: 1,
+      assetTag: 'TRN-001',
+      assetName: 'Torno',
+      priority: 'CRITICAL',
+      type: 'CORRECTIVE',
+      createdAt: new Date('2025-04-01T10:00:00Z'),
+      startedAt: new Date('2025-04-01T15:00:00Z'),
+      completedAt: new Date('2025-04-02T10:00:00Z'),
+      limitHours: 2,
+      delayHours: 3,
+    };
+
+    // Act / Assert
+    expect(cell(SLA_BREACH_COLUMNS, 'priority', breach)).toBe('Crítica');
+    expect(cell(SLA_BREACH_COLUMNS, 'type', breach)).toBe('Corretiva');
+    expect(cell(SLA_BREACH_COLUMNS, 'delayHours', breach)).toBe(3);
+  });
+
+  it('deve marcar a situação da peça no relatório de consumo', () => {
+    // Arrange
+    const row: StockReportRecord = {
+      sparePartId: 1,
+      partNumber: 'ROL-6205',
+      name: 'Rolamento',
+      quantity: 2,
+      minimumStock: 10,
+      belowMinimum: true,
+      consumed: 8,
+      workOrders: 3,
+    };
+
+    // Act / Assert
+    expect(cell(STOCK_CONSUMPTION_COLUMNS, 'situation', row)).toBe('Abaixo do mínimo');
+    expect(cell(STOCK_CONSUMPTION_COLUMNS, 'situation', { ...row, belowMinimum: false })).toBe(
+      'Normal',
+    );
+  });
+
+  it('deve deixar MTBF vazio quando o ativo não tem falhas suficientes', () => {
+    // Arrange
+    const kpi = {
+      assetId: 1,
+      assetName: 'Torno',
+      mttr: 4.5,
+      mtbf: null,
+      totalWorkOrders: 3,
+      completedWorkOrders: 1,
+    };
+
+    // Act / Assert
+    expect(cell(RELIABILITY_COLUMNS, 'mtbf', kpi)).toBeNull();
+    expect(cell(RELIABILITY_COLUMNS, 'mttr', kpi)).toBe(4.5);
   });
 });

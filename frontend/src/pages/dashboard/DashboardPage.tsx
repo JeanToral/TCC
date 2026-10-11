@@ -1,17 +1,13 @@
-import { useState } from 'react'
 import { useQuery } from '@apollo/client/react'
-import type { DateRange } from 'react-day-picker'
 
-import { NativeSelect } from '../../components/ui/select'
-import { DateRangePicker } from '../../components/ui/date-range-picker'
+import ReportFilters from '../../components/reports/ReportFilters'
 import Spinner from '../../components/ui/Spinner'
+import { useAuth } from '../../contexts/AuthContext'
 import { GET_DASHBOARD_KPIS } from '../../graphql/dashboard/GetDashboardKpis.gql'
 import { GET_DASHBOARD_SLA_RATE } from '../../graphql/dashboard/GetDashboardSlaRate.gql'
-import type { AssetKpi, DashboardFilterInput, GetDashboardKpisData, GetDashboardSlaRateData } from '../../graphql/dashboard/types'
-import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
-import type { GetAssetsData } from '../../graphql/assets/types'
-import { useAuth } from '../../contexts/AuthContext'
-import { defaultDateRange, formatHours, toPeriodFilter } from '../../lib/period'
+import type { AssetKpi, GetDashboardKpisData, GetDashboardSlaRateData } from '../../graphql/dashboard/types'
+import { useReportFilters } from '../../hooks/useReportFilters'
+import { formatHours } from '../../lib/period'
 import DashboardCharts from './DashboardCharts'
 import './DashboardPage.css'
 
@@ -29,26 +25,6 @@ function KpiCard({ label, value, subtitle, variant = 'default' }: KpiCardProps) 
       <span className="kpi-card__value">{value}</span>
       <span className="kpi-card__subtitle">{subtitle}</span>
     </div>
-  )
-}
-
-interface AssetKpiRowProps {
-  readonly kpi: AssetKpi
-}
-
-function AssetKpiRow({ kpi }: AssetKpiRowProps) {
-  return (
-    <tr className="kpi-table__row">
-      <td className="kpi-table__cell kpi-table__cell--name">{kpi.assetName}</td>
-      <td className="kpi-table__cell kpi-table__cell--metric">
-        {formatHours(kpi.mttr)}
-      </td>
-      <td className="kpi-table__cell kpi-table__cell--metric">
-        {formatHours(kpi.mtbf)}
-      </td>
-      <td className="kpi-table__cell kpi-table__cell--count">{kpi.completedWorkOrders}</td>
-      <td className="kpi-table__cell kpi-table__cell--count">{kpi.totalWorkOrders}</td>
-    </tr>
   )
 }
 
@@ -73,14 +49,8 @@ function computeSummary(kpis: readonly AssetKpi[]) {
 
 export default function DashboardPage() {
   const { hasPermission } = useAuth()
-  const [initialRange] = useState<DateRange>(() => defaultDateRange())
-  const [assetId, setAssetId] = useState<number | undefined>(undefined)
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(initialRange)
-
-  const filter: DashboardFilterInput = {
-    ...(assetId !== undefined ? { assetId } : {}),
-    ...toPeriodFilter(dateRange),
-  }
+  const filters = useReportFilters()
+  const { filter } = filters
 
   const { data, loading, error } = useQuery<GetDashboardKpisData>(GET_DASHBOARD_KPIS, {
     variables: { filter },
@@ -90,12 +60,6 @@ export default function DashboardPage() {
   const { data: slaData } = useQuery<GetDashboardSlaRateData>(GET_DASHBOARD_SLA_RATE, {
     variables: { filter },
     fetchPolicy: 'cache-and-network',
-  })
-
-  const isFiltered = assetId !== undefined || dateRange !== initialRange
-
-  const { data: assetsData } = useQuery<GetAssetsData>(GET_ASSETS, {
-    fetchPolicy: 'cache-first',
   })
 
   const kpis = data?.dashboardKpis ?? []
@@ -111,45 +75,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ── Filtros ─────────────────────────────────── */}
-      <div className="dashboard-filters">
-        <NativeSelect
-          id="filter-asset"
-          label="Ativo"
-          className="dashboard-filters__select"
-          value={assetId ?? ''}
-          onChange={(e) =>
-            setAssetId(e.target.value ? Number(e.target.value) : undefined)
-          }
-        >
-          <option value="">Todos os ativos</option>
-          {(assetsData?.assets ?? []).map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name} ({a.tag})
-            </option>
-          ))}
-        </NativeSelect>
-
-        <DateRangePicker
-          label="Período"
-          value={dateRange}
-          onSelect={setDateRange}
-          placeholder="Selecionar intervalo"
-        />
-
-        {isFiltered && (
-          <button
-            type="button"
-            className="dashboard-filters__clear"
-            onClick={() => {
-              setAssetId(undefined)
-              setDateRange(initialRange)
-            }}
-          >
-            Restaurar padrão
-          </button>
-        )}
-      </div>
+      <ReportFilters filters={filters} />
 
       {/* ── Cards de resumo ──────────────────────────── */}
       {(kpis.length > 0 || slaRate !== undefined) && (
@@ -181,15 +107,10 @@ export default function DashboardPage() {
             }
             variant="highlight"
           />
-          <KpiCard
-            label="OEE"
-            value="—"
-            subtitle="Em breve"
-          />
+          <KpiCard label="OEE" value="—" subtitle="Em breve" />
         </div>
       )}
 
-      {/* ── Estados ─────────────────────────────────── */}
       {loading && !data && !slaData && (
         <div className="page-loading">
           <Spinner size="lg" />
@@ -202,41 +123,13 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Gráficos ────────────────────────────────── */}
       <DashboardCharts
         filter={filter}
         kpis={kpis}
         kpisLoading={loading}
         canReadCost={hasPermission('cost.read')}
+        search={filters.search}
       />
-
-      {/* ── Tabela por ativo ────────────────────────── */}
-      {kpis.length > 0 && (
-        <div className="kpi-table-card">
-          <table className="kpi-table">
-            <thead>
-              <tr>
-                <th className="kpi-table__th">Ativo</th>
-                <th className="kpi-table__th kpi-table__th--metric">
-                  MTTR
-                  <span className="kpi-table__th-hint">Tempo médio de reparo</span>
-                </th>
-                <th className="kpi-table__th kpi-table__th--metric">
-                  MTBF
-                  <span className="kpi-table__th-hint">Tempo médio entre falhas</span>
-                </th>
-                <th className="kpi-table__th kpi-table__th--count">OS concluídas</th>
-                <th className="kpi-table__th kpi-table__th--count">OS totais</th>
-              </tr>
-            </thead>
-            <tbody>
-              {kpis.map((kpi) => (
-                <AssetKpiRow key={kpi.assetId} kpi={kpi} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   )
 }

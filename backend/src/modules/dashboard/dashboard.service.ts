@@ -1,6 +1,6 @@
 // ─────────────────────── Imports ────────────────────────
 import { Injectable } from '@nestjs/common';
-import { WorkOrderStatus, WorkOrderType } from '../../generated/prisma';
+import { Priority, WorkOrderStatus, WorkOrderType } from '../../generated/prisma';
 
 import { monthKey, monthKeysBetween, resolvePeriod } from '../../common/reporting/month-buckets';
 import {
@@ -27,6 +27,32 @@ export interface SlaRateRecord {
   readonly percentage: number;
 }
 
+export interface SlaBreachRecord {
+  readonly workOrderId: number;
+  readonly title: string;
+  readonly assetId: number;
+  readonly assetTag: string;
+  readonly assetName: string;
+  readonly priority: Priority;
+  readonly type: WorkOrderType;
+  readonly createdAt: Date;
+  readonly startedAt: Date;
+  readonly completedAt: Date;
+  readonly limitHours: number;
+  readonly delayHours: number;
+}
+
+export interface StockReportRecord {
+  readonly sparePartId: number;
+  readonly partNumber: string;
+  readonly name: string;
+  readonly quantity: number;
+  readonly minimumStock: number;
+  readonly belowMinimum: boolean;
+  readonly consumed: number;
+  readonly workOrders: number;
+}
+
 export interface MonthlyTrendRecord {
   readonly month: string;
   readonly opened: number;
@@ -49,8 +75,8 @@ const STATUS_ORDER: readonly WorkOrderStatus[] = [
   WorkOrderStatus.CANCELLED,
 ];
 
-// SLA deadline in hours per priority
-const SLA_HOURS: Record<string, number> = {
+/** Prazo máximo para início, em horas, por prioridade. */
+export const SLA_HOURS: Record<string, number> = {
   CRITICAL: 2,
   HIGH: 8,
   MEDIUM: 48,
@@ -158,6 +184,69 @@ export class DashboardService {
       ...m,
       slaPercentage: m.slaTotal > 0 ? Math.round((m.slaWithin / m.slaTotal) * 100) : null,
     }));
+  }
+
+  /** OS concluídas no período que começaram depois do prazo — maior atraso primeiro. */
+  async getSlaBreaches(filter?: DashboardFilterInput): Promise<SlaBreachRecord[]> {
+    const { from, to } = resolvePeriod(filter?.from, filter?.to);
+    const wos = await this.repo.findCompletedSlaDetail(from, to, filter?.assetId);
+
+    return wos
+      .filter((wo) => !this.isWithinSla(wo))
+      .map((wo) => {
+        const limitHours = SLA_HOURS[wo.priority] ?? 168;
+        const elapsedHours = (wo.startedAt.getTime() - wo.createdAt.getTime()) / 3_600_000;
+        return {
+          workOrderId: wo.id,
+          title: wo.title,
+          assetId: wo.asset.id,
+          assetTag: wo.asset.tag,
+          assetName: wo.asset.name,
+          priority: wo.priority,
+          type: wo.type,
+          createdAt: wo.createdAt,
+          startedAt: wo.startedAt,
+          completedAt: wo.completedAt,
+          limitHours,
+          delayHours: elapsedHours - limitHours,
+        };
+      })
+      .sort((a, b) => b.delayHours - a.delayHours);
+  }
+
+  /**
+   * Peças abaixo do mínimo (saldo atual) somadas às consumidas no período.
+   * Abaixo do mínimo primeiro; depois as de maior consumo.
+   */
+  async getStockReport(filter?: DashboardFilterInput): Promise<StockReportRecord[]> {
+    const { from, to } = resolvePeriod(filter?.from, filter?.to);
+    const [low, consumption] = await Promise.all([
+      this.repo.findPartsBelowMinimum(),
+      this.repo.sumConsumption(from, to, filter?.assetId),
+    ]);
+
+    const knownIds = new Set(low.map((p) => p.id));
+    const missingIds = consumption.map((c) => c.sparePartId).filter((id) => !knownIds.has(id));
+    const consumedParts = missingIds.length > 0 ? await this.repo.findPartsByIds(missingIds) : [];
+    const byConsumption = new Map(consumption.map((c) => [c.sparePartId, c]));
+
+    return [...low, ...consumedParts]
+      .map((part) => ({
+        sparePartId: part.id,
+        partNumber: part.partNumber,
+        name: part.name,
+        quantity: part.quantity,
+        minimumStock: part.minimumStock,
+        belowMinimum: part.quantity < part.minimumStock,
+        consumed: byConsumption.get(part.id)?.consumed ?? 0,
+        workOrders: byConsumption.get(part.id)?.workOrders ?? 0,
+      }))
+      .sort(
+        (a, b) =>
+          Number(b.belowMinimum) - Number(a.belowMinimum) ||
+          b.consumed - a.consumed ||
+          a.partNumber.localeCompare(b.partNumber),
+      );
   }
 
   private isWithinSla(wo: SlaWorkOrderRecord): boolean {

@@ -10,8 +10,12 @@ import {
   DashboardService,
   type AssetKpiRecord,
   type MonthlyTrendRecord,
+  type SlaBreachRecord,
   type SlaRateRecord,
+  type StockReportRecord,
 } from './dashboard.service';
+import { SlaBreachType } from './dto/sla-breach.type';
+import { StockReportRowType } from './dto/stock-report-row.type';
 import { AssetKpiType } from './dto/asset-kpi.type';
 import { MonthlyTrendPointType } from './dto/monthly-trend-point.type';
 import { StatusCountType } from './dto/status-count.type';
@@ -54,5 +58,21 @@ export class DashboardResolver {
     @Args('filter', { nullable: true }) filter?: DashboardFilterInput,
   ): Promise<MonthlyTrendRecord[]> {
     return this.dashboardService.getMonthlyTrend(filter);
+  }
+
+  @Query(() => [SlaBreachType])
+  @RequiresPermission('dashboard.read')
+  slaBreaches(
+    @Args('filter', { nullable: true }) filter?: DashboardFilterInput,
+  ): Promise<SlaBreachRecord[]> {
+    return this.dashboardService.getSlaBreaches(filter);
+  }
+
+  @Query(() => [StockReportRowType])
+  @RequiresPermission('dashboard.read')
+  stockReport(
+    @Args('filter', { nullable: true }) filter?: DashboardFilterInput,
+  ): Promise<StockReportRecord[]> {
+    return this.dashboardService.getStockReport(filter);
   }
 }

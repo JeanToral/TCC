@@ -298,8 +298,10 @@ type Query {
   preventivePlans(assetId: Int): [PreventivePlan!]!
   role(id: Int!): RoleType!
   roles: [RoleType!]!
+  slaBreaches(filter: DashboardFilterInput): [SlaBreach!]!
   sparePart(id: Int!): SparePart!
   spareParts(search: String): [SparePart!]!
+  stockReport(filter: DashboardFilterInput): [StockReportRow!]!
   unreadNotificationsCount: Int!
   user(id: Int!): UserType!
   users: [UserType!]!
@@ -324,6 +326,25 @@ input ScheduleWorkOrderInput {
   assignedToId: Int!
   scheduledEnd: DateTime
   scheduledStart: DateTime!
+}
+
+type SlaBreach {
+  assetId: Int!
+  assetName: String!
+  assetTag: String!
+  completedAt: DateTime!
+  createdAt: DateTime!
+
+  """Quanto o início passou do prazo, em horas"""
+  delayHours: Float!
+
+  """Prazo máximo para início, em horas"""
+  limitHours: Int!
+  priority: Priority!
+  startedAt: DateTime!
+  title: String!
+  type: WorkOrderType!
+  workOrderId: Int!
 }
 
 type SlaRate {
@@ -354,6 +375,24 @@ type SparePartSummary {
 type StatusCount {
   count: Int!
   status: WorkOrderStatus!
+}
+
+type StockReportRow {
+  """Saldo atual abaixo do mínimo"""
+  belowMinimum: Boolean!
+
+  """Unidades consumidas em OS concluídas no período"""
+  consumed: Int!
+  minimumStock: Int!
+  name: String!
+  partNumber: String!
+
+  """Saldo atual"""
+  quantity: Int!
+  sparePartId: Int!
+
+  """OS concluídas no período que consumiram a peça"""
+  workOrders: Int!
 }
 
 input UpdateAssetInput {
@@ -517,5 +556,7 @@ enum WorkOrderType {
 input WorkOrdersFilterInput {
   assetId: Int
   assignedToId: Int
+  from: DateTime
   status: WorkOrderStatus
+  to: DateTime
 }

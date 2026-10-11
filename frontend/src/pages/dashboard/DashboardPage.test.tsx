@@ -185,4 +185,35 @@ describe('DashboardPage — gráficos', () => {
     expect(captured[0]?.from).toBe(expected.from)
     expect(captured[0]?.to?.slice(0, 10)).toBe(expected.to?.slice(0, 10))
   })
+
+  it('deve levar os filtros da URL para o relatório pelo "Ver relatório →"', async () => {
+    // Arrange / Act
+    renderWithProviders(<DashboardPage />, {
+      route: '/dashboard?assetId=3&from=2025-04-01&to=2025-06-30',
+      path: '/dashboard',
+      mocks: mocks(),
+      permissions: ['dashboard.read'],
+    })
+
+    // Assert
+    const sla = await screen.findByRole('region', { name: '% dentro do SLA por mês' })
+    expect(within(sla).getByRole('link', { name: 'Ver relatório →' })).toHaveAttribute(
+      'href',
+      '/dashboard/reports/sla?assetId=3&from=2025-04-01&to=2025-06-30',
+    )
+    const mttr = screen.getByRole('region', { name: 'Ativos com maior MTTR' })
+    expect(within(mttr).getByRole('link', { name: 'Ver relatório →' })).toHaveAttribute(
+      'href',
+      '/dashboard/reports/reliability?assetId=3&from=2025-04-01&to=2025-06-30',
+    )
+  })
+
+  it('não deve mais exibir a tabela de KPIs por ativo (foi para Relatórios)', async () => {
+    // Arrange / Act
+    renderWithProviders(<DashboardPage />, { mocks: mocks(), permissions: ['dashboard.read'] })
+    await chartTable('Ativos com maior MTTR')
+
+    // Assert
+    expect(screen.queryByRole('columnheader', { name: /MTBF/ })).not.toBeInTheDocument()
+  })
 })

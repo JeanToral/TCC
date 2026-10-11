@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, redirect } from 'react-router-dom'
 
 import DashboardShell from './components/layout/DashboardShell'
 import RequireAuth from './components/auth/RequireAuth'
@@ -15,12 +15,12 @@ import WorkOrdersListPage from './pages/work-orders/WorkOrdersListPage'
 import WorkOrderViewPage from './pages/work-orders/WorkOrderViewPage'
 import WorkOrderCreatePage from './pages/work-orders/WorkOrderCreatePage'
 import DashboardPage from './pages/dashboard/DashboardPage'
-import FinancePage from './pages/finance/FinancePage'
 import ProfilePage from './pages/profile/ProfilePage'
 import SparePartsListPage from './pages/spare-parts/SparePartsListPage'
 import SparePartEditPage from './pages/spare-parts/SparePartEditPage'
 import PreventivePlansListPage from './pages/preventive-plans/PreventivePlansListPage'
 import PreventivePlanEditPage from './pages/preventive-plans/PreventivePlanEditPage'
+import ReportsPage from './pages/reports/ReportsPage'
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
@@ -44,7 +44,13 @@ export const router = createBrowserRouter([
       { path: 'work-orders',          element: <WorkOrdersListPage /> },
       { path: 'work-orders/new',      element: <WorkOrderCreatePage /> },
       { path: 'work-orders/:id',      element: <WorkOrderViewPage /> },
-      { path: 'finance',              element: <FinancePage /> },
+      // "Custos por Ativo" virou a aba Custos de Relatórios; mantém ?assetId= e afins.
+      {
+        path: 'finance',
+        loader: ({ request }) => redirect(`/dashboard/reports/costs${new URL(request.url).search}`),
+      },
+      { path: 'reports',              element: <ReportsPage /> },
+      { path: 'reports/:tab',         element: <ReportsPage /> },
       { path: 'profile',              element: <ProfilePage /> },
       { path: 'spare-parts',                element: <SparePartsListPage /> },
       { path: 'spare-parts/new',            element: <SparePartEditPage /> },

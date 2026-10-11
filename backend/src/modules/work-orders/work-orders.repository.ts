@@ -195,7 +195,15 @@ export class WorkOrdersRepository {
   }
 
   async findPaginated(
-    filter: { status?: WorkOrderStatus; assetId?: number; assignedToId?: number } | undefined,
+    filter:
+      | {
+          status?: WorkOrderStatus;
+          assetId?: number;
+          assignedToId?: number;
+          from?: Date;
+          to?: Date;
+        }
+      | undefined,
     first: number,
     after?: string,
   ): Promise<{ items: WorkOrderRecord[]; hasNextPage: boolean }> {
@@ -204,6 +212,14 @@ export class WorkOrdersRepository {
       ...(filter?.status ? { status: filter.status } : {}),
       ...(filter?.assetId ? { assetId: filter.assetId } : {}),
       ...(filter?.assignedToId ? { assignedToId: filter.assignedToId } : {}),
+      ...(filter?.from || filter?.to
+        ? {
+            createdAt: {
+              ...(filter.from ? { gte: filter.from } : {}),
+              ...(filter.to ? { lte: filter.to } : {}),
+            },
+          }
+        : {}),
     };
 
     const cursorId = after ? decodeCursor(after) : undefined;

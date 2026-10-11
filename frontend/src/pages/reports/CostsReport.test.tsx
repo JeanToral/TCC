@@ -1,18 +1,15 @@
 import { screen } from '@testing-library/react'
 import type { MockLink } from '@apollo/client/testing'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import FinancePage from './FinancePage'
-import { downloadExport } from '../../lib/download'
+import CostsReport from './CostsReport'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import { GET_ASSET_COSTS } from '../../graphql/finance/GetAssetCosts.gql'
+import { GET_MONTHLY_COSTS } from '../../graphql/finance/GetMonthlyCosts.gql'
 import type { AssetCost } from '../../graphql/finance/types'
 import { renderWithProviders } from '../../test/renderWithProviders'
 
-vi.mock('../../lib/download', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../lib/download')>()
-  return { ...actual, downloadExport: vi.fn().mockResolvedValue(undefined) }
-})
+const FILTER = { from: '2026-05-01T03:00:00.000Z', to: '2026-10-11T02:59:59.999Z' }
 
 // ── Fixtures ───────────────────────────────────────────────
 const makeCost = (overrides: Partial<AssetCost> = {}): AssetCost => ({
@@ -63,25 +60,20 @@ function costsMock(assetCosts: readonly AssetCost[]): MockLink.MockedResponse {
   }
 }
 
+function monthlyCostsMock(): MockLink.MockedResponse {
+  return {
+    request: { query: GET_MONTHLY_COSTS, variables: () => true },
+    maxUsageCount: Number.POSITIVE_INFINITY,
+    result: { data: { monthlyCosts: [] } },
+  }
+}
+
 // ── Suite ──────────────────────────────────────────────────
-describe('FinancePage', () => {
-  it('deve renderizar o título e os filtros', async () => {
-    // Arrange / Act
-    renderWithProviders(<FinancePage />, {
-      mocks: [assetsMock(), costsMock([makeCost()])],
-      permissions: ['cost.read'],
-    })
-
-    // Assert
-    expect(screen.getByRole('heading', { name: 'Custos por Ativo' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Ativo')).toBeInTheDocument()
-    expect(await screen.findByText('Período')).toBeInTheDocument()
-  })
-
+describe('CostsReport', () => {
   it('deve exibir o custo realizado e o previsto como números distintos', async () => {
     // Arrange / Act
-    renderWithProviders(<FinancePage />, {
-      mocks: [assetsMock(), costsMock([makeCost()])],
+    renderWithProviders(<CostsReport filter={FILTER} />, {
+      mocks: [assetsMock(), monthlyCostsMock(), costsMock([makeCost()])],
       permissions: ['cost.read'],
     })
 
@@ -94,9 +86,10 @@ describe('FinancePage', () => {
 
   it('deve exibir a quebra corretiva vs preventiva', async () => {
     // Arrange / Act
-    renderWithProviders(<FinancePage />, {
+    renderWithProviders(<CostsReport filter={FILTER} />, {
       mocks: [
         assetsMock(),
+        monthlyCostsMock(),
         costsMock([
           makeCost({
             realizedCorrectiveCost: 600,
@@ -117,38 +110,40 @@ describe('FinancePage', () => {
 
   it('deve declarar a cobertura quando há OS com custo incompleto', async () => {
     // Arrange / Act
-    renderWithProviders(<FinancePage />, {
+    renderWithProviders(<CostsReport filter={FILTER} />, {
       mocks: [
         assetsMock(),
+        monthlyCostsMock(),
         costsMock([makeCost({ workOrdersWithIncompleteCost: 2, completedWorkOrders: 4 })]),
       ],
       permissions: ['cost.read'],
     })
 
-    // Assert — espera o carregamento acabar: Spinner também usa role="status"
+    // Assert
     await screen.findByText('Custo realizado')
-    expect(screen.getByRole('status')).toHaveTextContent(
+    expect(screen.getByText(/OS com custo incompleto/)).toHaveTextContent(
       /2\s*de\s*4 OS com custo incompleto/,
     )
   })
 
   it('não deve declarar cobertura quando tudo está completo', async () => {
     // Arrange / Act
-    renderWithProviders(<FinancePage />, {
-      mocks: [assetsMock(), costsMock([makeCost()])],
+    renderWithProviders(<CostsReport filter={FILTER} />, {
+      mocks: [assetsMock(), monthlyCostsMock(), costsMock([makeCost()])],
       permissions: ['cost.read'],
     })
 
     // Assert
     await screen.findByText('Custo realizado')
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText(/OS com custo incompleto/)).not.toBeInTheDocument()
   })
 
   it('deve listar uma linha por ativo com link para a tela do ativo', async () => {
     // Arrange / Act
-    renderWithProviders(<FinancePage />, {
+    renderWithProviders(<CostsReport filter={FILTER} />, {
       mocks: [
         assetsMock(),
+        monthlyCostsMock(),
         costsMock([
           makeCost(),
           makeCost({ assetId: 1, assetName: 'Torno CNC #1', assetTag: 'TRN-001' }),
@@ -168,9 +163,10 @@ describe('FinancePage', () => {
 
   it('deve somar a linha de totais da tabela', async () => {
     // Arrange / Act
-    renderWithProviders(<FinancePage />, {
+    renderWithProviders(<CostsReport filter={FILTER} />, {
       mocks: [
         assetsMock(),
+        monthlyCostsMock(),
         costsMock([
           makeCost({ realizedTotal: 100, realizedPartsCost: 100, realizedLaborCost: 0, realizedExternalCost: 0 }),
           makeCost({
@@ -193,9 +189,10 @@ describe('FinancePage', () => {
 
   it('deve marcar na tabela os ativos com OS de custo incompleto', async () => {
     // Arrange / Act
-    renderWithProviders(<FinancePage />, {
+    renderWithProviders(<CostsReport filter={FILTER} />, {
       mocks: [
         assetsMock(),
+        monthlyCostsMock(),
         costsMock([makeCost({ workOrdersWithIncompleteCost: 3, completedWorkOrders: 5 })]),
       ],
       permissions: ['cost.read'],
@@ -208,8 +205,8 @@ describe('FinancePage', () => {
 
   it('deve exibir estado vazio quando não há custo no período', async () => {
     // Arrange / Act
-    renderWithProviders(<FinancePage />, {
-      mocks: [assetsMock(), costsMock([])],
+    renderWithProviders(<CostsReport filter={FILTER} />, {
+      mocks: [assetsMock(), monthlyCostsMock(), costsMock([])],
       permissions: ['cost.read'],
     })
 
@@ -217,62 +214,5 @@ describe('FinancePage', () => {
     expect(
       await screen.findByText('Nenhum custo registrado no período selecionado.'),
     ).toBeInTheDocument()
-  })
-
-  it('deve pré-selecionar o ativo vindo da query string', async () => {
-    // Arrange / Act — é como a tela do ativo encaminha para cá
-    renderWithProviders(<FinancePage />, {
-      route: '/dashboard/finance?assetId=3',
-      path: '/dashboard/finance',
-      mocks: [assetsMock(), costsMock([makeCost()])],
-      permissions: ['cost.read'],
-    })
-
-    // Assert — espera a option existir: um <select> com value sem option
-    // correspondente renderiza vazio.
-    await screen.findByRole('option', { name: 'INJ-003 — Injetora 03' })
-    expect(screen.getByLabelText('Ativo')).toHaveValue('3')
-  })
-
-  it('deve permitir limpar os filtros aplicados', async () => {
-    // Arrange
-    const { user } = renderWithProviders(<FinancePage />, {
-      route: '/dashboard/finance?assetId=3',
-      path: '/dashboard/finance',
-      mocks: [assetsMock(), costsMock([makeCost()])],
-      permissions: ['cost.read'],
-    })
-    await screen.findByRole('option', { name: 'INJ-003 — Injetora 03' })
-    expect(screen.getByRole('button', { name: 'Limpar filtros' })).toBeInTheDocument()
-
-    // Act
-    await user.click(screen.getByRole('button', { name: 'Limpar filtros' }))
-
-    // Assert
-    expect(screen.getByLabelText('Ativo')).toHaveValue('')
-    expect(screen.queryByRole('button', { name: 'Limpar filtros' })).not.toBeInTheDocument()
-  })
-
-  it('deve exportar o relatório com os filtros ativos da tela', async () => {
-    // Arrange — chega filtrada pelo ativo, como a partir da tela do ativo
-    const { user } = renderWithProviders(<FinancePage />, {
-      route: '/dashboard/finance?assetId=3',
-      path: '/dashboard/finance',
-      mocks: [assetsMock(), costsMock([makeCost()])],
-      permissions: ['cost.read'],
-    })
-    await screen.findByText('INJ-003')
-
-    // Act
-    await user.click(screen.getByRole('button', { name: 'Exportar' }))
-    await user.click(screen.getByRole('menuitem', { name: /Excel/ }))
-
-    // Assert
-    expect(vi.mocked(downloadExport)).toHaveBeenCalledWith(
-      'asset-costs',
-      'xlsx',
-      { assetId: 3 },
-      'custos-por-ativo',
-    )
   })
 })

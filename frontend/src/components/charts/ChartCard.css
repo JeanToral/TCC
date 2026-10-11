@@ -90,9 +90,23 @@
   color: var(--error);
 }
 
+.chart-card__footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .chart-card__footnote {
   font-size: 0.75rem;
   color: var(--text-secondary);
+}
+
+.chart-card__report-link {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 /* Recharts: tira o contorno de foco do SVG ao clicar; o teclado usa a tabela. */
@@ -140,4 +154,12 @@
 .chart-tooltip__name {
   font-size: 0.75rem;
   color: var(--text-secondary);
+}
+
+/* ── Grade de gráficos (Dashboard e Relatórios) ───────────── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
