@@ -1,0 +1,126 @@
+/* ── Filters ──────────────────────────────────────────────── */
+.audit-log-page__filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.audit-log-page__select {
+  min-width: 220px;
+}
+
+/* ── Table ────────────────────────────────────────────────── */
+.audit-log-table-card {
+  background: var(--surface-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  box-shadow: var(--shadow-sm);
+}
+
+.audit-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.audit-log-table__th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.audit-log-table__row {
+  transition: background-color 0.1s;
+}
+
+.audit-log-table__row:hover {
+  background: var(--surface-muted);
+}
+
+.audit-log-table__row + .audit-log-table__row {
+  border-top: 1px solid var(--border);
+}
+
+.audit-log-table__cell {
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.audit-log-table__cell--date {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.audit-log-table__cell--actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.audit-log-table__user {
+  display: block;
+  font-weight: 600;
+}
+
+.audit-log-table__email {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.audit-log-page__load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+/* ── Changes modal ────────────────────────────────────────── */
+.audit-log-diff {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+}
+
+.audit-log-diff__side {
+  min-width: 0;
+}
+
+.audit-log-diff__title {
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.audit-log-diff__json {
+  max-height: 24rem;
+  overflow: auto;
+  padding: 0.75rem;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-body);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

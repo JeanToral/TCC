@@ -74,6 +74,27 @@ type AssetType {
   updatedAt: DateTime!
 }
 
+type AuditLogActorType {
+  email: String!
+  id: Int!
+  name: String!
+}
+
+type AuditLogConnection {
+  edges: [AuditLogEdge!]!
+  pageInfo: AuditLogPageInfo!
+}
+
+type AuditLogEdge {
+  cursor: String!
+  node: AuditLogType!
+}
+
+type AuditLogPageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
 type AuditLogType {
   action: String!
   after: String
@@ -82,6 +103,7 @@ type AuditLogType {
   id: Int!
   targetId: Int!
   targetType: String!
+  user: AuditLogActorType
   userId: Int!
 }
 
@@ -286,7 +308,7 @@ type Query {
   asset(id: Int!): AssetType!
   assetCosts(filter: FinanceFilterInput): [AssetCost!]!
   assets: [AssetType!]!
-  auditLogs(targetId: Int, targetType: String): [AuditLogType!]!
+  auditLogs(action: String, after: String, first: Int = 50, targetId: Int, targetType: String): AuditLogConnection!
   dashboardKpis(filter: DashboardFilterInput): [AssetKpi!]!
   dashboardMonthlyTrend(filter: DashboardFilterInput): [MonthlyTrendPoint!]!
   dashboardSlaRate(filter: DashboardFilterInput): SlaRate!

@@ -1,13 +1,12 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet } from 'react-router-dom'
 
 import {
   BuildingIcon,
   CalendarIcon,
-  ChevronDownIcon,
   ChartBarIcon,
   ClipboardListIcon,
   DashboardIcon,
+  DocumentTextIcon,
   GearIcon,
   KeyIcon,
   UserGroupIcon,
@@ -36,11 +35,10 @@ const mainNav: readonly NavItem[] = [
 ]
 
 const adminNav: readonly NavItem[] = [
-  { label: 'Usuários',    path: '/dashboard/users', icon: <UserGroupIcon /> },
-  { label: 'Permissões',  path: '/dashboard/roles', icon: <KeyIcon /> },
+  { label: 'Usuários',    path: '/dashboard/users',     icon: <UserGroupIcon />,    permission: 'user.read' },
+  { label: 'Permissões',  path: '/dashboard/roles',     icon: <KeyIcon />,          permission: 'role.read' },
+  { label: 'Logs',        path: '/dashboard/audit-log', icon: <DocumentTextIcon />, permission: 'auditlog.read' },
 ]
-
-const adminPaths = adminNav.map((i) => i.path)
 
 function SidebarNavItem({ item }: { readonly item: NavItem }) {
   return (
@@ -58,11 +56,9 @@ function SidebarNavItem({ item }: { readonly item: NavItem }) {
 }
 
 export default function DashboardShell() {
-  const { pathname } = useLocation()
   const { hasPermission } = useAuth()
-  const [adminOpen, setAdminOpen] = useState(() =>
-    adminPaths.some((p) => pathname.startsWith(p)),
-  )
+  const canSee = (item: NavItem) => !item.permission || hasPermission(item.permission)
+  const visibleAdminNav = adminNav.filter(canSee)
 
   return (
     <div className="shell">
@@ -78,7 +74,7 @@ export default function DashboardShell() {
         <nav className="shell__sidebar-nav" aria-label="Navegação principal">
           <ul className="shell-nav__list" role="list">
             {mainNav
-              .filter((item) => !item.permission || hasPermission(item.permission))
+              .filter(canSee)
               .map((item) => (
                 <li key={item.path}>
                   <SidebarNavItem item={item} />
@@ -86,29 +82,20 @@ export default function DashboardShell() {
               ))}
           </ul>
 
-          <div className="shell-nav__section">
-            <button
-              type="button"
-              className={`shell-nav__item shell-nav__dropdown-trigger${adminPaths.some((p) => pathname.startsWith(p)) ? ' shell-nav__item--active' : ''}`}
-              onClick={() => setAdminOpen((o) => !o)}
-              aria-expanded={adminOpen}
-            >
-              <span className="shell-nav__label">Administração</span>
-              <span className={`shell-nav__chevron${adminOpen ? ' shell-nav__chevron--open' : ''}`}>
-                <ChevronDownIcon />
-              </span>
-            </button>
-
-            {adminOpen && (
-              <ul className="shell-nav__list shell-nav__list--nested" role="list">
-                {adminNav.map((item) => (
+          {visibleAdminNav.length > 0 && (
+            <div className="shell-nav__section">
+              <h2 id="shell-nav-admin" className="shell-nav__section-title">
+                Administração
+              </h2>
+              <ul className="shell-nav__list" role="list" aria-labelledby="shell-nav-admin">
+                {visibleAdminNav.map((item) => (
                   <li key={item.path}>
                     <SidebarNavItem item={item} />
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
+            </div>
+          )}
         </nav>
       </aside>
 

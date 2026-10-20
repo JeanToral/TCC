@@ -150,6 +150,17 @@
     color-scheme: dark;
   }
 
+  /* Lista nativa do <select>: o popup não herda o fundo do tema, só a cor do texto */
+  select option,
+  select optgroup {
+    background-color: var(--surface-white);
+    color: var(--text-primary);
+  }
+
+  select option:disabled {
+    color: var(--text-muted);
+  }
+
   /* Tamanho — escala tudo que está em rem */
   :root[data-size='small'] { font-size: 13px; }
   :root[data-size='large'] { font-size: 16px; }

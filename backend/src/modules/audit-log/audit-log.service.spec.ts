@@ -2,12 +2,16 @@ import { Test, type TestingModule } from '@nestjs/testing';
 
 import { AuditLogService } from './audit-log.service';
 import { AuditLogRepository } from './audit-log.repository';
-import type { AuditLogRecord } from './audit-log.repository';
+import type { AuditLogWithUserRecord } from './audit-log.repository';
+import { encodeCursor } from '../../common/pagination/page-args';
 
 // ─────────────────────── Fixtures ────────────────────────
-const makeEntry = (overrides: Partial<AuditLogRecord> = {}): AuditLogRecord => ({
+const makeEntry = (
+  overrides: Partial<AuditLogWithUserRecord> = {},
+): AuditLogWithUserRecord => ({
   id: 1,
   userId: 99,
+  user: { id: 99, name: 'Admin', email: 'admin@cmms.com' },
   action: 'role.update',
   targetType: 'Role',
   targetId: 1,
@@ -30,7 +34,7 @@ describe('AuditLogService', () => {
           provide: AuditLogRepository,
           useValue: {
             create: jest.fn(),
-            findAll: jest.fn(),
+            findPaginated: jest.fn(),
           } satisfies Partial<jest.Mocked<AuditLogRepository>>,
         },
       ],
@@ -71,9 +75,7 @@ describe('AuditLogService', () => {
       repo.create.mockRejectedValue(new Error('DB error'));
 
       // Act — não deve lançar
-      expect(() =>
-        service.log(99, 'user.delete', 'User', 5),
-      ).not.toThrow();
+      expect(() => service.log(99, 'user.delete', 'User', 5)).not.toThrow();
 
       // Aguarda a rejeição ser absorvida internamente
       await Promise.resolve();
@@ -84,7 +86,9 @@ describe('AuditLogService', () => {
 
     it('deve funcionar sem os parâmetros opcionais before/after', async () => {
       // Arrange
-      repo.create.mockResolvedValue(makeEntry({ before: undefined, after: undefined }));
+      repo.create.mockResolvedValue(
+        makeEntry({ before: undefined, after: undefined }),
+      );
 
       // Act
       service.log(1, 'role.create', 'Role', 2);
@@ -97,42 +101,96 @@ describe('AuditLogService', () => {
     });
   });
 
-  // ── findAll ──────────────────────────────────────────────
+  // ── findPaginated ────────────────────────────────────────
 
-  describe('findAll', () => {
-    it('deve retornar todos os logs sem filtro', async () => {
+  describe('findPaginated', () => {
+    it('deve serializar before/after como JSON', async () => {
       // Arrange
-      const entries = [makeEntry(), makeEntry({ id: 2, action: 'user.update' })];
-      repo.findAll.mockResolvedValue(entries);
+      repo.findPaginated.mockResolvedValue({
+        items: [makeEntry()],
+        hasNextPage: false,
+      });
 
       // Act
-      const result = await service.findAll();
+      const result = await service.findPaginated(undefined, 50);
 
       // Assert
-      expect(result).toHaveLength(2);
-      expect(repo.findAll).toHaveBeenCalledWith(undefined);
+      const node = result.edges[0].node;
+      expect(node.before).toBe('{"permissions":["workorder.read"]}');
+      expect(JSON.parse(node.after ?? '')).toEqual({
+        permissions: ['workorder.read', 'workorder.create'],
+      });
+      expect(node.user).toEqual({
+        id: 99,
+        name: 'Admin',
+        email: 'admin@cmms.com',
+      });
     });
 
-    it('deve repassar filtro targetType ao repositório', async () => {
+    it('deve devolver before/after indefinidos quando o banco guarda null', async () => {
       // Arrange
-      repo.findAll.mockResolvedValue([makeEntry()]);
+      repo.findPaginated.mockResolvedValue({
+        items: [makeEntry({ before: null, after: null })],
+        hasNextPage: false,
+      });
 
       // Act
-      await service.findAll({ targetType: 'Role' });
+      const result = await service.findPaginated(undefined, 50);
 
       // Assert
-      expect(repo.findAll).toHaveBeenCalledWith({ targetType: 'Role' });
+      expect(result.edges[0].node.before).toBeUndefined();
+      expect(result.edges[0].node.after).toBeUndefined();
     });
 
-    it('deve repassar filtro targetId ao repositório', async () => {
+    it('deve montar pageInfo com o cursor do último item', async () => {
       // Arrange
-      repo.findAll.mockResolvedValue([makeEntry()]);
+      repo.findPaginated.mockResolvedValue({
+        items: [makeEntry({ id: 9 }), makeEntry({ id: 7 })],
+        hasNextPage: true,
+      });
 
       // Act
-      await service.findAll({ targetType: 'WorkOrder', targetId: 42 });
+      const result = await service.findPaginated(undefined, 2);
 
       // Assert
-      expect(repo.findAll).toHaveBeenCalledWith({ targetType: 'WorkOrder', targetId: 42 });
+      expect(result.pageInfo).toEqual({
+        hasNextPage: true,
+        endCursor: encodeCursor(7),
+      });
+      expect(result.edges.map((e) => e.cursor)).toEqual([
+        encodeCursor(9),
+        encodeCursor(7),
+      ]);
+    });
+
+    it('deve devolver endCursor null quando não houver itens', async () => {
+      // Arrange
+      repo.findPaginated.mockResolvedValue({ items: [], hasNextPage: false });
+
+      // Act
+      const result = await service.findPaginated(undefined, 50);
+
+      // Assert
+      expect(result).toEqual({
+        edges: [],
+        pageInfo: { hasNextPage: false, endCursor: null },
+      });
+    });
+
+    it('deve repassar filtro e cursor ao repositório', async () => {
+      // Arrange
+      repo.findPaginated.mockResolvedValue({ items: [], hasNextPage: false });
+      const filter = {
+        targetType: 'WorkOrder',
+        targetId: 42,
+        action: 'workorder.approve',
+      };
+
+      // Act
+      await service.findPaginated(filter, 20, 'abc');
+
+      // Assert
+      expect(repo.findPaginated).toHaveBeenCalledWith(filter, 20, 'abc');
     });
   });
 });
