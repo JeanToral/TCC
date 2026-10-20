@@ -34,6 +34,7 @@ describe('buildCrumbs', () => {
     ['/dashboard/assets/7/edit', ['Ativos', 'Nº 7', 'Editar']],
     ['/dashboard/reports/costs', ['Relatórios', 'Custos']],
     ['/dashboard/roles/3', ['Perfis de acesso', 'Nº 3']],
+    ['/dashboard/spare-parts/5/edit', ['Peças de Reposição', 'Nº 5']],
   ])('deve montar a trilha de %s', (pathname, expected) => {
     // Arrange / Act / Assert
     expect(labels(pathname)).toEqual(expected)
@@ -49,6 +50,15 @@ describe('Breadcrumbs', () => {
     expect(trail.getByRole('link', { name: 'Ativos' })).toHaveAttribute('href', '/dashboard/assets')
     expect(trail.getByRole('link', { name: 'Nº 7' })).toHaveAttribute('href', '/dashboard/assets/7')
     expect(trail.getByText('Editar')).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('não deve ligar a uma tela de detalhe inexistente em seções só de edição', () => {
+    // Arrange / Act
+    const trail = renderTrail('/dashboard/spare-parts/5/edit')
+
+    // Assert
+    expect(trail.getByText('Nº 5')).toHaveAttribute('aria-current', 'page')
+    expect(trail.queryByRole('link', { name: 'Nº 5' })).toBeNull()
   })
 
   it('deve trocar o número do registro pelo nome informado pela tela', () => {

@@ -709,6 +709,60 @@ async function main() {
 
   console.log(`  ✓ Work orders abertas (${openCreated} criadas, ${openWorkOrderSeeds.length - openCreated} já existiam)`)
 
+  // ── Planos preventivos ────────────────────────────────────
+  // Datas relativas a hoje: sempre há um plano vencido (para "Gerar OS vencidas"),
+  // planos em dia e um inativo. PreventivePlan não tem chave única: nome + ativo.
+
+  const daysFromToday = (days: number): Date => new Date(today.getTime() + days * 86_400_000)
+
+  const planSeeds = [
+    {
+      name: 'Lubrificação mensal do barramento',
+      description: 'Limpar e lubrificar barramento e fusos com óleo ISO VG 68.',
+      assetId: torno.id,
+      intervalDays: 30,
+      nextDueAt: daysFromToday(-3),
+      isActive: true,
+    },
+    {
+      name: 'Troca trimestral do filtro de ar',
+      description: 'Substituir o elemento filtrante e registrar a pressão diferencial.',
+      assetId: compressor.id,
+      intervalDays: 90,
+      nextDueAt: daysFromToday(12),
+      isActive: true,
+    },
+    {
+      name: 'Inspeção das guias lineares',
+      description: 'Medir folga axial com relógio comparador e reapertar fixações.',
+      assetId: fresadora.id,
+      intervalDays: 60,
+      nextDueAt: daysFromToday(40),
+      isActive: true,
+    },
+    {
+      name: 'Calibração semestral do eixo Z',
+      description: 'Plano suspenso enquanto o eixo aguarda retrofit.',
+      assetId: torno.id,
+      intervalDays: 180,
+      nextDueAt: daysFromToday(60),
+      isActive: false,
+    },
+  ]
+
+  let plansCreated = 0
+  for (const plan of planSeeds) {
+    const existing = await prisma.preventivePlan.findFirst({
+      where: { name: plan.name, assetId: plan.assetId },
+      select: { id: true },
+    })
+    if (existing) continue
+    await prisma.preventivePlan.create({ data: plan })
+    plansCreated++
+  }
+
+  console.log(`  ✓ Planos preventivos (${plansCreated} criados, ${planSeeds.length - plansCreated} já existiam)`)
+
   console.log('')
   console.log('✅ Seed concluído!')
   console.log('')

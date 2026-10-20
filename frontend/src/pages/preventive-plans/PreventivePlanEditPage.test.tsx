@@ -51,14 +51,14 @@ describe('PreventivePlanEditPage — modo criação', () => {
 
     // Assert
     expect(
-      screen.getByRole('heading', { name: 'Novo Plano Preventivo' }),
+      screen.getByRole('heading', { name: 'Novo plano preventivo' }),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Nome *')).toBeInTheDocument()
-    expect(screen.getByLabelText('Ativo *')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nome')).toBeInTheDocument()
+    expect(screen.getByLabelText('Ativo')).toBeInTheDocument()
     expect(screen.getByLabelText('Descrição')).toBeInTheDocument()
-    expect(screen.getByLabelText('Intervalo (dias) *')).toBeInTheDocument()
-    expect(screen.getByLabelText('Próxima Execução *')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Criar Plano' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Intervalo (dias)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Próxima Execução')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cadastrar plano' })).toBeInTheDocument()
   })
 
   it('deve iniciar o intervalo em 30 dias', () => {
@@ -68,7 +68,7 @@ describe('PreventivePlanEditPage — modo criação', () => {
     })
 
     // Assert
-    expect(screen.getByLabelText('Intervalo (dias) *')).toHaveValue(30)
+    expect(screen.getByLabelText('Intervalo (dias)')).toHaveValue(30)
   })
 
   it('não deve exibir o campo "Plano ativo" ao criar', () => {
@@ -104,10 +104,10 @@ describe('PreventivePlanEditPage — modo criação', () => {
     })
 
     // Assert
-    expect(screen.getByLabelText('Nome *')).toBeRequired()
-    expect(screen.getByLabelText('Ativo *')).toBeRequired()
-    expect(screen.getByLabelText('Intervalo (dias) *')).toBeRequired()
-    expect(screen.getByLabelText('Próxima Execução *')).toBeRequired()
+    expect(screen.getByLabelText('Nome')).toBeRequired()
+    expect(screen.getByLabelText('Ativo')).toBeRequired()
+    expect(screen.getByLabelText('Intervalo (dias)')).toBeRequired()
+    expect(screen.getByLabelText('Próxima Execução')).toBeRequired()
     expect(screen.getByLabelText('Descrição')).not.toBeRequired()
   })
 
@@ -142,10 +142,10 @@ describe('PreventivePlanEditPage — modo criação', () => {
     await screen.findByRole('option', { name: 'Injetora 03 (INJ-003)' })
 
     // Act
-    await user.type(screen.getByLabelText('Nome *'), 'Troca de óleo mensal')
-    await user.selectOptions(screen.getByLabelText('Ativo *'), '3')
-    await user.type(screen.getByLabelText('Próxima Execução *'), '2026-10-15')
-    await user.click(screen.getByRole('button', { name: 'Criar Plano' }))
+    await user.type(screen.getByLabelText('Nome'), 'Troca de óleo mensal')
+    await user.selectOptions(screen.getByLabelText('Ativo'), '3')
+    await user.type(screen.getByLabelText('Próxima Execução'), '2026-10-15')
+    await user.click(screen.getByRole('button', { name: 'Cadastrar plano' }))
 
     // Assert
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -193,6 +193,6 @@ describe('PreventivePlanEditPage — modo edição', () => {
     // Assert
     expect(await screen.findByDisplayValue('Lubrificação mensal')).toBeInTheDocument()
     expect(screen.getByLabelText('Descrição')).toHaveValue('Guias e fusos')
-    expect(screen.getByLabelText('Intervalo (dias) *')).toHaveValue(30)
+    expect(screen.getByLabelText('Intervalo (dias)')).toHaveValue(30)
   })
 })

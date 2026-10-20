@@ -34,6 +34,9 @@ const NEW_LABELS: Record<string, string> = {
   roles: 'Novo perfil',
 }
 
+/** Seções sem tela de detalhe: o registro abre direto na edição. */
+const EDIT_ONLY = new Set(['spare-parts', 'preventive-plans'])
+
 const REPORT_TAB_LABELS: Record<string, string> = {
   'work-orders': 'Ordens de Serviço',
   reliability: 'Confiabilidade',
@@ -57,10 +60,11 @@ export function buildCrumbs(pathname: string, override: CrumbOverride | null): r
 
   const crumbs: Crumb[] = [{ label: SECTION_LABELS[section] ?? section, to: `/dashboard/${section}` }]
   if (record) {
-    const to = `/dashboard/${section}/${record}`
-    crumbs.push({ label: override?.path === to ? override.label : recordLabel(section, record), to })
+    const path = `/dashboard/${section}/${record}`
+    const label = override?.path === path ? override.label : recordLabel(section, record)
+    crumbs.push({ label, to: EDIT_ONLY.has(section) && action === 'edit' ? pathname : path })
   }
-  if (action === 'edit') crumbs.push({ label: 'Editar', to: pathname })
+  if (action === 'edit' && !EDIT_ONLY.has(section)) crumbs.push({ label: 'Editar', to: pathname })
   return crumbs
 }
 

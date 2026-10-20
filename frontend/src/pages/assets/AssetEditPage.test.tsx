@@ -23,15 +23,15 @@ describe('AssetEditPage — modo criação', () => {
     renderWithProviders(<AssetEditPage />, { mocks: [assetsMock()] })
 
     // Assert
-    expect(screen.getByRole('heading', { name: 'Novo Ativo' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Novo ativo' })).toBeInTheDocument()
     expect(screen.getByLabelText('Nome')).toBeInTheDocument()
-    expect(screen.getByLabelText('Tag')).toBeInTheDocument()
+    expect(screen.getByLabelText('TAG')).toBeInTheDocument()
     expect(screen.getByLabelText('Localização')).toBeInTheDocument()
     expect(screen.getByLabelText('Fabricante')).toBeInTheDocument()
     expect(screen.getByLabelText('Modelo')).toBeInTheDocument()
     expect(screen.getByLabelText('Número de série')).toBeInTheDocument()
     expect(screen.getByText('Data de instalação')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Criar ativo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cadastrar ativo' })).toBeInTheDocument()
   })
 
   it('deve exigir nome e tag antes de submeter', async () => {
@@ -39,17 +39,17 @@ describe('AssetEditPage — modo criação', () => {
     const { user } = renderWithProviders(<AssetEditPage />, { mocks: [assetsMock()] })
 
     // Act
-    await user.click(screen.getByRole('button', { name: 'Criar ativo' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar ativo' }))
 
     // Assert
     expect(await screen.findByText('Nome é obrigatório.')).toBeInTheDocument()
-    expect(screen.getByText('Tag é obrigatória.')).toBeInTheDocument()
+    expect(screen.getByText('TAG é obrigatória.')).toBeInTheDocument()
   })
 
   it('deve limpar o erro do campo ao começar a digitar', async () => {
     // Arrange
     const { user } = renderWithProviders(<AssetEditPage />, { mocks: [assetsMock()] })
-    await user.click(screen.getByRole('button', { name: 'Criar ativo' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar ativo' }))
     expect(await screen.findByText('Nome é obrigatório.')).toBeInTheDocument()
 
     // Act
@@ -94,8 +94,8 @@ describe('AssetEditPage — modo criação', () => {
 
     // Act
     await user.type(screen.getByLabelText('Nome'), 'Torno CNC #3')
-    await user.type(screen.getByLabelText('Tag'), 'TRN-003')
-    await user.click(screen.getByRole('button', { name: 'Criar ativo' }))
+    await user.type(screen.getByLabelText('TAG'), 'TRN-003')
+    await user.click(screen.getByRole('button', { name: 'Cadastrar ativo' }))
 
     // Assert
     await waitFor(() => expect(sent).toHaveLength(1))

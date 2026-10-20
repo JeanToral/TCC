@@ -1,146 +1,109 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 
 import Button from '../../components/ui/Button'
+import DataTable, { type DataTableColumn } from '../../components/ui/DataTable'
+import EmptyState from '../../components/ui/EmptyState'
+import { FormAlert } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
-import Spinner from '../../components/ui/Spinner'
+import { Sheet, SheetHeader } from '../../components/ui/Sheet'
+import { useAuth } from '../../contexts/AuthContext'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import type { Asset, GetAssetsData } from '../../graphql/assets/types'
-import './AssetsListPage.css'
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Intl.DateTimeFormat('pt-BR').format(new Date(iso))
-}
+const DATE = new Intl.DateTimeFormat('pt-BR')
 
-function AssetRow({ asset }: { readonly asset: Asset }) {
-  const navigate = useNavigate()
-  return (
-    <tr
-      className="assets-table__row"
-      onClick={() => navigate(`/dashboard/assets/${asset.id}`)}
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && navigate(`/dashboard/assets/${asset.id}`)}
-      role="link"
-      aria-label={`Ver detalhes de ${asset.name}`}
-    >
-      <td className="assets-table__cell assets-table__cell--tag">
-        <span className="assets-table__tag">{asset.tag}</span>
-      </td>
-      <td className="assets-table__cell">
-        <span className="assets-table__name">{asset.name}</span>
-        {asset.location && (
-          <span className="assets-table__location">{asset.location}</span>
-        )}
-      </td>
-      <td className="assets-table__cell">{asset.manufacturer ?? '—'}</td>
-      <td className="assets-table__cell">{asset.model ?? '—'}</td>
-      <td className="assets-table__cell assets-table__cell--date">
-        {formatDate(asset.installDate)}
-      </td>
-      <td
-        className="assets-table__cell assets-table__cell--actions"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/dashboard/assets/${asset.id}`)}
-        >
-          Ver
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/dashboard/assets/${asset.id}/edit`)}
-        >
-          Editar
-        </Button>
-      </td>
-    </tr>
-  )
+const COLUMNS: readonly DataTableColumn<Asset>[] = [
+  {
+    key: 'tag',
+    header: 'TAG',
+    link: true,
+    className: 'w-32',
+    cell: (a) => <span className="font-mono font-medium">{a.tag}</span>,
+  },
+  {
+    key: 'name',
+    header: 'Nome',
+    mobile: 'title',
+    cell: (a) => (
+      <span className="flex flex-col">
+        <span className="font-medium">{a.name}</span>
+        {a.location && <span className="text-xs text-quiet max-sm:hidden">{a.location}</span>}
+      </span>
+    ),
+  },
+  { key: 'manufacturer', header: 'Fabricante', cell: (a) => a.manufacturer ?? '—' },
+  { key: 'model', header: 'Modelo', mobile: 'hidden', cell: (a) => a.model ?? '—' },
+  {
+    key: 'installed',
+    header: 'Instalação',
+    align: 'right',
+    mobile: 'hidden',
+    cell: (a) => <span className="font-mono text-quiet">{a.installDate ? DATE.format(new Date(a.installDate)) : '—'}</span>,
+  },
+]
+
+function matches(asset: Asset, term: string): boolean {
+  const t = term.toLowerCase()
+  return [asset.name, asset.tag, asset.manufacturer ?? ''].some((v) => v.toLowerCase().includes(t))
 }
 
 export default function AssetsListPage() {
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
   const [search, setSearch] = useState('')
-  const { data, loading, error } = useQuery<GetAssetsData>(GET_ASSETS, {
-    fetchPolicy: 'cache-and-network',
-  })
+  const { data, loading, error } = useQuery<GetAssetsData>(GET_ASSETS, { fetchPolicy: 'cache-and-network' })
 
-  const filtered = (data?.assets ?? []).filter(
-    (a) =>
-      a.name.toLowerCase().includes(search.toLowerCase()) ||
-      a.tag.toLowerCase().includes(search.toLowerCase()) ||
-      (a.manufacturer ?? '').toLowerCase().includes(search.toLowerCase()),
-  )
+  const all = data?.assets ?? []
+  const filtered = search ? all.filter((a) => matches(a, search)) : all
+  const canCreate = hasPermission('asset.create')
 
   return (
-    <div className="assets-list-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <h1 className="page-header__title">Ativos</h1>
-          {data && (
-            <span className="page-header__count">
-              {data.assets.length} {data.assets.length === 1 ? 'ativo' : 'ativos'}
-            </span>
-          )}
-        </div>
-        <div className="page-header__actions">
-          <Input
-            placeholder="Buscar por nome, tag ou fabricante…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="assets-list-page__search"
-          />
-          <Button onClick={() => navigate('/dashboard/assets/new')}>
-            Novo Ativo
-          </Button>
-        </div>
-      </header>
+    <Sheet>
+      <SheetHeader
+        eyebrow="Cadastros"
+        title="Ativos"
+        actions={
+          <>
+            <Input
+              placeholder="Buscar por nome, TAG ou fabricante…"
+              aria-label="Buscar ativos"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-72 max-w-full"
+            />
+            {canCreate && <Button onClick={() => navigate('/dashboard/assets/new')}>Cadastrar ativo</Button>}
+          </>
+        }
+      >
+        {data && (
+          <span className="font-mono text-xs text-quiet">
+            {all.length} {all.length === 1 ? 'ativo' : 'ativos'}
+          </span>
+        )}
+      </SheetHeader>
 
-      {loading && !data && (
-        <div className="page-loading"><Spinner size="lg" /></div>
+      {error ? (
+        <FormAlert className="mb-5">Erro ao carregar ativos: {error.message}</FormAlert>
+      ) : (
+        <DataTable
+          label="Ativos"
+          columns={COLUMNS}
+          rows={filtered}
+          getRowKey={(a) => a.id}
+          rowHref={(a) => `/dashboard/assets/${a.id}`}
+          loading={loading && !data}
+          empty={
+            <EmptyState
+              message={search ? `Nenhum ativo encontrado para "${search}".` : 'Nenhum ativo cadastrado.'}
+              action={
+                canCreate && !search ? <Link to="/dashboard/assets/new">Cadastrar ativo</Link> : undefined
+              }
+            />
+          }
+        />
       )}
-
-      {error && (
-        <div className="page-error" role="alert">
-          Erro ao carregar ativos: {error.message}
-        </div>
-      )}
-
-      {!loading && !error && filtered.length === 0 && (
-        <div className="page-empty">
-          {search ? (
-            <p>Nenhum ativo encontrado para "{search}".</p>
-          ) : (
-            <p>Nenhum ativo cadastrado ainda.</p>
-          )}
-        </div>
-      )}
-
-      {filtered.length > 0 && (
-        <div className="assets-table-card">
-          <table className="assets-table">
-            <thead>
-              <tr>
-                <th className="assets-table__th">Tag</th>
-                <th className="assets-table__th">Nome / Localização</th>
-                <th className="assets-table__th">Fabricante</th>
-                <th className="assets-table__th">Modelo</th>
-                <th className="assets-table__th">Instalação</th>
-                <th className="assets-table__th" aria-label="Ações" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((asset) => (
-                <AssetRow key={asset.id} asset={asset} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    </Sheet>
   )
 }

@@ -2,95 +2,161 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
-import { useAuth } from '../../contexts/AuthContext'
+import { usePageCrumb } from '../../components/layout/Breadcrumbs'
 import Button from '../../components/ui/Button'
+import EmptyState from '../../components/ui/EmptyState'
+import { FormAlert } from '../../components/ui/FormLayout'
 import Modal from '../../components/ui/Modal'
-import Spinner from '../../components/ui/Spinner'
+import MoreActions from '../../components/ui/MoreActions'
+import Readout, { ReadoutStrip } from '../../components/ui/Readout'
+import { Sheet, SheetHeader, SheetSection } from '../../components/ui/Sheet'
+import Skeleton from '../../components/ui/Skeleton'
+import { useAuth } from '../../contexts/AuthContext'
 import { DELETE_ASSET } from '../../graphql/assets/DeleteAsset.gql'
 import { GET_ASSET } from '../../graphql/assets/GetAsset.gql'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
-import type { DeleteAssetData, GetAssetData } from '../../graphql/assets/types'
+import type { AssetDetail, DeleteAssetData, GetAssetData } from '../../graphql/assets/types'
+import { GET_DASHBOARD_KPIS } from '../../graphql/dashboard/GetDashboardKpis.gql'
+import type { GetDashboardKpisData } from '../../graphql/dashboard/types'
 import { GET_ASSET_COSTS } from '../../graphql/finance/GetAssetCosts.gql'
 import type { GetAssetCostsData } from '../../graphql/finance/types'
 import { errorMessage } from '../../lib/utils'
-import './AssetViewPage.css'
 
-// ── AssetCostCard ─────────────────────────────────────────
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+const DATE = new Intl.DateTimeFormat('pt-BR')
+const DATE_TIME = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+const HOURS = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
 
-/** Custo de manutenção do ativo nos últimos 12 meses. Exige cost.read. */
-function AssetCostCard({ assetId }: { readonly assetId: number }) {
-  const from = new Date()
-  from.setMonth(from.getMonth() - 12)
+function formatDate(iso: string | null): string {
+  return iso ? DATE.format(new Date(iso)) : '—'
+}
 
-  const { data, loading } = useQuery<GetAssetCostsData>(GET_ASSET_COSTS, {
-    variables: { filter: { assetId, from: from.toISOString() } },
+/** Horas → valor e unidade separados, para o mostrador. */
+function splitHours(hours: number | null): { readonly value: string | null; readonly unit: string } {
+  if (hours === null) return { value: null, unit: 'h' }
+  return hours >= 48 ? { value: HOURS.format(hours / 24), unit: 'd' } : { value: HOURS.format(hours), unit: 'h' }
+}
+
+// ── Indicadores (dashboard.read) ───────────────────────────
+function AssetIndicators({ assetId }: { readonly assetId: number }) {
+  const { data, loading } = useQuery<GetDashboardKpisData>(GET_DASHBOARD_KPIS, {
+    variables: { filter: { assetId } },
   })
-
-  const cost = data?.assetCosts?.[0]
+  const kpi = data?.dashboardKpis.find((k) => k.assetId === assetId)
+  const mtbf = splitHours(kpi?.mtbf ?? null)
+  const mttr = splitHours(kpi?.mttr ?? null)
 
   return (
-    <div className="detail-card">
-      <h2 className="detail-card__title">Custo de manutenção</h2>
+    <SheetSection title="Indicadores" flush>
       {loading ? (
-        <div className="asset-view-page__card-loading">
-          <Spinner size="sm" />
+        <div className="flex gap-4 px-5 pb-5">
+          <Skeleton className="h-12 flex-1" />
+          <Skeleton className="h-12 flex-1" />
+          <Skeleton className="h-12 flex-1" />
         </div>
       ) : (
-        <>
-          <dl className="detail-list">
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Realizado (12 meses)</dt>
-              <dd className="detail-list__value asset-view-page__cost-total">
-                {BRL.format(cost?.realizedTotal ?? 0)}
-              </dd>
-            </div>
-            <div className="asset-view-page__row">
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Corretiva</dt>
-                <dd className="detail-list__value">
-                  {BRL.format(cost?.realizedCorrectiveCost ?? 0)}
-                </dd>
-              </div>
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Preventiva</dt>
-                <dd className="detail-list__value">
-                  {BRL.format(cost?.realizedPreventiveCost ?? 0)}
-                </dd>
-              </div>
-            </div>
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Previsto (OS abertas)</dt>
-              <dd className="detail-list__value">{BRL.format(cost?.forecastTotal ?? 0)}</dd>
-            </div>
-          </dl>
-
-          {(cost?.workOrdersWithIncompleteCost ?? 0) > 0 && (
-            <p className="asset-view-page__cost-warning" role="status">
-              {cost?.workOrdersWithIncompleteCost} de {cost?.completedWorkOrders} OS
-              com custo incompleto.
-            </p>
-          )}
-
-          <Link to={`/dashboard/reports/costs?assetId=${assetId}`} className="asset-view-page__cost-link">
-            Ver detalhamento financeiro →
-          </Link>
-        </>
+        <ReadoutStrip className="border-t border-rule">
+          <Readout label="MTBF" value={mtbf.value} unit={mtbf.unit} detail="Tempo médio entre falhas" />
+          <Readout label="MTTR" value={mttr.value} unit={mttr.unit} detail="Tempo médio de reparo" />
+          <Readout
+            label="Corretivas concluídas"
+            value={String(kpi?.completedWorkOrders ?? 0)}
+            detail={`de ${kpi?.totalWorkOrders ?? 0} OS registradas`}
+          />
+        </ReadoutStrip>
       )}
-    </div>
+    </SheetSection>
   )
 }
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(iso))
+// ── Custo (cost.read) ──────────────────────────────────────
+function twelveMonthsAgo(): string {
+  const from = new Date()
+  from.setMonth(from.getMonth() - 12)
+  from.setHours(0, 0, 0, 0)
+  return from.toISOString()
 }
 
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso))
+function AssetCost({ assetId }: { readonly assetId: number }) {
+  // Fixada na montagem: recalcular a cada render muda as variáveis e refaz a query em laço.
+  const [from] = useState(twelveMonthsAgo)
+
+  const { data, loading } = useQuery<GetAssetCostsData>(GET_ASSET_COSTS, {
+    variables: { filter: { assetId, from } },
+  })
+  const cost = data?.assetCosts?.[0]
+  const incomplete = cost?.workOrdersWithIncompleteCost ?? 0
+
+  return (
+    <SheetSection
+      title="Custo de manutenção — 12 meses"
+      aside={
+        <Link to={`/dashboard/reports/costs?assetId=${assetId}`} className="text-xs">
+          Ver detalhamento
+        </Link>
+      }
+    >
+      {loading ? (
+        <Skeleton className="h-16" />
+      ) : (
+        <dl className="flex flex-col text-sm">
+          {[
+            { label: 'Corretiva', value: cost?.realizedCorrectiveCost },
+            { label: 'Preventiva', value: cost?.realizedPreventiveCost },
+          ].map((line) => (
+            <div key={line.label} className="flex justify-between gap-4 py-1 text-body">
+              <dt>{line.label}</dt>
+              <dd className="font-mono tabular-nums">{BRL.format(line.value ?? 0)}</dd>
+            </div>
+          ))}
+          <div className="mt-1 flex justify-between gap-4 border-t-2 border-ink pt-2 font-semibold text-ink">
+            <dt>Realizado</dt>
+            <dd className="font-mono tabular-nums">{BRL.format(cost?.realizedTotal ?? 0)}</dd>
+          </div>
+          <div className="flex justify-between gap-4 py-1 text-quiet">
+            <dt>Previsto (OS abertas)</dt>
+            <dd className="font-mono tabular-nums">{BRL.format(cost?.forecastTotal ?? 0)}</dd>
+          </div>
+          {incomplete > 0 && (
+            <p className="mt-2 border-l-[3px] border-warning bg-warning-soft px-3 py-1.5 text-xs text-[var(--warning-text)]" role="status">
+              {incomplete} de {cost?.completedWorkOrders} OS com custo incompleto.
+            </p>
+          )}
+        </dl>
+      )}
+    </SheetSection>
+  )
 }
 
+// ── Plaqueta ───────────────────────────────────────────────
+/** A placa de identificação da máquina: os dados que estão rebitados nela. */
+function NamePlate({ asset }: { readonly asset: AssetDetail }) {
+  const rows = [
+    { label: 'Fabricante', value: asset.manufacturer },
+    { label: 'Modelo', value: asset.model },
+    { label: 'Nº de série', value: asset.serialNumber, mono: true },
+    { label: 'Instalação', value: asset.installDate ? formatDate(asset.installDate) : null, mono: true },
+    { label: 'Localização', value: asset.location },
+  ]
+  return (
+    <figure aria-label="Plaqueta de identificação" className="rounded-xs border-2 border-rule-strong bg-subtle p-1">
+      <div className="rounded-[1px] border border-rule-strong px-3 py-2.5">
+        <span className="block font-mono text-lg font-semibold tracking-wide text-ink">{asset.tag}</span>
+        <span className="block border-b border-rule-strong pb-2 text-sm text-body">{asset.name}</span>
+        <dl className="mt-2 flex flex-col gap-1">
+          {rows.map((row) => (
+            <div key={row.label} className="flex justify-between gap-3 text-xs">
+              <dt className="uppercase tracking-wider text-faint">{row.label}</dt>
+              <dd className={row.mono ? 'font-mono text-ink' : 'text-right text-ink'}>{row.value ?? '—'}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </figure>
+  )
+}
+
+// ── Page ───────────────────────────────────────────────────
 export default function AssetViewPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -102,6 +168,7 @@ export default function AssetViewPage() {
     variables: { id: Number(id) },
     skip: !id,
   })
+  usePageCrumb(data?.asset?.tag)
 
   const [deleteAsset, { loading: deleting }] = useMutation<DeleteAssetData>(DELETE_ASSET, {
     variables: { id: Number(id) },
@@ -111,97 +178,92 @@ export default function AssetViewPage() {
   })
 
   if (loading) {
-    return <div className="page-loading"><Spinner size="lg" /></div>
+    return (
+      <Sheet>
+        <div className="flex flex-col gap-3 p-5" role="status" aria-label="Carregando">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="w-72 max-w-full" />
+        </div>
+      </Sheet>
+    )
   }
 
   if (error || !data?.asset) {
     return (
-      <div className="asset-view-page">
-        <div className="page-error" role="alert">
-          {error ? `Erro: ${error.message}` : 'Ativo não encontrado.'}
-        </div>
-        <Button variant="secondary" onClick={() => navigate('/dashboard/assets')} className="asset-view-page__back-btn">
-          ← Voltar para lista
-        </Button>
-      </div>
+      <Sheet>
+        <EmptyState
+          message={error ? `Erro ao carregar o ativo: ${error.message}` : 'Ativo não encontrado.'}
+          action={<Link to="/dashboard/assets">Voltar para Ativos</Link>}
+        />
+      </Sheet>
     )
   }
 
   const asset = data.asset
 
   return (
-    <div className="asset-view-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <button type="button" className="asset-view-page__back" onClick={() => navigate('/dashboard/assets')}>
-            ← Ativos
-          </button>
-          <h1 className="page-header__title">{asset.name}</h1>
-          <span className="asset-view-page__tag">{asset.tag}</span>
-        </div>
-        <div className="page-header__actions">
-          <Button variant="secondary" onClick={() => navigate(`/dashboard/assets/${id}/edit`)}>
-            Editar
-          </Button>
-          <Button variant="danger" onClick={() => { setDeleteError(''); setDeleteOpen(true) }}>
-            Remover
-          </Button>
-        </div>
-      </header>
+    <>
+      <Sheet>
+        <SheetHeader
+          eyebrow="Ativo"
+          code={asset.tag}
+          title={asset.name}
+          meta={[
+            { label: 'Localização', value: asset.location ?? '—' },
+            { label: 'Instalação', value: <span className="font-mono">{formatDate(asset.installDate)}</span> },
+          ]}
+          actions={
+            <>
+              {hasPermission('asset.update') && (
+                <Button variant="secondary" onClick={() => navigate(`/dashboard/assets/${asset.id}/edit`)}>
+                  Editar
+                </Button>
+              )}
+              <MoreActions
+                align="start"
+                items={[
+                  {
+                    label: 'Remover ativo',
+                    danger: true,
+                    onSelect: () => {
+                      setDeleteError('')
+                      setDeleteOpen(true)
+                    },
+                    disabledReason: hasPermission('asset.delete') ? undefined : 'Você não tem permissão para esta ação',
+                  },
+                ]}
+              />
+            </>
+          }
+        />
 
-      <div className="asset-view-page__grid">
-        <div className="detail-card asset-view-page__card--wide">
-          <h2 className="detail-card__title">Informações gerais</h2>
-          <dl className="detail-list">
-            <div className="asset-view-page__row">
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Tag</dt>
-                <dd className="detail-list__value asset-view-page__tag-value">{asset.tag}</dd>
-              </div>
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Localização</dt>
-                <dd className="detail-list__value">{asset.location ?? '—'}</dd>
-              </div>
-            </div>
-            <div className="asset-view-page__row">
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Fabricante</dt>
-                <dd className="detail-list__value">{asset.manufacturer ?? '—'}</dd>
-              </div>
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Modelo</dt>
-                <dd className="detail-list__value">{asset.model ?? '—'}</dd>
-              </div>
-            </div>
-            <div className="asset-view-page__row">
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Número de série</dt>
-                <dd className="detail-list__value">{asset.serialNumber ?? '—'}</dd>
-              </div>
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Data de instalação</dt>
-                <dd className="detail-list__value">{formatDate(asset.installDate)}</dd>
-              </div>
-            </div>
-          </dl>
-        </div>
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="min-w-0">
+            {hasPermission('dashboard.read') && <AssetIndicators assetId={asset.id} />}
+            {hasPermission('cost.read') && <AssetCost assetId={asset.id} />}
+          </div>
 
-        {hasPermission('cost.read') && <AssetCostCard assetId={asset.id} />}
-
-        <div className="detail-card">
-          <h2 className="detail-card__title">Metadados</h2>
-          <dl className="detail-list">
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Criado em</dt>
-              <dd className="detail-list__value">{formatDateTime(asset.createdAt)}</dd>
-            </div>
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Atualizado em</dt>
-              <dd className="detail-list__value">{formatDateTime(asset.updatedAt)}</dd>
-            </div>
-          </dl>
+          <aside className="border-t border-rule lg:border-t-0 lg:border-l" aria-label="Identificação">
+            <SheetSection title="Plaqueta">
+              <NamePlate asset={asset} />
+            </SheetSection>
+            <SheetSection title="Documento">
+              <dl className="flex flex-col gap-2.5 text-sm">
+                {[
+                  { label: 'Cadastrado em', value: asset.createdAt },
+                  { label: 'Atualizado em', value: asset.updatedAt },
+                ].map((item) => (
+                  <div key={item.label} className="flex flex-col gap-0.5">
+                    <dt className="text-[0.6875rem] font-medium uppercase tracking-wider text-faint">{item.label}</dt>
+                    <dd className="font-mono tabular-nums text-ink">{DATE_TIME.format(new Date(item.value))}</dd>
+                  </div>
+                ))}
+              </dl>
+            </SheetSection>
+          </aside>
         </div>
-      </div>
+      </Sheet>
 
       <Modal
         open={deleteOpen}
@@ -210,7 +272,7 @@ export default function AssetViewPage() {
         size="sm"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+            <Button variant="link" onClick={() => setDeleteOpen(false)} disabled={deleting}>
               Cancelar
             </Button>
             <Button variant="danger" loading={deleting} onClick={() => deleteAsset()}>
@@ -219,12 +281,12 @@ export default function AssetViewPage() {
           </>
         }
       >
-        <p className="asset-view-page__modal-msg">
-          Tem certeza que deseja remover o ativo <strong>{asset.name}</strong> ({asset.tag})?
-          As ordens de serviço vinculadas serão preservadas.
+        <p className="text-sm leading-relaxed text-body">
+          Tem certeza que deseja remover o ativo <strong>{asset.name}</strong> (
+          <span className="font-mono">{asset.tag}</span>)? As ordens de serviço vinculadas serão preservadas.
         </p>
-        {deleteError && <p className="asset-view-page__modal-error">{deleteError}</p>}
+        {deleteError && <FormAlert className="m-0 mt-3">{deleteError}</FormAlert>}
       </Modal>
-    </div>
+    </>
   )
 }

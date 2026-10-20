@@ -18,7 +18,7 @@ const SWATCH: Record<BadgeVariant, string> = {
 /** Tarja: a cor sinaliza no quadrado, o texto fica neutro. */
 export default function Badge({ variant = 'default', children }: BadgeProps) {
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xs border border-rule bg-sheet px-1.5 py-0.5 text-xs font-medium text-body">
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xs border border-rule bg-sheet px-1.5 py-0.5 font-sans text-xs font-medium text-body">
       <span aria-hidden="true" className={`size-2 shrink-0 ${SWATCH[variant]}`} />
       {children}
     </span>

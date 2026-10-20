@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery, useMutation } from '@apollo/client/react'
+import { useMutation, useQuery } from '@apollo/client/react'
 
+import { usePageCrumb } from '../../components/layout/Breadcrumbs'
 import Button from '../../components/ui/Button'
 import {
   FormActions,
@@ -12,15 +13,19 @@ import {
   FormSection,
 } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
+import Modal from '../../components/ui/Modal'
+import MoreActions from '../../components/ui/MoreActions'
+import { SheetHeader } from '../../components/ui/Sheet'
+import Skeleton from '../../components/ui/Skeleton'
 import { Textarea } from '../../components/ui/textarea'
-import Spinner from '../../components/ui/Spinner'
+import { useAuth } from '../../contexts/AuthContext'
+import { CREATE_SPARE_PART } from '../../graphql/spare-parts/CreateSparePart.gql'
+import { DELETE_SPARE_PART } from '../../graphql/spare-parts/DeleteSparePart.gql'
 import { GET_SPARE_PART } from '../../graphql/spare-parts/GetSparePart.gql'
 import { GET_SPARE_PARTS } from '../../graphql/spare-parts/GetSpareParts.gql'
-import { CREATE_SPARE_PART } from '../../graphql/spare-parts/CreateSparePart.gql'
 import { UPDATE_SPARE_PART } from '../../graphql/spare-parts/UpdateSparePart.gql'
 import type { GetSparePartData } from '../../graphql/spare-parts/types'
 import { errorMessage } from '../../lib/utils'
-import './SparePartEditPage.css'
 
 interface FormState {
   name: string
@@ -44,14 +49,17 @@ export default function SparePartEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isNew = !id
+  const { hasPermission } = useAuth()
 
   const [form, setForm] = useState<FormState>(empty)
   const [error, setError] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const { data, loading } = useQuery<GetSparePartData>(GET_SPARE_PART, {
     variables: { id: Number(id) },
     skip: isNew,
   })
+  usePageCrumb(data?.sparePart?.partNumber)
 
   // Preenche o formulário quando os dados chegam — ajuste de estado no render,
   // não em efeito (react.dev/learn/you-might-not-need-an-effect).
@@ -77,6 +85,16 @@ export default function SparePartEditPage() {
 
   const [updateSparePart, { loading: updating }] = useMutation(UPDATE_SPARE_PART, {
     refetchQueries: [{ query: GET_SPARE_PARTS }],
+  })
+
+  const [deleteSparePart, { loading: deleting }] = useMutation(DELETE_SPARE_PART, {
+    variables: { id: Number(id) },
+    refetchQueries: [{ query: GET_SPARE_PARTS }],
+    onCompleted: () => navigate('/dashboard/spare-parts'),
+    onError: (err) => {
+      setDeleteOpen(false)
+      setError(errorMessage(err))
+    },
   })
 
   const saving = creating || updating
@@ -113,99 +131,128 @@ export default function SparePartEditPage() {
   }
 
   if (loading) {
-    return <div className="page-loading"><Spinner size="lg" /></div>
+    return (
+      <div className="flex max-w-5xl flex-col gap-3 rounded-xs border border-rule bg-sheet p-5" role="status" aria-label="Carregando">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-24" />
+      </div>
+    )
   }
 
-  return (
-    <div className="spare-part-edit-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <h1 className="page-header__title">
-            {isNew ? 'Nova Peça de Reposição' : 'Editar Peça'}
-          </h1>
-        </div>
-      </header>
+  const lowStock = !isNew && Number(form.quantity) < Number(form.minimumStock)
 
-      <FormLayout onSubmit={handleSubmit}>
+  return (
+    <>
+      <FormLayout
+        onSubmit={handleSubmit}
+        header={
+          <SheetHeader
+            eyebrow="Peça de reposição"
+            code={isNew ? undefined : data?.sparePart?.partNumber}
+            title={isNew ? 'Nova peça' : 'Editar peça'}
+            actions={
+              isNew ? undefined : (
+                <MoreActions
+                  align="start"
+                  items={[
+                    {
+                      label: 'Excluir peça',
+                      danger: true,
+                      onSelect: () => setDeleteOpen(true),
+                      disabledReason: hasPermission('sparepart.delete')
+                        ? undefined
+                        : 'Você não tem permissão para esta ação',
+                    },
+                  ]}
+                />
+              )
+            }
+          />
+        }
+      >
         {error && <FormAlert>{error}</FormAlert>}
 
         <FormSection title="Identificação">
           <FormGrid columns={2}>
             <FormField>
-              <label className="spare-part-form__label">
-                Nome *
-                <Input
-                  value={form.name}
-                  onChange={(e) => set('name', e.target.value)}
-                  required
-                  placeholder="Ex: Rolamento 6205"
-                />
-              </label>
+              <Input
+                id="part-name"
+                label="Nome"
+                required
+                value={form.name}
+                onChange={(e) => set('name', e.target.value)}
+                placeholder="Ex: Rolamento 6205"
+              />
             </FormField>
             <FormField>
-              <label className="spare-part-form__label">
-                Código (Part Number) *
-                <Input
-                  value={form.partNumber}
-                  onChange={(e) => set('partNumber', e.target.value)}
-                  required
-                  disabled={!isNew}
-                  placeholder="Ex: ROL-6205"
-                />
-              </label>
+              <Input
+                id="part-number"
+                label="Código (Part Number)"
+                required
+                value={form.partNumber}
+                onChange={(e) => set('partNumber', e.target.value)}
+                disabled={!isNew}
+                placeholder="Ex: ROL-6205"
+                className="font-mono"
+                hint={isNew ? undefined : 'O código não muda depois do cadastro.'}
+              />
             </FormField>
             <FormField span="full">
-              <label className="spare-part-form__label">
-                Descrição
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => set('description', e.target.value)}
-                  placeholder="Descrição ou especificações da peça…"
-                  rows={3}
-                />
-              </label>
+              <Textarea
+                id="part-description"
+                label="Descrição"
+                value={form.description}
+                onChange={(e) => set('description', e.target.value)}
+                placeholder="Descrição ou especificações da peça…"
+                rows={3}
+              />
             </FormField>
           </FormGrid>
         </FormSection>
 
         <FormSection title="Estoque">
+          {lowStock && (
+            <FormAlert variant="warning" className="m-0 mb-3">
+              Estoque abaixo do mínimo.
+            </FormAlert>
+          )}
           <FormGrid>
             <FormField>
-              <label className="spare-part-form__label">
-                Quantidade em Estoque
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.quantity}
-                  onChange={(e) => set('quantity', e.target.value)}
-                />
-              </label>
+              <Input
+                id="part-quantity"
+                label="Quantidade em Estoque"
+                type="number"
+                min={0}
+                value={form.quantity}
+                onChange={(e) => set('quantity', e.target.value)}
+                className="font-mono"
+              />
             </FormField>
             <FormField>
-              <label className="spare-part-form__label">
-                Estoque Mínimo
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.minimumStock}
-                  onChange={(e) => set('minimumStock', e.target.value)}
-                />
-              </label>
+              <Input
+                id="part-minimum"
+                label="Estoque Mínimo"
+                type="number"
+                min={0}
+                value={form.minimumStock}
+                onChange={(e) => set('minimumStock', e.target.value)}
+                className="font-mono"
+              />
             </FormField>
             <FormField>
-              <label className="spare-part-form__label">
-                Custo Unitário (R$)
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={form.unitCost}
-                  onChange={(e) => set('unitCost', e.target.value)}
-                  placeholder="0,00"
-                />
-              </label>
+              <Input
+                id="part-cost"
+                label="Custo Unitário (R$)"
+                type="number"
+                min={0}
+                step={0.01}
+                value={form.unitCost}
+                onChange={(e) => set('unitCost', e.target.value)}
+                placeholder="0,00"
+                className="font-mono"
+              />
               {!form.unitCost.trim() && (
-                <p className="spare-part-form__hint" role="status">
+                <p className="pb-1 text-xs text-[var(--warning-text)]" role="status">
                   Peças sem custo tornam o relatório financeiro incompleto.
                 </p>
               )}
@@ -214,18 +261,35 @@ export default function SparePartEditPage() {
         </FormSection>
 
         <FormActions>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => navigate('/dashboard/spare-parts')}
-          >
+          <Button type="button" variant="link" onClick={() => navigate('/dashboard/spare-parts')}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? <Spinner size="sm" /> : isNew ? 'Criar Peça' : 'Salvar Alterações'}
+          <Button type="submit" loading={saving}>
+            {isNew ? 'Cadastrar peça' : 'Salvar alterações'}
           </Button>
         </FormActions>
       </FormLayout>
-    </div>
+
+      <Modal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Excluir peça"
+        size="sm"
+        footer={
+          <>
+            <Button variant="link" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="danger" loading={deleting} onClick={() => deleteSparePart()}>
+              Confirmar exclusão
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm leading-relaxed text-body">
+          Excluir a peça <strong>{form.name}</strong> (<span className="font-mono">{form.partNumber}</span>)?
+        </p>
+      </Modal>
+    </>
   )
 }

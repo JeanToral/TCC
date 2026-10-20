@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
+import { usePageCrumb } from '../../components/layout/Breadcrumbs'
 import Button from '../../components/ui/Button'
+import { Checkbox } from '../../components/ui/checkbox'
 import {
   FormActions,
   FormAlert,
@@ -12,16 +14,22 @@ import {
   FormSection,
 } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
+import Modal from '../../components/ui/Modal'
+import MoreActions from '../../components/ui/MoreActions'
+import { NativeSelect } from '../../components/ui/select'
+import { SheetHeader } from '../../components/ui/Sheet'
+import Skeleton from '../../components/ui/Skeleton'
 import { Textarea } from '../../components/ui/textarea'
-import Spinner from '../../components/ui/Spinner'
+import { useAuth } from '../../contexts/AuthContext'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
+import type { GetAssetsData } from '../../graphql/assets/types'
 import { CREATE_PREVENTIVE_PLAN } from '../../graphql/preventive-plans/CreatePreventivePlan.gql'
+import { DELETE_PREVENTIVE_PLAN } from '../../graphql/preventive-plans/DeletePreventivePlan.gql'
 import { GET_PREVENTIVE_PLAN } from '../../graphql/preventive-plans/GetPreventivePlan.gql'
 import { GET_PREVENTIVE_PLANS } from '../../graphql/preventive-plans/GetPreventivePlans.gql'
 import { UPDATE_PREVENTIVE_PLAN } from '../../graphql/preventive-plans/UpdatePreventivePlan.gql'
-import type { GetAssetsData } from '../../graphql/assets/types'
 import type { GetPreventivePlanData } from '../../graphql/preventive-plans/types'
-import './PreventivePlanEditPage.css'
+import { errorMessage } from '../../lib/utils'
 
 interface FormState {
   name: string
@@ -49,9 +57,11 @@ export default function PreventivePlanEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const isNew = !id
+  const { hasPermission } = useAuth()
 
   const [form, setForm] = useState<FormState>(empty)
   const [error, setError] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const { data: planData, loading: planLoading } = useQuery<GetPreventivePlanData>(
     GET_PREVENTIVE_PLAN,
@@ -59,6 +69,7 @@ export default function PreventivePlanEditPage() {
   )
 
   const { data: assetsData } = useQuery<GetAssetsData>(GET_ASSETS)
+  usePageCrumb(planData?.preventivePlan?.name)
 
   // Preenche o formulário quando os dados chegam — ajuste de estado no render,
   // não em efeito (react.dev/learn/you-might-not-need-an-effect).
@@ -86,6 +97,16 @@ export default function PreventivePlanEditPage() {
 
   const [updatePlan, { loading: updating }] = useMutation(UPDATE_PREVENTIVE_PLAN, {
     refetchQueries,
+  })
+
+  const [deletePlan, { loading: deleting }] = useMutation(DELETE_PREVENTIVE_PLAN, {
+    variables: { id: Number(id) },
+    refetchQueries,
+    onCompleted: () => navigate('/dashboard/preventive-plans'),
+    onError: (err) => {
+      setDeleteOpen(false)
+      setError(errorMessage(err))
+    },
   })
 
   const saving = creating || updating
@@ -127,71 +148,89 @@ export default function PreventivePlanEditPage() {
       }
       navigate('/dashboard/preventive-plans')
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar')
+      setError(errorMessage(err))
     }
   }
 
   if (planLoading) {
-    return <div className="page-loading"><Spinner size="lg" /></div>
+    return (
+      <div className="flex max-w-5xl flex-col gap-3 rounded-xs border border-rule bg-sheet p-5" role="status" aria-label="Carregando">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-24" />
+      </div>
+    )
   }
 
   const assets = assetsData?.assets ?? []
 
   return (
-    <div className="prev-plan-edit-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <h1 className="page-header__title">
-            {isNew ? 'Novo Plano Preventivo' : 'Editar Plano Preventivo'}
-          </h1>
-        </div>
-      </header>
-
-      <FormLayout onSubmit={handleSubmit}>
+    <>
+      <FormLayout
+        onSubmit={handleSubmit}
+        header={
+          <SheetHeader
+            eyebrow="Plano preventivo"
+            title={isNew ? 'Novo plano preventivo' : 'Editar plano preventivo'}
+            actions={
+              isNew ? undefined : (
+                <MoreActions
+                  align="start"
+                  items={[
+                    {
+                      label: 'Excluir plano',
+                      danger: true,
+                      onSelect: () => setDeleteOpen(true),
+                      disabledReason: hasPermission('preventiveplan.delete')
+                        ? undefined
+                        : 'Você não tem permissão para esta ação',
+                    },
+                  ]}
+                />
+              )
+            }
+          />
+        }
+      >
         {error && <FormAlert>{error}</FormAlert>}
 
         <FormSection title="Plano">
           <FormGrid columns={2}>
             <FormField>
-              <label className="prev-plan-form__label">
-                Nome *
-                <Input
-                  value={form.name}
-                  onChange={(e) => set('name', e.target.value)}
-                  required
-                  placeholder="Ex: Troca de óleo mensal"
-                />
-              </label>
+              <Input
+                id="plan-name"
+                label="Nome"
+                required
+                value={form.name}
+                onChange={(e) => set('name', e.target.value)}
+                placeholder="Ex: Troca de óleo mensal"
+              />
             </FormField>
             <FormField>
-              <label className="prev-plan-form__label">
-                Ativo *
-                <select
-                  className="prev-plan-form__select"
-                  value={form.assetId}
-                  onChange={(e) => set('assetId', e.target.value)}
-                  required
-                  disabled={!isNew}
-                >
-                  <option value="">Selecione um ativo…</option>
-                  {assets.map((a) => (
-                    <option key={a.id} value={String(a.id)}>
-                      {a.name} ({a.tag})
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <NativeSelect
+                id="plan-asset"
+                label="Ativo"
+                required
+                value={form.assetId}
+                onChange={(e) => set('assetId', e.target.value)}
+                disabled={!isNew}
+              >
+                <option value="">Selecione um ativo…</option>
+                {assets.map((a) => (
+                  <option key={a.id} value={String(a.id)}>
+                    {a.name} ({a.tag})
+                  </option>
+                ))}
+              </NativeSelect>
             </FormField>
             <FormField span="full">
-              <label className="prev-plan-form__label">
-                Descrição
-                <Textarea
-                  value={form.description}
-                  onChange={(e) => set('description', e.target.value)}
-                  placeholder="Descreva o procedimento ou critério do plano…"
-                  rows={3}
-                />
-              </label>
+              <Textarea
+                id="plan-description"
+                label="Descrição"
+                value={form.description}
+                onChange={(e) => set('description', e.target.value)}
+                placeholder="Descreva o procedimento ou critério do plano…"
+                rows={3}
+              />
             </FormField>
           </FormGrid>
         </FormSection>
@@ -199,36 +238,36 @@ export default function PreventivePlanEditPage() {
         <FormSection title="Periodicidade">
           <FormGrid columns={2}>
             <FormField>
-              <label className="prev-plan-form__label">
-                Intervalo (dias) *
-                <Input
-                  type="number"
-                  min={1}
-                  value={form.intervalDays}
-                  onChange={(e) => set('intervalDays', e.target.value)}
-                  required
-                />
-              </label>
+              <Input
+                id="plan-interval"
+                label="Intervalo (dias)"
+                required
+                type="number"
+                min={1}
+                value={form.intervalDays}
+                onChange={(e) => set('intervalDays', e.target.value)}
+                className="font-mono"
+              />
             </FormField>
             <FormField>
-              <label className="prev-plan-form__label">
-                Próxima Execução *
-                <Input
-                  type="date"
-                  value={form.nextDueAt}
-                  onChange={(e) => set('nextDueAt', e.target.value)}
-                  required
-                />
-              </label>
+              <Input
+                id="plan-next-due"
+                label="Próxima Execução"
+                required
+                type="date"
+                value={form.nextDueAt}
+                onChange={(e) => set('nextDueAt', e.target.value)}
+                className="font-mono"
+              />
             </FormField>
 
             {!isNew && (
               <FormField span="full">
-                <label className="prev-plan-form__label prev-plan-form__label--checkbox">
-                  <input
-                    type="checkbox"
+                <label htmlFor="plan-active" className="flex items-center gap-2 py-1.5 text-sm text-ink">
+                  <Checkbox
+                    id="plan-active"
                     checked={form.isActive}
-                    onChange={(e) => set('isActive', e.target.checked)}
+                    onCheckedChange={(checked) => set('isActive', checked === true)}
                   />
                   Plano ativo (gera OS automaticamente quando vencido)
                 </label>
@@ -238,18 +277,35 @@ export default function PreventivePlanEditPage() {
         </FormSection>
 
         <FormActions>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => navigate('/dashboard/preventive-plans')}
-          >
+          <Button type="button" variant="link" onClick={() => navigate('/dashboard/preventive-plans')}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? <Spinner size="sm" /> : isNew ? 'Criar Plano' : 'Salvar Alterações'}
+          <Button type="submit" loading={saving}>
+            {isNew ? 'Cadastrar plano' : 'Salvar alterações'}
           </Button>
         </FormActions>
       </FormLayout>
-    </div>
+
+      <Modal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Excluir plano"
+        size="sm"
+        footer={
+          <>
+            <Button variant="link" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="danger" loading={deleting} onClick={() => deletePlan()}>
+              Confirmar exclusão
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm leading-relaxed text-body">
+          Excluir o plano <strong>{form.name}</strong>? As OS já geradas por ele são preservadas.
+        </p>
+      </Modal>
+    </>
   )
 }

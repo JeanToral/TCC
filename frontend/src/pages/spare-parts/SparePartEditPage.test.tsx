@@ -1,9 +1,11 @@
 import { screen, waitFor } from '@testing-library/react'
 import type { MockLink } from '@apollo/client/testing'
+import { Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
 import SparePartEditPage from './SparePartEditPage'
 import { CREATE_SPARE_PART } from '../../graphql/spare-parts/CreateSparePart.gql'
+import { DELETE_SPARE_PART } from '../../graphql/spare-parts/DeleteSparePart.gql'
 import { GET_SPARE_PART } from '../../graphql/spare-parts/GetSparePart.gql'
 import { UPDATE_SPARE_PART } from '../../graphql/spare-parts/UpdateSparePart.gql'
 import { GET_SPARE_PARTS } from '../../graphql/spare-parts/GetSpareParts.gql'
@@ -25,15 +27,15 @@ describe('SparePartEditPage — modo criação', () => {
 
     // Assert
     expect(
-      screen.getByRole('heading', { name: 'Nova Peça de Reposição' }),
+      screen.getByRole('heading', { name: 'Nova peça' }),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Nome *')).toBeInTheDocument()
-    expect(screen.getByLabelText('Código (Part Number) *')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nome')).toBeInTheDocument()
+    expect(screen.getByLabelText('Código (Part Number)')).toBeInTheDocument()
     expect(screen.getByLabelText('Descrição')).toBeInTheDocument()
     expect(screen.getByLabelText('Quantidade em Estoque')).toBeInTheDocument()
     expect(screen.getByLabelText('Estoque Mínimo')).toBeInTheDocument()
     expect(screen.getByLabelText('Custo Unitário (R$)')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Criar Peça' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cadastrar peça' })).toBeInTheDocument()
   })
 
   it('deve iniciar quantidade e estoque mínimo em zero e custo vazio', () => {
@@ -53,8 +55,8 @@ describe('SparePartEditPage — modo criação', () => {
     renderWithProviders(<SparePartEditPage />, { mocks: [sparePartsMock()] })
 
     // Assert
-    expect(screen.getByLabelText('Nome *')).toBeRequired()
-    expect(screen.getByLabelText('Código (Part Number) *')).toBeRequired()
+    expect(screen.getByLabelText('Nome')).toBeRequired()
+    expect(screen.getByLabelText('Código (Part Number)')).toBeRequired()
     expect(screen.getByLabelText('Quantidade em Estoque')).not.toBeRequired()
   })
 
@@ -63,7 +65,7 @@ describe('SparePartEditPage — modo criação', () => {
     renderWithProviders(<SparePartEditPage />, { mocks: [sparePartsMock()] })
 
     // Assert
-    expect(screen.getByLabelText('Código (Part Number) *')).toBeEnabled()
+    expect(screen.getByLabelText('Código (Part Number)')).toBeEnabled()
   })
 
   it('deve enviar unitCost indefinido quando o custo não é informado', async () => {
@@ -97,13 +99,13 @@ describe('SparePartEditPage — modo criação', () => {
     })
 
     // Act
-    await user.type(screen.getByLabelText('Nome *'), 'Rolamento 6205')
-    await user.type(screen.getByLabelText('Código (Part Number) *'), 'ROL-6205')
+    await user.type(screen.getByLabelText('Nome'), 'Rolamento 6205')
+    await user.type(screen.getByLabelText('Código (Part Number)'), 'ROL-6205')
     await user.clear(screen.getByLabelText('Quantidade em Estoque'))
     await user.type(screen.getByLabelText('Quantidade em Estoque'), '12')
     await user.clear(screen.getByLabelText('Estoque Mínimo'))
     await user.type(screen.getByLabelText('Estoque Mínimo'), '4')
-    await user.click(screen.getByRole('button', { name: 'Criar Peça' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar peça' }))
 
     // Assert
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -150,10 +152,10 @@ describe('SparePartEditPage — modo criação', () => {
     })
 
     // Act
-    await user.type(screen.getByLabelText('Nome *'), 'Correia A-52')
-    await user.type(screen.getByLabelText('Código (Part Number) *'), 'COR-A52')
+    await user.type(screen.getByLabelText('Nome'), 'Correia A-52')
+    await user.type(screen.getByLabelText('Código (Part Number)'), 'COR-A52')
     await user.type(screen.getByLabelText('Custo Unitário (R$)'), '35.90')
-    await user.click(screen.getByRole('button', { name: 'Criar Peça' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar peça' }))
 
     // Assert
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -230,7 +232,7 @@ describe('SparePartEditPage — modo edição', () => {
       mocks,
     })
     const quantity = await screen.findByDisplayValue('12')
-    expect(screen.getByLabelText('Nome *')).toHaveValue('Rolamento 6205')
+    expect(screen.getByLabelText('Nome')).toHaveValue('Rolamento 6205')
 
     // Act
     await user.clear(quantity)
@@ -249,5 +251,50 @@ describe('SparePartEditPage — modo edição', () => {
         unitCost: 45.9,
       },
     })
+  })
+
+  it('deve excluir a peça pelo menu Mais ações e voltar para a lista', async () => {
+    // Arrange
+    const mocks: MockLink.MockedResponse[] = [
+      { request: { query: GET_SPARE_PART, variables: { id: 5 } }, result: { data: { sparePart: part } } },
+      { request: { query: DELETE_SPARE_PART, variables: { id: 5 } }, result: { data: { deleteSparePart: { id: 5 } } } },
+      sparePartsMock(),
+    ]
+    const { user } = renderWithProviders(
+      <Routes>
+        <Route path="/spare-parts/:id/edit" element={<SparePartEditPage />} />
+        <Route path="/dashboard/spare-parts" element={<p>Lista de peças</p>} />
+      </Routes>,
+      { route: '/spare-parts/5/edit', permissions: ['sparepart.delete'], mocks },
+    )
+    await screen.findByDisplayValue('12')
+
+    // Act
+    await user.click(screen.getByRole('button', { name: 'Mais ações' }))
+    await user.click(screen.getByRole('button', { name: 'Excluir peça' }))
+    await user.click(screen.getByRole('button', { name: 'Confirmar exclusão' }))
+
+    // Assert
+    expect(await screen.findByText('Lista de peças')).toBeInTheDocument()
+  })
+
+  it('deve desabilitar a exclusão para quem não tem sparepart.delete', async () => {
+    // Arrange
+    const { user } = renderWithProviders(<SparePartEditPage />, {
+      route: '/spare-parts/5/edit',
+      path: '/spare-parts/:id/edit',
+      permissions: ['sparepart.update'],
+      mocks: [
+        { request: { query: GET_SPARE_PART, variables: { id: 5 } }, result: { data: { sparePart: part } } },
+        sparePartsMock(),
+      ],
+    })
+    await screen.findByDisplayValue('12')
+
+    // Act
+    await user.click(screen.getByRole('button', { name: 'Mais ações' }))
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Excluir peça' })).toBeDisabled()
   })
 })

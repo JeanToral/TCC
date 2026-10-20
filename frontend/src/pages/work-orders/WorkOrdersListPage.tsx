@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import DataTable, { type DataTableColumn } from '../../components/ui/DataTable'
 import EmptyState from '../../components/ui/EmptyState'
 import ExportButton from '../../components/ui/ExportButton'
+import { FormAlert } from '../../components/ui/FormLayout'
 import PriorityMark from '../../components/ui/PriorityMark'
 import { NativeSelect } from '../../components/ui/select'
 import { Sheet, SheetHeader } from '../../components/ui/Sheet'
@@ -138,9 +139,7 @@ export default function WorkOrdersListPage() {
       </SheetHeader>
 
       {error && (
-        <p className="m-5 border-l-[3px] border-error bg-error-soft px-3 py-2 text-sm text-error" role="alert">
-          Erro ao carregar ordens de serviço: {error.message}
-        </p>
+        <FormAlert className="mb-5">Erro ao carregar ordens de serviço: {error.message}</FormAlert>
       )}
 
       {!error && (

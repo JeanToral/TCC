@@ -75,10 +75,12 @@ interface SheetSectionProps {
   /** Conteúdo à direita da régua, ex.: um botão "Adicionar". */
   readonly aside?: ReactNode
   readonly children: ReactNode
+  /** Sem recuo no corpo: o conteúdo encosta nas bordas (ex.: faixa de mostradores). */
+  readonly flush?: boolean
   readonly className?: string
 }
 
-export function SheetSection({ title, aside, children, className }: SheetSectionProps) {
+export function SheetSection({ title, aside, children, flush = false, className }: SheetSectionProps) {
   const id = useId()
   return (
     <section aria-labelledby={id} className={cn('border-rule not-first:border-t', className)}>
@@ -91,7 +93,7 @@ export function SheetSection({ title, aside, children, className }: SheetSection
         </h2>
         {aside}
       </div>
-      <div className="px-5 pb-5">{children}</div>
+      <div className={flush ? undefined : 'px-5 pb-5'}>{children}</div>
     </section>
   )
 }

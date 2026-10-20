@@ -1,209 +1,153 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation } from '@apollo/client/react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useQuery } from '@apollo/client/react'
 
+import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/checkbox'
+import DataTable, { type DataTableColumn } from '../../components/ui/DataTable'
+import EmptyState from '../../components/ui/EmptyState'
 import ExportButton from '../../components/ui/ExportButton'
+import { FormAlert } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
-import Spinner from '../../components/ui/Spinner'
+import { Sheet, SheetHeader } from '../../components/ui/Sheet'
+import { useAuth } from '../../contexts/AuthContext'
 import { GET_SPARE_PARTS } from '../../graphql/spare-parts/GetSpareParts.gql'
-import { DELETE_SPARE_PART } from '../../graphql/spare-parts/DeleteSparePart.gql'
 import type { GetSparePartsData, SparePart } from '../../graphql/spare-parts/types'
-import './SparePartsListPage.css'
+
+const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
 /** Mesma regra da notificação LOW_STOCK e da planilha de estoque. */
 function isLowStock(part: Pick<SparePart, 'quantity' | 'minimumStock'>): boolean {
   return part.quantity < part.minimumStock
 }
 
-function StockBadge({ quantity, minimumStock }: { readonly quantity: number; readonly minimumStock: number }) {
-  const isLow = isLowStock({ quantity, minimumStock })
-  return (
-    <span className={`stock-badge ${isLow ? 'stock-badge--low' : 'stock-badge--ok'}`}>
-      {quantity}
-      {isLow && ' ⚠'}
-    </span>
-  )
-}
-
-function SparePartRow({
-  part,
-  onDelete,
-}: {
-  readonly part: SparePart
-  readonly onDelete: (id: number) => void
-}) {
-  const navigate = useNavigate()
-  return (
-    <tr
-      className="spare-parts-table__row"
-      onClick={() => navigate(`/dashboard/spare-parts/${part.id}/edit`)}
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && navigate(`/dashboard/spare-parts/${part.id}/edit`)}
-      role="link"
-      aria-label={`Editar ${part.name}`}
-    >
-      <td className="spare-parts-table__cell spare-parts-table__cell--pn">
-        <span className="spare-parts-table__pn">{part.partNumber}</span>
-      </td>
-      <td className="spare-parts-table__cell">
-        <span className="spare-parts-table__name">{part.name}</span>
-        {part.description && (
-          <span className="spare-parts-table__desc">{part.description}</span>
-        )}
-      </td>
-      <td className="spare-parts-table__cell spare-parts-table__cell--center">
-        <StockBadge quantity={part.quantity} minimumStock={part.minimumStock} />
-      </td>
-      <td className="spare-parts-table__cell spare-parts-table__cell--center">
-        {part.minimumStock}
-      </td>
-      <td className="spare-parts-table__cell spare-parts-table__cell--right">
-        {part.unitCost != null
-          ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(part.unitCost)
-          : '—'}
-      </td>
-      <td
-        className="spare-parts-table__cell spare-parts-table__cell--actions"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/dashboard/spare-parts/${part.id}/edit`)}
-        >
-          Editar
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onDelete(part.id)}
-        >
-          Excluir
-        </Button>
-      </td>
-    </tr>
-  )
-}
+const COLUMNS: readonly DataTableColumn<SparePart>[] = [
+  {
+    key: 'code',
+    header: 'Código',
+    link: true,
+    className: 'w-32',
+    cell: (p) => <span className="font-mono font-medium">{p.partNumber}</span>,
+  },
+  {
+    key: 'name',
+    header: 'Nome',
+    mobile: 'title',
+    cell: (p) => (
+      <span className="flex flex-col">
+        <span className="font-medium">{p.name}</span>
+        {p.description && <span className="line-clamp-1 text-xs text-quiet max-sm:hidden">{p.description}</span>}
+      </span>
+    ),
+  },
+  {
+    key: 'stock',
+    header: 'Estoque',
+    align: 'right',
+    cell: (p) => (
+      <span className="inline-flex items-center gap-2">
+        {isLowStock(p) && <Badge variant="error">Abaixo do mínimo</Badge>}
+        <span className={isLowStock(p) ? 'font-mono font-semibold text-error' : 'font-mono'}>{p.quantity}</span>
+      </span>
+    ),
+  },
+  { key: 'min', header: 'Mínimo', align: 'right', mobile: 'hidden', cell: (p) => <span className="font-mono text-quiet">{p.minimumStock}</span> },
+  {
+    key: 'cost',
+    header: 'Custo unit.',
+    align: 'right',
+    mobile: 'hidden',
+    cell: (p) => <span className="font-mono">{p.unitCost != null ? BRL.format(p.unitCost) : '—'}</span>,
+  },
+]
 
 export default function SparePartsListPage() {
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
   const [search, setSearch] = useState('')
   const [lowStockOnly, setLowStockOnly] = useState(false)
   const { data, loading, error } = useQuery<GetSparePartsData>(GET_SPARE_PARTS, {
     fetchPolicy: 'cache-and-network',
   })
 
-  const [deleteSparePart] = useMutation(DELETE_SPARE_PART, {
-    refetchQueries: [{ query: GET_SPARE_PARTS }],
-  })
-
-  function handleDelete(id: number) {
-    if (!window.confirm('Excluir esta peça de reposição?')) return
-    deleteSparePart({ variables: { id } }).catch(() => undefined)
-  }
-
   const all = data?.spareParts ?? []
+  const term = search.toLowerCase()
   const filtered = all.filter(
     (p) =>
-      (p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.partNumber.toLowerCase().includes(search.toLowerCase())) &&
+      (p.name.toLowerCase().includes(term) || p.partNumber.toLowerCase().includes(term)) &&
       (!lowStockOnly || isLowStock(p)),
   )
-
   const lowStock = all.filter(isLowStock).length
+  const canCreate = hasPermission('sparepart.create')
 
   return (
-    <div className="spare-parts-list-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <h1 className="page-header__title">Peças de Reposição</h1>
-          {data && (
-            <div className="page-header__meta">
-              <span className="page-header__count">
-                {all.length} {all.length === 1 ? 'item' : 'itens'}
-              </span>
-              {lowStock > 0 && (
-                <span className="page-header__alert">
-                  ⚠ {lowStock} com estoque baixo
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="page-header__actions">
-          <Input
-            placeholder="Buscar por nome ou código…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="spare-parts-list-page__search"
-          />
-          <label className="spare-parts-list-page__toggle" htmlFor="low-stock-only">
-            <Checkbox
-              id="low-stock-only"
-              checked={lowStockOnly}
-              onCheckedChange={(checked) => setLowStockOnly(checked === true)}
+    <Sheet>
+      <SheetHeader
+        eyebrow="Cadastros"
+        title="Peças de Reposição"
+        actions={
+          <>
+            <Input
+              placeholder="Buscar por nome ou código…"
+              aria-label="Buscar peças"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-64 max-w-full"
             />
-            Apenas estoque baixo
-          </label>
-          <ExportButton
-            path="spare-parts"
-            params={{
-              search: search.trim() || undefined,
-              lowStockOnly: lowStockOnly ? 'true' : undefined,
-            }}
-            fallbackName="estoque-de-pecas"
-          />
-          <Button onClick={() => navigate('/dashboard/spare-parts/new')}>
-            Nova Peça
-          </Button>
-        </div>
-      </header>
+            <label htmlFor="low-stock-only" className="flex items-center gap-2 text-sm text-body">
+              <Checkbox
+                id="low-stock-only"
+                checked={lowStockOnly}
+                onCheckedChange={(checked) => setLowStockOnly(checked === true)}
+              />
+              Apenas estoque baixo
+            </label>
+            <ExportButton
+              path="spare-parts"
+              params={{ search: search.trim() || undefined, lowStockOnly: lowStockOnly ? 'true' : undefined }}
+              fallbackName="estoque-de-pecas"
+            />
+            {canCreate && <Button onClick={() => navigate('/dashboard/spare-parts/new')}>Cadastrar peça</Button>}
+          </>
+        }
+      >
+        {data && (
+          <span className="flex flex-wrap items-center gap-2 font-mono text-xs text-quiet">
+            {all.length} {all.length === 1 ? 'item' : 'itens'}
+            {lowStock > 0 && <Badge variant="error">{lowStock} abaixo do mínimo</Badge>}
+          </span>
+        )}
+      </SheetHeader>
 
-      {loading && !data && (
-        <div className="page-loading"><Spinner size="lg" /></div>
+      {error ? (
+        <FormAlert className="mb-5">Erro ao carregar peças: {error.message}</FormAlert>
+      ) : (
+        <DataTable
+          label="Peças de reposição"
+          columns={COLUMNS}
+          rows={filtered}
+          getRowKey={(p) => p.id}
+          rowHref={(p) => `/dashboard/spare-parts/${p.id}/edit`}
+          loading={loading && !data}
+          empty={
+            <EmptyState
+              message={
+                search
+                  ? `Nenhuma peça encontrada para "${search}".`
+                  : lowStockOnly
+                    ? 'Nenhuma peça abaixo do estoque mínimo.'
+                    : 'Nenhuma peça cadastrada.'
+              }
+              action={
+                canCreate && !search && !lowStockOnly ? (
+                  <Link to="/dashboard/spare-parts/new">Cadastrar peça</Link>
+                ) : undefined
+              }
+            />
+          }
+        />
       )}
-
-      {error && (
-        <div className="page-error" role="alert">
-          Erro ao carregar peças: {error.message}
-        </div>
-      )}
-
-      {!loading && !error && filtered.length === 0 && (
-        <div className="page-empty">
-          {search ? (
-            <p>Nenhuma peça encontrada para "{search}".</p>
-          ) : lowStockOnly ? (
-            <p>Nenhuma peça com estoque baixo.</p>
-          ) : (
-            <p>Nenhuma peça de reposição cadastrada ainda.</p>
-          )}
-        </div>
-      )}
-
-      {filtered.length > 0 && (
-        <div className="spare-parts-table-card">
-          <table className="spare-parts-table">
-            <thead>
-              <tr>
-                <th className="spare-parts-table__th">Código</th>
-                <th className="spare-parts-table__th">Nome</th>
-                <th className="spare-parts-table__th spare-parts-table__th--center">Estoque</th>
-                <th className="spare-parts-table__th spare-parts-table__th--center">Mínimo</th>
-                <th className="spare-parts-table__th spare-parts-table__th--right">Custo Unit.</th>
-                <th className="spare-parts-table__th" aria-label="Ações" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((part) => (
-                <SparePartRow key={part.id} part={part} onDelete={handleDelete} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    </Sheet>
   )
 }

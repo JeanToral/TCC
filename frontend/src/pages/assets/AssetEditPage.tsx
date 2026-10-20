@@ -2,6 +2,7 @@ import { type ChangeEvent, type FormEvent, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
+import { usePageCrumb } from '../../components/layout/Breadcrumbs'
 import Button from '../../components/ui/Button'
 import {
   FormActions,
@@ -13,14 +14,14 @@ import {
 } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
 import { DatePicker } from '../../components/ui/date-picker'
-import Spinner from '../../components/ui/Spinner'
+import { SheetHeader } from '../../components/ui/Sheet'
+import Skeleton from '../../components/ui/Skeleton'
 import { CREATE_ASSET } from '../../graphql/assets/CreateAsset.gql'
 import { GET_ASSET } from '../../graphql/assets/GetAsset.gql'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import { UPDATE_ASSET } from '../../graphql/assets/UpdateAsset.gql'
 import type { CreateAssetData, GetAssetData, UpdateAssetData } from '../../graphql/assets/types'
 import { errorMessage } from '../../lib/utils'
-import './AssetEditPage.css'
 
 interface FormState {
   name: string
@@ -59,6 +60,7 @@ export default function AssetEditPage() {
     GET_ASSET,
     { variables: { id: Number(id) }, skip: !isEdit },
   )
+  usePageCrumb(assetData?.asset?.tag)
 
   // Preenche o formulário quando os dados chegam — ajuste de estado no render,
   // não em efeito (react.dev/learn/you-might-not-need-an-effect).
@@ -105,7 +107,7 @@ export default function AssetEditPage() {
   function validate(): boolean {
     const next: FormErrors = {}
     if (!form.name.trim()) next.name = 'Nome é obrigatório.'
-    if (!form.tag.trim()) next.tag = 'Tag é obrigatória.'
+    if (!form.tag.trim()) next.tag = 'TAG é obrigatória.'
     setErrors(next)
     return Object.keys(next).length === 0
   }
@@ -132,124 +134,123 @@ export default function AssetEditPage() {
   }
 
   if (isEdit && assetLoading) {
-    return <div className="page-loading"><Spinner size="lg" /></div>
+    return (
+      <div className="flex max-w-5xl flex-col gap-3 rounded-xs border border-rule bg-sheet p-5" role="status" aria-label="Carregando">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-24" />
+      </div>
+    )
   }
 
+  const backTo = isEdit ? `/dashboard/assets/${id}` : '/dashboard/assets'
+
   return (
-    <div className="asset-edit-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <button
-            type="button"
-            className="page-back"
-            onClick={() => navigate(isEdit ? `/dashboard/assets/${id}` : '/dashboard/assets')}
-          >
-            ← {isEdit ? 'Voltar' : 'Ativos'}
-          </button>
-          <h1 className="page-header__title">
-            {isEdit ? 'Editar Ativo' : 'Novo Ativo'}
-          </h1>
-        </div>
-      </header>
+    <FormLayout
+      onSubmit={handleSubmit}
+      noValidate
+      header={
+        <SheetHeader
+          eyebrow="Ativo"
+          code={isEdit ? assetData?.asset?.tag : undefined}
+          title={isEdit ? 'Editar ativo' : 'Novo ativo'}
+        />
+      }
+    >
+      {submitError && <FormAlert>{submitError}</FormAlert>}
 
-      <FormLayout onSubmit={handleSubmit} noValidate>
-        {submitError && <FormAlert>{submitError}</FormAlert>}
+      <FormSection title="Identificação">
+        <FormGrid>
+          <FormField>
+            <Input
+              label="Nome"
+              required
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              error={errors.name}
+              placeholder="Ex.: Torno CNC #3"
+              disabled={submitting}
+            />
+          </FormField>
+          <FormField>
+            <Input
+              label="TAG"
+              required
+              name="tag"
+              value={form.tag}
+              onChange={handleChange}
+              error={errors.tag}
+              placeholder="Ex.: TRN-003"
+              className="font-mono"
+              hint="Identificador único do ativo."
+              disabled={submitting}
+            />
+          </FormField>
+          <FormField>
+            <Input
+              label="Localização"
+              name="location"
+              value={form.location}
+              onChange={handleChange}
+              placeholder="Ex.: Galpão A — Setor 2"
+              disabled={submitting}
+            />
+          </FormField>
+        </FormGrid>
+      </FormSection>
 
-        <FormSection title="Identificação">
-          <FormGrid>
-            <FormField>
-              <Input
-                label="Nome"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                error={errors.name}
-                placeholder="Ex.: Torno CNC #3"
-                disabled={submitting}
-              />
-            </FormField>
-            <FormField>
-              <Input
-                label="Tag"
-                name="tag"
-                value={form.tag}
-                onChange={handleChange}
-                error={errors.tag}
-                placeholder="Ex.: TRN-003"
-                hint="Identificador único do ativo."
-                disabled={submitting}
-              />
-            </FormField>
-            <FormField>
-              <Input
-                label="Localização"
-                name="location"
-                value={form.location}
-                onChange={handleChange}
-                placeholder="Ex.: Galpão A — Setor 2"
-                disabled={submitting}
-              />
-            </FormField>
-          </FormGrid>
-        </FormSection>
+      <FormSection title="Especificações técnicas">
+        <FormGrid>
+          <FormField>
+            <Input
+              label="Fabricante"
+              name="manufacturer"
+              value={form.manufacturer}
+              onChange={handleChange}
+              placeholder="Ex.: Romi"
+              disabled={submitting}
+            />
+          </FormField>
+          <FormField>
+            <Input
+              label="Modelo"
+              name="model"
+              value={form.model}
+              onChange={handleChange}
+              placeholder="Ex.: GL 240"
+              disabled={submitting}
+            />
+          </FormField>
+          <FormField>
+            <Input
+              label="Número de série"
+              name="serialNumber"
+              value={form.serialNumber}
+              onChange={handleChange}
+              placeholder="Ex.: SN-2024-00123"
+              className="font-mono"
+              disabled={submitting}
+            />
+          </FormField>
+          <FormField>
+            <DatePicker
+              label="Data de instalação"
+              value={installDate}
+              onSelect={setInstallDate}
+              disabled={submitting}
+            />
+          </FormField>
+        </FormGrid>
+      </FormSection>
 
-        <FormSection title="Especificações técnicas">
-          <FormGrid>
-            <FormField>
-              <Input
-                label="Fabricante"
-                name="manufacturer"
-                value={form.manufacturer}
-                onChange={handleChange}
-                placeholder="Ex.: Romi"
-                disabled={submitting}
-              />
-            </FormField>
-            <FormField>
-              <Input
-                label="Modelo"
-                name="model"
-                value={form.model}
-                onChange={handleChange}
-                placeholder="Ex.: GL 240"
-                disabled={submitting}
-              />
-            </FormField>
-            <FormField>
-              <Input
-                label="Número de série"
-                name="serialNumber"
-                value={form.serialNumber}
-                onChange={handleChange}
-                placeholder="Ex.: SN-2024-00123"
-                disabled={submitting}
-              />
-            </FormField>
-            <FormField>
-              <DatePicker
-                label="Data de instalação"
-                value={installDate}
-                onSelect={setInstallDate}
-                disabled={submitting}
-              />
-            </FormField>
-          </FormGrid>
-        </FormSection>
-
-        <FormActions>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => navigate(isEdit ? `/dashboard/assets/${id}` : '/dashboard/assets')}
-            disabled={submitting}
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" loading={submitting}>
-            {isEdit ? 'Salvar alterações' : 'Criar ativo'}
-          </Button>
-        </FormActions>
-      </FormLayout>
-    </div>
+      <FormActions>
+        <Button type="button" variant="link" onClick={() => navigate(backTo)} disabled={submitting}>
+          Cancelar
+        </Button>
+        <Button type="submit" loading={submitting}>
+          {isEdit ? 'Salvar alterações' : 'Cadastrar ativo'}
+        </Button>
+      </FormActions>
+    </FormLayout>
   )
 }

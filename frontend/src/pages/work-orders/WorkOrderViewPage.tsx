@@ -1,12 +1,11 @@
 import { type ReactNode, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
-import { Ellipsis } from 'lucide-react'
 
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import EmptyState from '../../components/ui/EmptyState'
-import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import MoreActions from '../../components/ui/MoreActions'
 import PriorityMark from '../../components/ui/PriorityMark'
 import { Sheet, SheetHeader, SheetSection } from '../../components/ui/Sheet'
 import Skeleton from '../../components/ui/Skeleton'
@@ -255,26 +254,22 @@ export default function WorkOrderViewPage() {
                 Concluir
               </PermButton>
             )}
-            {canCancel && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" aria-label="Mais ações" className="px-2">
-                    <Ellipsis className="size-4" aria-hidden="true" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-48 rounded-xs p-1">
-                  <button
-                    type="button"
-                    disabled={!hasPermission('workorder.approve')}
-                    title={hasPermission('workorder.approve') ? undefined : 'Você não tem permissão para esta ação'}
-                    onClick={openCancel}
-                    className="w-full rounded-xs px-2.5 py-2 text-left text-sm text-error hover:enabled:bg-error-soft disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Cancelar OS
-                  </button>
-                </PopoverContent>
-              </Popover>
-            )}
+            <MoreActions
+              items={
+                canCancel
+                  ? [
+                      {
+                        label: 'Cancelar OS',
+                        danger: true,
+                        onSelect: openCancel,
+                        disabledReason: hasPermission('workorder.approve')
+                          ? undefined
+                          : 'Você não tem permissão para esta ação',
+                      },
+                    ]
+                  : []
+              }
+            />
           </div>
         </div>
 

@@ -1,116 +1,87 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
+import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
+import DataTable, { type DataTableColumn } from '../../components/ui/DataTable'
+import EmptyState from '../../components/ui/EmptyState'
+import { FormAlert } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
-import Spinner from '../../components/ui/Spinner'
+import { Sheet, SheetHeader } from '../../components/ui/Sheet'
 import { useAuth } from '../../contexts/AuthContext'
-import { DELETE_PREVENTIVE_PLAN } from '../../graphql/preventive-plans/DeletePreventivePlan.gql'
 import { GENERATE_DUE_PREVENTIVE_WORK_ORDERS } from '../../graphql/preventive-plans/GenerateDuePreventiveWorkOrders.gql'
 import { GET_PREVENTIVE_PLANS } from '../../graphql/preventive-plans/GetPreventivePlans.gql'
-import type {
-  GenerateDuePreventiveWorkOrdersData,
-  GetPreventivePlansData,
-  PreventivePlan,
-} from '../../graphql/preventive-plans/types'
-import './PreventivePlansListPage.css'
+import type { GenerateDuePreventiveWorkOrdersData, GetPreventivePlansData, PreventivePlan } from '../../graphql/preventive-plans/types'
+import { errorMessage } from '../../lib/utils'
 
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(new Date(iso))
+const DATE = new Intl.DateTimeFormat('pt-BR')
+
+function isOverdue(plan: PreventivePlan): boolean {
+  return new Date(plan.nextDueAt) < new Date()
 }
 
-function DueBadge({ nextDueAt }: { readonly nextDueAt: string }) {
-  const isPast = new Date(nextDueAt) < new Date()
-  return (
-    <span className={`due-badge ${isPast ? 'due-badge--overdue' : 'due-badge--ok'}`}>
-      {isPast ? '⚠ Vencido' : formatDate(nextDueAt)}
-    </span>
-  )
-}
-
-function PlanRow({
-  plan,
-  canEdit,
-  onDelete,
-}: {
-  readonly plan: PreventivePlan
-  readonly canEdit: boolean
-  readonly onDelete: (id: number) => void
-}) {
-  const navigate = useNavigate()
-  return (
-    <tr
-      className="prev-plans-table__row"
-      onClick={() => canEdit && navigate(`/dashboard/preventive-plans/${plan.id}/edit`)}
-      tabIndex={canEdit ? 0 : undefined}
-      onKeyDown={(e) =>
-        canEdit && e.key === 'Enter' && navigate(`/dashboard/preventive-plans/${plan.id}/edit`)
-      }
-      role={canEdit ? 'link' : undefined}
-      aria-label={canEdit ? `Editar ${plan.name}` : undefined}
-    >
-      <td className="prev-plans-table__cell">
-        <span className="prev-plans-table__name">{plan.name}</span>
-        {plan.description && (
-          <span className="prev-plans-table__desc">{plan.description}</span>
-        )}
-      </td>
-      <td className="prev-plans-table__cell">
-        <span className="prev-plans-table__asset">
-          {plan.asset?.name ?? '—'}
-        </span>
-        {plan.asset?.tag && (
-          <span className="prev-plans-table__tag">{plan.asset.tag}</span>
-        )}
-      </td>
-      <td className="prev-plans-table__cell prev-plans-table__cell--center">
-        {plan.intervalDays}d
-      </td>
-      <td className="prev-plans-table__cell prev-plans-table__cell--center">
-        <DueBadge nextDueAt={plan.nextDueAt} />
-      </td>
-      <td className="prev-plans-table__cell prev-plans-table__cell--center">
-        <span className={`status-badge ${plan.isActive ? 'status-badge--active' : 'status-badge--inactive'}`}>
-          {plan.isActive ? 'Ativo' : 'Inativo'}
-        </span>
-      </td>
-      {canEdit && (
-        <td
-          className="prev-plans-table__cell prev-plans-table__cell--actions"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(`/dashboard/preventive-plans/${plan.id}/edit`)}
-          >
-            Editar
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => onDelete(plan.id)}>
-            Excluir
-          </Button>
-        </td>
-      )}
-    </tr>
-  )
-}
+const COLUMNS: readonly DataTableColumn<PreventivePlan>[] = [
+  {
+    key: 'name',
+    header: 'Plano',
+    link: true,
+    mobile: 'title',
+    cell: (p) => (
+      <span className="flex flex-col">
+        <span className="font-medium">{p.name}</span>
+        {p.description && <span className="line-clamp-1 text-xs text-quiet max-sm:hidden">{p.description}</span>}
+      </span>
+    ),
+  },
+  {
+    key: 'asset',
+    header: 'Ativo',
+    cell: (p) => (
+      <span className="flex flex-col">
+        <span className="font-mono text-[0.8125rem]">{p.asset?.tag ?? '—'}</span>
+        <span className="text-xs text-quiet max-sm:hidden">{p.asset?.name}</span>
+      </span>
+    ),
+  },
+  {
+    key: 'interval',
+    header: 'Intervalo',
+    align: 'right',
+    mobile: 'hidden',
+    cell: (p) => <span className="font-mono">{p.intervalDays} d</span>,
+  },
+  {
+    key: 'due',
+    header: 'Próxima execução',
+    align: 'right',
+    cell: (p) => (
+      <span className="inline-flex items-center gap-2">
+        {isOverdue(p) && <Badge variant="error">Vencido</Badge>}
+        <span className={isOverdue(p) ? 'font-mono text-error' : 'font-mono'}>{DATE.format(new Date(p.nextDueAt))}</span>
+      </span>
+    ),
+  },
+  {
+    key: 'active',
+    header: 'Situação',
+    cell: (p) => <Badge variant={p.isActive ? 'success' : 'default'}>{p.isActive ? 'Ativo' : 'Inativo'}</Badge>,
+  },
+]
 
 export default function PreventivePlansListPage() {
   const navigate = useNavigate()
   const { hasPermission } = useAuth()
-  const canEdit = hasPermission('preventiveplan.create')
+  const canCreate = hasPermission('preventiveplan.create')
+  const canEdit = hasPermission('preventiveplan.update')
   const canGenerate = hasPermission('workorder.create')
 
   const [search, setSearch] = useState('')
   const [generateMsg, setGenerateMsg] = useState<string | null>(null)
+  const [generateError, setGenerateError] = useState<string | null>(null)
 
   const { data, loading, error } = useQuery<GetPreventivePlansData>(GET_PREVENTIVE_PLANS, {
     fetchPolicy: 'cache-and-network',
-  })
-
-  const [deletePlan] = useMutation(DELETE_PREVENTIVE_PLAN, {
-    refetchQueries: [{ query: GET_PREVENTIVE_PLANS }],
   })
 
   const [generate, { loading: generating }] = useMutation<GenerateDuePreventiveWorkOrdersData>(
@@ -124,118 +95,87 @@ export default function PreventivePlansListPage() {
             : `${n} OS preventiva${n > 1 ? 's' : ''} gerada${n > 1 ? 's' : ''} com sucesso.`,
         )
       },
+      onError: (err) => setGenerateError(errorMessage(err)),
     },
   )
 
-  function handleDelete(id: number) {
-    if (!window.confirm('Excluir este plano preventivo?')) return
-    deletePlan({ variables: { id } }).catch(() => undefined)
-  }
-
   function handleGenerate() {
     setGenerateMsg(null)
-    generate().catch(() => undefined)
+    setGenerateError(null)
+    void generate()
   }
 
   const all = data?.preventivePlans ?? []
+  const term = search.toLowerCase()
   const filtered = all.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.asset?.name ?? '').toLowerCase().includes(search.toLowerCase()),
+    (p) => p.name.toLowerCase().includes(term) || (p.asset?.name ?? '').toLowerCase().includes(term),
   )
-
-  const overdueCount = all.filter((p) => new Date(p.nextDueAt) < new Date()).length
+  const overdueCount = all.filter(isOverdue).length
 
   return (
-    <div className="prev-plans-list-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <h1 className="page-header__title">Planos de Manutenção Preventiva</h1>
-          {data && (
-            <div className="page-header__meta">
-              <span className="page-header__count">
-                {all.length} {all.length === 1 ? 'plano' : 'planos'}
-              </span>
-              {overdueCount > 0 && (
-                <span className="page-header__alert">
-                  ⚠ {overdueCount} vencido{overdueCount > 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="page-header__actions">
-          <Input
-            placeholder="Buscar por nome ou ativo…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="prev-plans-list-page__search"
-          />
-          {canGenerate && (
-            <Button variant="secondary" onClick={handleGenerate} disabled={generating}>
-              {generating ? <Spinner size="sm" /> : 'Gerar OS Vencidas'}
-            </Button>
-          )}
-          {canEdit && (
-            <Button onClick={() => navigate('/dashboard/preventive-plans/new')}>
-              Novo Plano
-            </Button>
-          )}
-        </div>
-      </header>
+    <Sheet>
+      <SheetHeader
+        eyebrow="Operação"
+        title="Planos Preventivos"
+        actions={
+          <>
+            <Input
+              placeholder="Buscar por nome ou ativo…"
+              aria-label="Buscar planos"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-64 max-w-full"
+            />
+            {canGenerate && (
+              <Button variant="secondary" onClick={handleGenerate} loading={generating}>
+                Gerar OS vencidas
+              </Button>
+            )}
+            {canCreate && (
+              <Button onClick={() => navigate('/dashboard/preventive-plans/new')}>Cadastrar plano</Button>
+            )}
+          </>
+        }
+      >
+        {data && (
+          <span className="flex flex-wrap items-center gap-2 font-mono text-xs text-quiet">
+            {all.length} {all.length === 1 ? 'plano' : 'planos'}
+            {overdueCount > 0 && (
+              <Badge variant="error">
+                {overdueCount} vencido{overdueCount > 1 ? 's' : ''}
+              </Badge>
+            )}
+          </span>
+        )}
+      </SheetHeader>
 
       {generateMsg && (
-        <div className="prev-plans-list-page__msg" role="status">
+        <FormAlert variant="success" className="mb-5">
           {generateMsg}
-        </div>
+        </FormAlert>
       )}
+      {generateError && <FormAlert className="mb-5">{generateError}</FormAlert>}
 
-      {loading && !data && (
-        <div className="page-loading"><Spinner size="lg" /></div>
+      {error ? (
+        <FormAlert className="mb-5">Erro ao carregar planos: {error.message}</FormAlert>
+      ) : (
+        <DataTable
+          label="Planos preventivos"
+          columns={COLUMNS}
+          rows={filtered}
+          getRowKey={(p) => p.id}
+          rowHref={canEdit ? (p) => `/dashboard/preventive-plans/${p.id}/edit` : undefined}
+          loading={loading && !data}
+          empty={
+            <EmptyState
+              message={search ? `Nenhum plano encontrado para "${search}".` : 'Nenhum plano preventivo cadastrado.'}
+              action={
+                canCreate && !search ? <Link to="/dashboard/preventive-plans/new">Cadastrar plano</Link> : undefined
+              }
+            />
+          }
+        />
       )}
-
-      {error && (
-        <div className="page-error" role="alert">
-          Erro ao carregar planos: {error.message}
-        </div>
-      )}
-
-      {!loading && !error && filtered.length === 0 && (
-        <div className="page-empty">
-          {search ? (
-            <p>Nenhum plano encontrado para "{search}".</p>
-          ) : (
-            <p>Nenhum plano preventivo cadastrado ainda.</p>
-          )}
-        </div>
-      )}
-
-      {filtered.length > 0 && (
-        <div className="prev-plans-table-card">
-          <table className="prev-plans-table">
-            <thead>
-              <tr>
-                <th className="prev-plans-table__th">Nome</th>
-                <th className="prev-plans-table__th">Ativo</th>
-                <th className="prev-plans-table__th prev-plans-table__th--center">Intervalo</th>
-                <th className="prev-plans-table__th prev-plans-table__th--center">Próxima Data</th>
-                <th className="prev-plans-table__th prev-plans-table__th--center">Status</th>
-                {canEdit && <th className="prev-plans-table__th" aria-label="Ações" />}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((plan) => (
-                <PlanRow
-                  key={plan.id}
-                  plan={plan}
-                  canEdit={canEdit}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    </Sheet>
   )
 }
