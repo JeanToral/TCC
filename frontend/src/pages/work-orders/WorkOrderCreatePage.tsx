@@ -14,14 +14,14 @@ import {
 import { Input } from '../../components/ui/input'
 import { NativeSelect } from '../../components/ui/select'
 import { Textarea } from '../../components/ui/textarea'
-import Spinner from '../../components/ui/Spinner'
+import { SheetHeader } from '../../components/ui/Sheet'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import type { GetAssetsData } from '../../graphql/assets/types'
 import { CREATE_WORK_ORDER } from '../../graphql/work-orders/CreateWorkOrder.gql'
 import { GET_WORK_ORDERS } from '../../graphql/work-orders/GetWorkOrders.gql'
 import type { CreateWorkOrderData } from '../../graphql/work-orders/types'
 import { errorMessage } from '../../lib/utils'
-import './WorkOrderCreatePage.css'
+import { PRIORITY_LABELS, WORK_ORDER_TYPE_LABELS } from '../../lib/work-order-labels'
 
 interface FormState {
   title: string
@@ -98,119 +98,123 @@ export default function WorkOrderCreatePage() {
     })
   }
 
-  if (assetsLoading) {
-    return (
-      <div className="page-loading">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
-
   const assets = assetsData?.assets ?? []
 
   return (
-    <div className="wo-create-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <button type="button" className="page-back" onClick={() => navigate('/dashboard/work-orders')}>
-            ← Ordens de Serviço
-          </button>
-          <h1 className="page-header__title">Nova Ordem de Serviço</h1>
-        </div>
-      </header>
+    <FormLayout
+      onSubmit={handleSubmit}
+      noValidate
+      header={
+        <SheetHeader
+          eyebrow="Ordem de Serviço"
+          title="Abrir ordem de serviço"
+          meta={[
+            { label: 'Situação inicial', value: 'Solicitada' },
+            { label: 'Próxima etapa', value: 'Aprovação' },
+          ]}
+        />
+      }
+    >
+      {submitError && <FormAlert>{submitError}</FormAlert>}
 
-      <FormLayout onSubmit={handleSubmit} noValidate>
-        {submitError && <FormAlert>{submitError}</FormAlert>}
+      <FormSection title="Pedido">
+        <FormGrid>
+          <FormField span="full">
+            <Input
+              label="Título"
+              required
+              value={form.title}
+              onChange={(e) => handleChange('title', e.target.value)}
+              error={errors.title}
+              placeholder="Ex: Falha no rolamento do motor principal"
+              maxLength={200}
+            />
+          </FormField>
 
-        <FormSection title="Informações da OS">
-          <FormGrid>
-            <FormField span="full">
-              <Input
-                label="Título"
-                value={form.title}
-                onChange={(e) => handleChange('title', e.target.value)}
-                error={errors.title}
-                placeholder="Ex: Falha no rolamento do motor principal"
-                maxLength={200}
-              />
-            </FormField>
+          <FormField>
+            <NativeSelect
+              id="wo-type"
+              label="Tipo"
+              required
+              value={form.type}
+              onChange={(e) => handleChange('type', e.target.value)}
+              error={errors.type}
+            >
+              <option value="">Selecionar tipo…</option>
+              {(['CORRECTIVE', 'PREVENTIVE'] as const).map((t) => (
+                <option key={t} value={t}>
+                  {WORK_ORDER_TYPE_LABELS[t]}
+                </option>
+              ))}
+            </NativeSelect>
+          </FormField>
 
-            <FormField>
-              <NativeSelect
-                id="wo-type"
-                label="Tipo"
-                value={form.type}
-                onChange={(e) => handleChange('type', e.target.value)}
-                error={errors.type}
-              >
-                <option value="">Selecionar tipo…</option>
-                <option value="CORRECTIVE">Corretiva</option>
-                <option value="PREVENTIVE">Preventiva</option>
-              </NativeSelect>
-            </FormField>
+          <FormField>
+            <NativeSelect
+              id="wo-priority"
+              label="Prioridade"
+              required
+              value={form.priority}
+              onChange={(e) => handleChange('priority', e.target.value)}
+              error={errors.priority}
+            >
+              <option value="">Selecionar prioridade…</option>
+              {(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const).map((p) => (
+                <option key={p} value={p}>
+                  {PRIORITY_LABELS[p]}
+                </option>
+              ))}
+            </NativeSelect>
+          </FormField>
 
-            <FormField>
-              <NativeSelect
-                id="wo-priority"
-                label="Prioridade"
-                value={form.priority}
-                onChange={(e) => handleChange('priority', e.target.value)}
-                error={errors.priority}
-              >
-                <option value="">Selecionar prioridade…</option>
-                <option value="LOW">Baixa</option>
-                <option value="MEDIUM">Média</option>
-                <option value="HIGH">Alta</option>
-                <option value="CRITICAL">Crítica</option>
-              </NativeSelect>
-            </FormField>
+          <FormField>
+            <NativeSelect
+              id="wo-asset"
+              label="Ativo"
+              required
+              disabled={assetsLoading}
+              value={form.assetId}
+              onChange={(e) => handleChange('assetId', e.target.value)}
+              error={errors.assetId}
+            >
+              <option value="">{assetsLoading ? 'Carregando ativos…' : 'Selecionar ativo…'}</option>
+              {assets.map((a) => (
+                <option key={a.id} value={String(a.id)}>
+                  {a.tag} — {a.name}{a.location ? ` (${a.location})` : ''}
+                </option>
+              ))}
+            </NativeSelect>
+          </FormField>
 
-            <FormField>
-              <NativeSelect
-                id="wo-asset"
-                label="Ativo"
-                value={form.assetId}
-                onChange={(e) => handleChange('assetId', e.target.value)}
-                error={errors.assetId}
-              >
-                <option value="">Selecionar ativo…</option>
-                {assets.map((a) => (
-                  <option key={a.id} value={String(a.id)}>
-                    {a.tag} — {a.name}{a.location ? ` (${a.location})` : ''}
-                  </option>
-                ))}
-              </NativeSelect>
-            </FormField>
+          <FormField span="full">
+            <Textarea
+              id="wo-description"
+              label="Descrição"
+              required
+              value={form.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              rows={5}
+              placeholder="Descreva o problema ou a necessidade de manutenção…"
+              maxLength={2000}
+              error={errors.description}
+            />
+          </FormField>
+        </FormGrid>
+      </FormSection>
 
-            <FormField span="full">
-              <Textarea
-                id="wo-description"
-                label="Descrição"
-                value={form.description}
-                onChange={(e) => handleChange('description', e.target.value)}
-                rows={5}
-                placeholder="Descreva o problema ou a necessidade de manutenção…"
-                maxLength={2000}
-                error={errors.description}
-              />
-            </FormField>
-          </FormGrid>
-        </FormSection>
-
-        <FormActions>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => navigate('/dashboard/work-orders')}
-            disabled={submitting}
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" loading={submitting}>
-            Criar Ordem de Serviço
-          </Button>
-        </FormActions>
-      </FormLayout>
-    </div>
+      <FormActions>
+        <Button
+          type="button"
+          variant="link"
+          onClick={() => navigate('/dashboard/work-orders')}
+          disabled={submitting}
+        >
+          Cancelar
+        </Button>
+        <Button type="submit" loading={submitting}>
+          Abrir OS
+        </Button>
+      </FormActions>
+    </FormLayout>
   )
 }

@@ -4,6 +4,8 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
+import { FIELD_CONTROL, FieldLabel } from './input'
+
 const Select = SelectPrimitive.Root
 const SelectGroup = SelectPrimitive.Group
 const SelectValue = SelectPrimitive.Value
@@ -158,26 +160,20 @@ const NativeSelect = React.forwardRef<HTMLSelectElement, NativeSelectProps>(
     return (
       <div className="flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={selectId} className="text-sm font-medium leading-none text-foreground">
+          <FieldLabel htmlFor={selectId} required={props.required}>
             {label}
-          </label>
+          </FieldLabel>
         )}
         <select
           id={selectId}
           ref={ref}
           aria-invalid={!!error}
-          className={cn(
-            'flex h-10 w-full rounded-md border border-input bg-transparent px-4 py-2 text-sm shadow-sm',
-            'focus:outline-none focus:ring-1 focus:ring-ring',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-            error && 'border-destructive focus:ring-destructive',
-            className,
-          )}
+          className={cn(FIELD_CONTROL, 'flex h-9', className)}
           {...props}
         >
           {children}
         </select>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs text-error">{error}</p>}
       </div>
     )
   },

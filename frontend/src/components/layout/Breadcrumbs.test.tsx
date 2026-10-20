@@ -30,7 +30,7 @@ describe('buildCrumbs', () => {
     ['/dashboard', ['Dashboard']],
     ['/dashboard/assets', ['Ativos']],
     ['/dashboard/work-orders/41', ['Ordens de Serviço', 'OS-0041']],
-    ['/dashboard/work-orders/new', ['Ordens de Serviço', 'Nova OS']],
+    ['/dashboard/work-orders/new', ['Ordens de Serviço', 'Abrir OS']],
     ['/dashboard/assets/7/edit', ['Ativos', 'Nº 7', 'Editar']],
     ['/dashboard/reports/costs', ['Relatórios', 'Custos']],
     ['/dashboard/roles/3', ['Perfis de acesso', 'Nº 3']],

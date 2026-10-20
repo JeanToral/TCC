@@ -57,7 +57,7 @@ describe('WorkOrderCreatePage', () => {
 
     // Assert
     expect(
-      await screen.findByRole('heading', { name: 'Nova Ordem de Serviço' }),
+      await screen.findByRole('heading', { name: 'Abrir ordem de serviço' }),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Título')).toBeInTheDocument()
     expect(screen.getByLabelText('Descrição')).toBeInTheDocument()
@@ -65,7 +65,7 @@ describe('WorkOrderCreatePage', () => {
     expect(screen.getByLabelText('Prioridade')).toBeInTheDocument()
     expect(screen.getByLabelText('Ativo')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Criar Ordem de Serviço' }),
+      screen.getByRole('button', { name: 'Abrir OS' }),
     ).toBeInTheDocument()
   })
 
@@ -93,7 +93,7 @@ describe('WorkOrderCreatePage', () => {
     await screen.findByLabelText('Título')
 
     // Act
-    await user.click(screen.getByRole('button', { name: 'Criar Ordem de Serviço' }))
+    await user.click(screen.getByRole('button', { name: 'Abrir OS' }))
 
     // Assert
     expect(await screen.findByText('Título é obrigatório')).toBeInTheDocument()
@@ -152,7 +152,7 @@ describe('WorkOrderCreatePage', () => {
     await user.selectOptions(screen.getByLabelText('Tipo'), 'CORRECTIVE')
     await user.selectOptions(screen.getByLabelText('Prioridade'), 'HIGH')
     await user.selectOptions(screen.getByLabelText('Ativo'), '3')
-    await user.click(screen.getByRole('button', { name: 'Criar Ordem de Serviço' }))
+    await user.click(screen.getByRole('button', { name: 'Abrir OS' }))
 
     // Assert
     await waitFor(() => expect(sent).toHaveLength(1))

@@ -1,14 +1,27 @@
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { type ReactNode, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
+import { Ellipsis } from 'lucide-react'
 
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
-import { useAuth } from '../../contexts/AuthContext'
-import { DateTimePicker } from '../../components/ui/date-time-picker'
-import Modal from '../../components/ui/Modal'
+import EmptyState from '../../components/ui/EmptyState'
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover'
+import PriorityMark from '../../components/ui/PriorityMark'
+import { Sheet, SheetHeader, SheetSection } from '../../components/ui/Sheet'
+import Skeleton from '../../components/ui/Skeleton'
+import {
+  ApproveModal,
+  CancelModal,
+  CompleteModal,
+  RejectModal,
+  ScheduleModal,
+  StartModal,
+  type ScheduleForm,
+} from '../../components/work-orders/WorkOrderActionModals'
 import WorkOrderCostsSection from '../../components/work-orders/WorkOrderCostsSection'
-import Spinner from '../../components/ui/Spinner'
+import WorkOrderFlow from '../../components/work-orders/WorkOrderFlow'
+import { useAuth } from '../../contexts/AuthContext'
 import { GET_USERS } from '../../graphql/users/GetUsers.gql'
 import type { GetUsersData } from '../../graphql/users/types'
 import { APPROVE_WORK_ORDER } from '../../graphql/work-orders/ApproveWorkOrder.gql'
@@ -24,413 +37,26 @@ import type {
   CancelWorkOrderData,
   CompleteWorkOrderData,
   GetWorkOrderData,
-  Priority,
   RejectWorkOrderData,
   ScheduleWorkOrderData,
   StartWorkOrderData,
-  WorkOrderStatus,
 } from '../../graphql/work-orders/types'
 import { errorMessage } from '../../lib/utils'
-import './WorkOrderViewPage.css'
+import {
+  WORK_ORDER_STATUS_LABELS,
+  WORK_ORDER_STATUS_VARIANT,
+  WORK_ORDER_TYPE_LABELS,
+  formatWorkOrderCode,
+} from '../../lib/work-order-labels'
 
 // ── Helpers ────────────────────────────────────────────────
-const STATUS_LABELS: Record<WorkOrderStatus, string> = {
-  REQUESTED: 'Solicitada',
-  APPROVED: 'Aprovada',
-  REJECTED: 'Rejeitada',
-  SCHEDULED: 'Agendada',
-  IN_PROGRESS: 'Em andamento',
-  COMPLETED: 'Concluída',
-  CANCELLED: 'Cancelada',
-}
-
-const PRIORITY_LABELS: Record<Priority, string> = {
-  LOW: 'Baixa',
-  MEDIUM: 'Média',
-  HIGH: 'Alta',
-  CRITICAL: 'Crítica',
-}
-
-type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info'
-
-const STATUS_VARIANT: Record<WorkOrderStatus, BadgeVariant> = {
-  REQUESTED: 'info',
-  APPROVED: 'success',
-  REJECTED: 'error',
-  SCHEDULED: 'warning',
-  IN_PROGRESS: 'warning',
-  COMPLETED: 'success',
-  CANCELLED: 'default',
-}
-
-const PRIORITY_VARIANT: Record<Priority, BadgeVariant> = {
-  LOW: 'default',
-  MEDIUM: 'info',
-  HIGH: 'warning',
-  CRITICAL: 'error',
-}
-
-const PRIORITY_BORDER: Record<Priority, string> = {
-  LOW: '',
-  MEDIUM: 'wo-view-page__priority--medium',
-  HIGH: 'wo-view-page__priority--high',
-  CRITICAL: 'wo-view-page__priority--critical',
-}
+const DATE_TIME = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
 function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  return new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(iso))
+  return iso ? DATE_TIME.format(new Date(iso)) : '—'
 }
 
-// ── ApproveModal ───────────────────────────────────────────
-function ApproveModal({
-  open,
-  title,
-  loading,
-  error,
-  onClose,
-  onConfirm,
-}: {
-  readonly open: boolean
-  readonly title: string
-  readonly loading: boolean
-  readonly error: string
-  readonly onClose: () => void
-  readonly onConfirm: () => void
-}) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Aprovar ordem de serviço"
-      size="sm"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button loading={loading} onClick={onConfirm}>
-            Confirmar aprovação
-          </Button>
-        </>
-      }
-    >
-      <p className="wo-view-page__modal-msg">
-        Confirmar aprovação da OS <strong>{title}</strong>?
-      </p>
-      {error && <p className="wo-view-page__modal-error">{error}</p>}
-    </Modal>
-  )
-}
-
-// ── RejectModal ────────────────────────────────────────────
-function RejectModal({
-  open,
-  loading,
-  error,
-  reason,
-  onReasonChange,
-  onClose,
-  onConfirm,
-}: {
-  readonly open: boolean
-  readonly loading: boolean
-  readonly error: string
-  readonly reason: string
-  readonly onReasonChange: (v: string) => void
-  readonly onClose: () => void
-  readonly onConfirm: () => void
-}) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Rejeitar ordem de serviço"
-      size="sm"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button variant="danger" loading={loading} onClick={onConfirm} disabled={!reason.trim()}>
-            Confirmar rejeição
-          </Button>
-        </>
-      }
-    >
-      <div className="wo-view-page__field">
-        <label className="wo-view-page__label" htmlFor="reject-reason">
-          Motivo da rejeição <span aria-hidden="true">*</span>
-        </label>
-        <textarea
-          id="reject-reason"
-          className="wo-view-page__textarea"
-          value={reason}
-          onChange={(e) => onReasonChange(e.target.value)}
-          rows={4}
-          placeholder="Descreva o motivo da rejeição…"
-          maxLength={1000}
-        />
-      </div>
-      {error && <p className="wo-view-page__modal-error">{error}</p>}
-    </Modal>
-  )
-}
-
-// ── ScheduleModal ──────────────────────────────────────────
-function ScheduleModal({
-  open,
-  loading,
-  error,
-  users,
-  form,
-  onAssigneeChange,
-  onScheduledStartChange,
-  onScheduledEndChange,
-  onClose,
-  onConfirm,
-}: {
-  readonly open: boolean
-  readonly loading: boolean
-  readonly error: string
-  readonly users: readonly { id: number; name: string }[]
-  readonly form: { assignedToId: string; scheduledStart: Date | undefined; scheduledEnd: Date | undefined }
-  readonly onAssigneeChange: (value: string) => void
-  readonly onScheduledStartChange: (date: Date | undefined) => void
-  readonly onScheduledEndChange: (date: Date | undefined) => void
-  readonly onClose: () => void
-  readonly onConfirm: () => void
-}) {
-  const canConfirm = !!form.assignedToId && !!form.scheduledStart
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Agendar ordem de serviço"
-      size="md"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button loading={loading} onClick={onConfirm} disabled={!canConfirm}>
-            Confirmar agendamento
-          </Button>
-        </>
-      }
-    >
-      <div className="wo-view-page__form">
-        <div className="wo-view-page__field">
-          <label className="wo-view-page__label" htmlFor="sched-assignee">
-            Técnico responsável <span aria-hidden="true">*</span>
-          </label>
-          <select
-            id="sched-assignee"
-            className="wo-view-page__select"
-            value={form.assignedToId}
-            onChange={(e) => onAssigneeChange(e.target.value)}
-          >
-            <option value="">Selecionar técnico…</option>
-            {users.map((u) => (
-              <option key={u.id} value={String(u.id)}>
-                {u.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <DateTimePicker
-          label="Início previsto"
-          value={form.scheduledStart}
-          onSelect={onScheduledStartChange}
-          required
-        />
-        <DateTimePicker
-          label="Fim previsto"
-          value={form.scheduledEnd}
-          onSelect={onScheduledEndChange}
-          placeholder="Selecionar data e hora (opcional)"
-        />
-      </div>
-      {error && <p className="wo-view-page__modal-error">{error}</p>}
-    </Modal>
-  )
-}
-
-// ── StartModal ─────────────────────────────────────────────
-function StartModal({
-  open,
-  title,
-  loading,
-  error,
-  onClose,
-  onConfirm,
-}: {
-  readonly open: boolean
-  readonly title: string
-  readonly loading: boolean
-  readonly error: string
-  readonly onClose: () => void
-  readonly onConfirm: () => void
-}) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Iniciar ordem de serviço"
-      size="sm"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button loading={loading} onClick={onConfirm}>
-            Confirmar início
-          </Button>
-        </>
-      }
-    >
-      <p className="wo-view-page__modal-msg">
-        Confirmar início da OS <strong>{title}</strong>?
-      </p>
-      {error && <p className="wo-view-page__modal-error">{error}</p>}
-    </Modal>
-  )
-}
-
-// ── CompleteModal ──────────────────────────────────────────
-function CompleteModal({
-  open,
-  loading,
-  error,
-  notes,
-  laborHours,
-  onNotesChange,
-  onLaborHoursChange,
-  onClose,
-  onConfirm,
-}: {
-  readonly open: boolean
-  readonly loading: boolean
-  readonly error: string
-  readonly notes: string
-  readonly laborHours: string
-  readonly onNotesChange: (v: string) => void
-  readonly onLaborHoursChange: (v: string) => void
-  readonly onClose: () => void
-  readonly onConfirm: () => void
-}) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Concluir ordem de serviço"
-      size="sm"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button loading={loading} onClick={onConfirm} disabled={!notes.trim()}>
-            Confirmar conclusão
-          </Button>
-        </>
-      }
-    >
-      <div className="wo-view-page__field">
-        <label className="wo-view-page__label" htmlFor="closing-notes">
-          Notas de conclusão <span aria-hidden="true">*</span>
-        </label>
-        <textarea
-          id="closing-notes"
-          className="wo-view-page__textarea"
-          value={notes}
-          onChange={(e) => onNotesChange(e.target.value)}
-          rows={4}
-          placeholder="Descreva o que foi feito…"
-          maxLength={2000}
-        />
-      </div>
-      <div className="wo-view-page__field">
-        <label className="wo-view-page__label" htmlFor="labor-hours">
-          Horas trabalhadas
-        </label>
-        <input
-          id="labor-hours"
-          className="wo-view-page__input"
-          type="number"
-          min={0}
-          max={999}
-          step={0.5}
-          value={laborHours}
-          onChange={(e) => onLaborHoursChange(e.target.value)}
-          placeholder="Ex.: 3"
-        />
-        <span className="wo-view-page__hint">
-          Horas efetivamente trabalhadas, não o tempo total de parada.
-        </span>
-      </div>
-      {error && <p className="wo-view-page__modal-error">{error}</p>}
-    </Modal>
-  )
-}
-
-// ── CancelModal ────────────────────────────────────────────
-function CancelModal({
-  open,
-  loading,
-  error,
-  reason,
-  onReasonChange,
-  onClose,
-  onConfirm,
-}: {
-  readonly open: boolean
-  readonly loading: boolean
-  readonly error: string
-  readonly reason: string
-  readonly onReasonChange: (v: string) => void
-  readonly onClose: () => void
-  readonly onConfirm: () => void
-}) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Cancelar ordem de serviço"
-      size="sm"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
-            Voltar
-          </Button>
-          <Button variant="danger" loading={loading} onClick={onConfirm} disabled={!reason.trim()}>
-            Confirmar cancelamento
-          </Button>
-        </>
-      }
-    >
-      <div className="wo-view-page__field">
-        <label className="wo-view-page__label" htmlFor="cancel-reason">
-          Motivo do cancelamento <span aria-hidden="true">*</span>
-        </label>
-        <textarea
-          id="cancel-reason"
-          className="wo-view-page__textarea"
-          value={reason}
-          onChange={(e) => onReasonChange(e.target.value)}
-          rows={4}
-          placeholder="Descreva o motivo do cancelamento…"
-          maxLength={1000}
-        />
-      </div>
-      {error && <p className="wo-view-page__modal-error">{error}</p>}
-    </Modal>
-  )
-}
+const EMPTY_SCHEDULE: ScheduleForm = { assignedToId: '', scheduledStart: undefined, scheduledEnd: undefined }
 
 // ── PermButton ─────────────────────────────────────────────
 function PermButton({
@@ -442,26 +68,53 @@ function PermButton({
   readonly permission: string
   readonly variant?: 'primary' | 'secondary' | 'danger'
   readonly onClick: () => void
-  readonly children: React.ReactNode
+  readonly children: ReactNode
 }) {
   const { hasPermission } = useAuth()
   const allowed = hasPermission(permission)
   return (
-    <span
-      title={allowed ? undefined : 'Você não tem permissão para esta ação'}
-      style={{ display: 'inline-block', cursor: allowed ? undefined : 'not-allowed' }}
-    >
-      <Button variant={variant} onClick={onClick} disabled={!allowed} style={allowed ? undefined : { pointerEvents: 'none' }}>
+    <span title={allowed ? undefined : 'Você não tem permissão para esta ação'} className={allowed ? undefined : 'cursor-not-allowed'}>
+      <Button variant={variant} onClick={onClick} disabled={!allowed} className={allowed ? undefined : 'pointer-events-none'}>
         {children}
       </Button>
     </span>
   )
 }
 
+/** Coluna lateral da ficha: pares rótulo/valor. */
+function FactList({ items }: { readonly items: readonly { readonly label: string; readonly value: ReactNode }[] }) {
+  return (
+    <dl className="flex flex-col gap-2.5">
+      {items.map((item) => (
+        <div key={item.label} className="flex flex-col gap-0.5">
+          <dt className="text-[0.6875rem] font-medium uppercase tracking-wider text-faint">{item.label}</dt>
+          <dd className="text-sm text-ink">{item.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function DetailSkeleton() {
+  return (
+    <Sheet>
+      <div className="flex flex-col gap-3 border-b border-rule p-5" role="status" aria-label="Carregando">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-6 w-36" />
+        <Skeleton className="w-80 max-w-full" />
+      </div>
+      <div className="grid grid-cols-5 gap-2 p-5">
+        {Array.from({ length: 5 }, (_, i) => (
+          <Skeleton key={i} className="h-10" />
+        ))}
+      </div>
+    </Sheet>
+  )
+}
+
 // ── Page ───────────────────────────────────────────────────
 export default function WorkOrderViewPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
 
   const [approveOpen, setApproveOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
@@ -474,11 +127,7 @@ export default function WorkOrderViewPage() {
   const [laborHours, setLaborHours] = useState('')
   const { hasPermission } = useAuth()
   const [cancelReason, setCancelReason] = useState('')
-  const [scheduleForm, setScheduleForm] = useState<{
-    assignedToId: string
-    scheduledStart: Date | undefined
-    scheduledEnd: Date | undefined
-  }>({ assignedToId: '', scheduledStart: undefined, scheduledEnd: undefined })
+  const [scheduleForm, setScheduleForm] = useState<ScheduleForm>(EMPTY_SCHEDULE)
   const [actionError, setActionError] = useState('')
 
   const refetchList = [{ query: GET_WORK_ORDERS }]
@@ -507,7 +156,7 @@ export default function WorkOrderViewPage() {
 
   const [scheduleWorkOrder, { loading: scheduling }] = useMutation<ScheduleWorkOrderData>(SCHEDULE_WORK_ORDER, {
     refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
-    onCompleted: () => { setScheduleOpen(false); setScheduleForm({ assignedToId: '', scheduledStart: undefined, scheduledEnd: undefined }) },
+    onCompleted: () => { setScheduleOpen(false); setScheduleForm(EMPTY_SCHEDULE) },
     onError: (e) => setActionError(errorMessage(e)),
   })
 
@@ -530,26 +179,23 @@ export default function WorkOrderViewPage() {
     onError: (e) => setActionError(errorMessage(e)),
   })
 
-  if (loading) {
-    return <div className="page-loading"><Spinner size="lg" /></div>
-  }
+  if (loading) return <DetailSkeleton />
 
   if (error || !data?.workOrder) {
     return (
-      <div className="wo-view-page">
-        <div className="page-error" role="alert">
-          {error ? `Erro: ${error.message}` : 'Ordem de serviço não encontrada.'}
-        </div>
-        <Button variant="secondary" onClick={() => navigate('/dashboard/work-orders')} className="wo-view-page__back-btn">
-          ← Voltar para lista
-        </Button>
-      </div>
+      <Sheet>
+        <EmptyState
+          message={error ? `Erro ao carregar a OS: ${error.message}` : 'Ordem de serviço não encontrada.'}
+          action={<Link to="/dashboard/work-orders">Voltar para Ordens de Serviço</Link>}
+        />
+      </Sheet>
     )
   }
 
   const wo = data.workOrder
 
   function openReject() { setActionError(''); setRejectReason(''); setRejectOpen(true) }
+  function openCancel() { setActionError(''); setCancelReason(''); setCancelOpen(true) }
   function openSchedule() {
     setActionError('')
     setScheduleForm({
@@ -564,174 +210,137 @@ export default function WorkOrderViewPage() {
   const canCancel = ['REQUESTED', 'APPROVED', 'SCHEDULED', 'IN_PROGRESS'].includes(wo.status)
 
   return (
-    <div className={`wo-view-page ${PRIORITY_BORDER[wo.priority]}`}>
-      {/* Header */}
-      <header className="page-header">
-        <div className="page-header__info">
-          <button type="button" className="wo-view-page__back" onClick={() => navigate('/dashboard/work-orders')}>
-            ← Ordens de Serviço
-          </button>
-          <h1 className="page-header__title">{wo.title}</h1>
-          <Badge variant={STATUS_VARIANT[wo.status]}>{STATUS_LABELS[wo.status]}</Badge>
-        </div>
-        <div className="page-header__actions">
-          {wo.status === 'REQUESTED' && (
-            <>
-              <PermButton permission="workorder.approve" onClick={() => { setActionError(''); setApproveOpen(true) }}>
-                Aprovar
-              </PermButton>
-              <PermButton permission="workorder.approve" variant="danger" onClick={openReject}>
-                Rejeitar
-              </PermButton>
-            </>
-          )}
-          {wo.status === 'APPROVED' && (
-            <PermButton permission="workorder.update" onClick={openSchedule}>
-              Agendar
-            </PermButton>
-          )}
-          {wo.status === 'SCHEDULED' && (
-            <PermButton permission="workorder.update" onClick={() => { setActionError(''); setStartOpen(true) }}>
-              Iniciar
-            </PermButton>
-          )}
-          {wo.status === 'IN_PROGRESS' && (
-            <PermButton permission="workorder.update" onClick={() => { setActionError(''); setCompleteOpen(true) }}>
-              Concluir
-            </PermButton>
-          )}
-          {canCancel && (
-            <PermButton permission="workorder.approve" variant="danger" onClick={() => { setActionError(''); setCancelReason(''); setCancelOpen(true) }}>
-              Cancelar
-            </PermButton>
-          )}
-        </div>
-      </header>
+    <>
+      <Sheet>
+        <SheetHeader
+          eyebrow="Ordem de Serviço"
+          code={formatWorkOrderCode(wo.id)}
+          title={wo.title}
+          meta={[
+            { label: 'Situação', value: <Badge variant={WORK_ORDER_STATUS_VARIANT[wo.status]}>{WORK_ORDER_STATUS_LABELS[wo.status]}</Badge> },
+            { label: 'Prioridade', value: <PriorityMark priority={wo.priority} /> },
+            { label: 'Tipo', value: WORK_ORDER_TYPE_LABELS[wo.type] },
+            { label: 'Solicitante', value: wo.requestedBy.name },
+          ]}
+        />
 
-      {/* Cards */}
-      <div className="wo-view-page__grid">
-        {/* Detalhes */}
-        <div className="detail-card wo-view-page__card--wide">
-          <h2 className="detail-card__title">Detalhes</h2>
-          <dl className="detail-list">
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Descrição</dt>
-              <dd className="detail-list__value wo-view-page__description">{wo.description}</dd>
-            </div>
-            <div className="wo-view-page__row">
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Tipo</dt>
-                <dd className="detail-list__value">{wo.type === 'CORRECTIVE' ? 'Corretiva' : 'Preventiva'}</dd>
-              </div>
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Prioridade</dt>
-                <dd className="detail-list__value">
-                  <Badge variant={PRIORITY_VARIANT[wo.priority]}>{PRIORITY_LABELS[wo.priority]}</Badge>
-                </dd>
-              </div>
-            </div>
-            {wo.rejectionReason && (
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Motivo da rejeição</dt>
-                <dd className="detail-list__value wo-view-page__rejection">{wo.rejectionReason}</dd>
-              </div>
+        {/* Trilho do fluxo + ação da etapa atual */}
+        <div className="flex flex-col gap-4 border-b border-rule px-5 py-4 lg:flex-row lg:items-center lg:gap-6">
+          <div className="min-w-0 flex-1">
+            <WorkOrderFlow workOrder={wo} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {wo.status === 'REQUESTED' && (
+              <>
+                <PermButton permission="workorder.approve" variant="danger" onClick={openReject}>
+                  Rejeitar
+                </PermButton>
+                <PermButton permission="workorder.approve" onClick={() => { setActionError(''); setApproveOpen(true) }}>
+                  Aprovar
+                </PermButton>
+              </>
             )}
-            {wo.cancellationReason && (
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Motivo do cancelamento</dt>
-                <dd className="detail-list__value wo-view-page__rejection">{wo.cancellationReason}</dd>
-              </div>
+            {wo.status === 'APPROVED' && (
+              <PermButton permission="workorder.update" onClick={openSchedule}>
+                Agendar
+              </PermButton>
             )}
+            {wo.status === 'SCHEDULED' && (
+              <PermButton permission="workorder.update" onClick={() => { setActionError(''); setStartOpen(true) }}>
+                Iniciar execução
+              </PermButton>
+            )}
+            {wo.status === 'IN_PROGRESS' && (
+              <PermButton permission="workorder.update" onClick={() => { setActionError(''); setCompleteOpen(true) }}>
+                Concluir
+              </PermButton>
+            )}
+            {canCancel && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" aria-label="Mais ações" className="px-2">
+                    <Ellipsis className="size-4" aria-hidden="true" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-48 rounded-xs p-1">
+                  <button
+                    type="button"
+                    disabled={!hasPermission('workorder.approve')}
+                    title={hasPermission('workorder.approve') ? undefined : 'Você não tem permissão para esta ação'}
+                    onClick={openCancel}
+                    className="w-full rounded-xs px-2.5 py-2 text-left text-sm text-error hover:enabled:bg-error-soft disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Cancelar OS
+                  </button>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="min-w-0">
+            <SheetSection title="Descrição">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-body">{wo.description}</p>
+            </SheetSection>
+
             {wo.closingNotes && (
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Notas de conclusão</dt>
-                <dd className="detail-list__value wo-view-page__description">{wo.closingNotes}</dd>
-              </div>
+              <SheetSection title="Registro de conclusão">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-body">{wo.closingNotes}</p>
+              </SheetSection>
             )}
-          </dl>
-        </div>
 
-        {/* Ativo */}
-        <div className="detail-card">
-          <h2 className="detail-card__title">Ativo</h2>
-          <dl className="detail-list">
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Tag</dt>
-              <dd className="detail-list__value wo-view-page__tag">{wo.asset.tag}</dd>
-            </div>
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Nome</dt>
-              <dd className="detail-list__value">{wo.asset.name}</dd>
-            </div>
-            {wo.asset.location && (
-              <div className="detail-list__item">
-                <dt className="detail-list__label">Localização</dt>
-                <dd className="detail-list__value">{wo.asset.location}</dd>
-              </div>
+            {/* Custos — só para quem tem cost.read (ver ADR 0001) */}
+            {hasPermission('cost.read') && (
+              <WorkOrderCostsSection workOrder={wo} canManage={hasPermission('cost.manage')} />
             )}
-          </dl>
+          </div>
+
+          <aside className="border-t border-rule lg:border-t-0 lg:border-l" aria-label="Dados de referência">
+            <SheetSection title="Ativo">
+              <Link
+                to={`/dashboard/assets/${wo.asset.id}`}
+                className="block rounded-xs border border-rule-strong bg-subtle px-3 py-2.5 hover:border-primary hover:no-underline"
+              >
+                <span className="block font-mono text-base font-semibold text-ink">{wo.asset.tag}</span>
+                <span className="block text-sm text-body">{wo.asset.name}</span>
+                {wo.asset.location && <span className="block text-xs text-quiet">{wo.asset.location}</span>}
+              </Link>
+            </SheetSection>
+
+            <SheetSection title="Responsáveis">
+              <FactList
+                items={[
+                  { label: 'Solicitado por', value: wo.requestedBy.name },
+                  { label: 'Técnico responsável', value: wo.assignedTo?.name ?? '—' },
+                ]}
+              />
+            </SheetSection>
+
+            <SheetSection title="Agenda">
+              <FactList
+                items={[
+                  { label: 'Início previsto', value: <span className="font-mono tabular-nums">{formatDateTime(wo.scheduledStart)}</span> },
+                  { label: 'Fim previsto', value: <span className="font-mono tabular-nums">{formatDateTime(wo.scheduledEnd)}</span> },
+                  { label: 'Início real', value: <span className="font-mono tabular-nums">{formatDateTime(wo.startedAt)}</span> },
+                  { label: 'Conclusão real', value: <span className="font-mono tabular-nums">{formatDateTime(wo.completedAt)}</span> },
+                ]}
+              />
+            </SheetSection>
+
+            <SheetSection title="Documento">
+              <FactList
+                items={[
+                  { label: 'Emitida em', value: <span className="font-mono tabular-nums">{formatDateTime(wo.createdAt)}</span> },
+                  { label: 'Atualizada em', value: <span className="font-mono tabular-nums">{formatDateTime(wo.updatedAt)}</span> },
+                ]}
+              />
+            </SheetSection>
+          </aside>
         </div>
+      </Sheet>
 
-        {/* Responsáveis */}
-        <div className="detail-card">
-          <h2 className="detail-card__title">Responsáveis</h2>
-          <dl className="detail-list">
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Solicitado por</dt>
-              <dd className="detail-list__value">{wo.requestedBy.name}</dd>
-            </div>
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Técnico responsável</dt>
-              <dd className="detail-list__value">{wo.assignedTo?.name ?? '—'}</dd>
-            </div>
-          </dl>
-        </div>
-
-        {/* Agendamento */}
-        <div className="detail-card">
-          <h2 className="detail-card__title">Agendamento</h2>
-          <dl className="detail-list">
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Início previsto</dt>
-              <dd className="detail-list__value">{formatDateTime(wo.scheduledStart)}</dd>
-            </div>
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Fim previsto</dt>
-              <dd className="detail-list__value">{formatDateTime(wo.scheduledEnd)}</dd>
-            </div>
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Início real</dt>
-              <dd className="detail-list__value">{formatDateTime(wo.startedAt)}</dd>
-            </div>
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Conclusão real</dt>
-              <dd className="detail-list__value">{formatDateTime(wo.completedAt)}</dd>
-            </div>
-          </dl>
-        </div>
-
-        {/* Custos — só para quem tem cost.read (ver ADR 0001) */}
-        {hasPermission('cost.read') && (
-          <WorkOrderCostsSection workOrder={wo} canManage={hasPermission('cost.manage')} />
-        )}
-
-        {/* Metadados */}
-        <div className="detail-card">
-          <h2 className="detail-card__title">Metadados</h2>
-          <dl className="detail-list">
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Criado em</dt>
-              <dd className="detail-list__value">{formatDateTime(wo.createdAt)}</dd>
-            </div>
-            <div className="detail-list__item">
-              <dt className="detail-list__label">Atualizado em</dt>
-              <dd className="detail-list__value">{formatDateTime(wo.updatedAt)}</dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-
-      {/* Modals */}
+      {/* Modais de ação */}
       <ApproveModal
         open={approveOpen}
         title={wo.title}
@@ -819,6 +428,6 @@ export default function WorkOrderViewPage() {
           })
         }
       />
-    </div>
+    </>
   )
 }

@@ -29,6 +29,8 @@ interface DataTableProps<T> {
   readonly loading?: boolean
   /** Exibido quando não está carregando e não há linhas. */
   readonly empty?: ReactNode
+  /** Desligar em tabelas dentro de uma seção da ficha. Padrão: true. */
+  readonly stickyHeader?: boolean
 }
 
 const SKELETON_ROWS = 5
@@ -51,6 +53,7 @@ export default function DataTable<T>({
   rowHref,
   loading = false,
   empty,
+  stickyHeader = true,
 }: DataTableProps<T>) {
   const navigate = useNavigate()
   const showSkeleton = loading && rows.length === 0
@@ -72,7 +75,8 @@ export default function DataTable<T>({
                 key={col.key}
                 scope="col"
                 className={cn(
-                  'sticky top-[var(--topbar-height)] z-10 whitespace-nowrap border-b border-rule bg-subtle px-3 py-2 text-xs font-medium text-quiet',
+                  'whitespace-nowrap border-b border-rule bg-subtle px-3 py-2 text-xs font-medium text-quiet',
+                  stickyHeader && 'sticky top-[var(--topbar-height)] z-10',
                   col.align === 'right' ? 'text-right' : 'text-left',
                   col.className,
                 )}

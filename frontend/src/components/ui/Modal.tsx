@@ -1,8 +1,8 @@
 import { type ReactNode, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { X } from 'lucide-react'
 
-import { XIcon } from '../icons'
-import './Modal.css'
+import { cn } from '../../lib/utils'
 
 type ModalSize = 'sm' | 'md' | 'lg'
 
@@ -15,14 +15,13 @@ interface ModalProps {
   readonly children: ReactNode
 }
 
-export default function Modal({
-  open,
-  onClose,
-  title,
-  size = 'md',
-  footer,
-  children,
-}: ModalProps) {
+const WIDTH: Record<ModalSize, string> = {
+  sm: 'max-w-[26rem]',
+  md: 'max-w-[36rem]',
+  lg: 'max-w-[48rem]',
+}
+
+export default function Modal({ open, onClose, title, size = 'md', footer, children }: ModalProps) {
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -33,45 +32,50 @@ export default function Modal({
   }, [open, onClose])
 
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden'
-    } else {
+    document.body.style.overflow = open ? 'hidden' : ''
+    return () => {
       document.body.style.overflow = ''
     }
-    return () => { document.body.style.overflow = '' }
   }, [open])
 
   if (!open) return null
 
   return createPortal(
     <div
-      className="modal-overlay"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4"
       role="dialog"
       aria-modal
       aria-labelledby="modal-title"
       onClick={onClose}
     >
       <div
-        className={`modal modal--${size}`}
+        className={cn(
+          'flex max-h-[calc(100vh-2rem)] w-full flex-col rounded-xs border border-rule bg-sheet shadow-lg',
+          WIDTH[size],
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="modal__header">
-          <h2 id="modal-title" className="modal__title">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-rule px-5 py-3.5">
+          <h2 id="modal-title" className="text-base font-semibold text-ink">
             {title}
           </h2>
           <button
             type="button"
-            className="modal__close"
             onClick={onClose}
             aria-label="Fechar"
+            className="flex size-8 items-center justify-center rounded-xs text-quiet hover:bg-subtle hover:text-ink"
           >
-            <XIcon />
+            <X className="size-4" aria-hidden="true" />
           </button>
         </header>
 
-        <div className="modal__body">{children}</div>
+        <div className="overflow-y-auto px-5 py-4">{children}</div>
 
-        {footer && <footer className="modal__footer">{footer}</footer>}
+        {footer && (
+          <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-rule px-5 py-3">
+            {footer}
+          </footer>
+        )}
       </div>
     </div>,
     document.body,

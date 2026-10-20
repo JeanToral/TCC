@@ -2,6 +2,8 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
+import { FIELD_CONTROL, FieldLabel } from './input'
+
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string
   error?: string
@@ -15,36 +17,25 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="flex flex-col gap-1.5">
         {label && (
-          <label
-            htmlFor={textareaId}
-            className="text-sm font-medium leading-none text-foreground"
-          >
+          <FieldLabel htmlFor={textareaId} required={props.required}>
             {label}
-          </label>
+          </FieldLabel>
         )}
         <textarea
           id={textareaId}
           ref={ref}
           aria-invalid={!!error}
           aria-describedby={error ? `${textareaId}-error` : hint ? `${textareaId}-hint` : undefined}
-          className={cn(
-            'flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-4 py-3 text-sm shadow-sm',
-            'placeholder:text-muted-foreground',
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-            'resize-y',
-            error && 'border-destructive focus-visible:ring-destructive',
-            className,
-          )}
+          className={cn(FIELD_CONTROL, 'flex min-h-20 resize-y py-2', className)}
           {...props}
         />
         {error && (
-          <p id={`${textareaId}-error`} className="text-xs text-destructive">
+          <p id={`${textareaId}-error`} className="text-xs text-error">
             {error}
           </p>
         )}
         {hint && !error && (
-          <p id={`${textareaId}-hint`} className="text-xs text-muted-foreground">
+          <p id={`${textareaId}-hint`} className="text-xs text-quiet">
             {hint}
           </p>
         )}

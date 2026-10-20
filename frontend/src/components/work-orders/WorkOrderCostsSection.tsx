@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { useMutation, useQuery } from '@apollo/client/react'
 
 import Button from '../ui/Button'
-import Modal from '../ui/Modal'
-import Spinner from '../ui/Spinner'
+import { FormAlert, FormField, FormGrid } from '../ui/FormLayout'
 import { Input } from '../ui/input'
+import Modal from '../ui/Modal'
+import { SheetSection } from '../ui/Sheet'
+import Skeleton from '../ui/Skeleton'
 import { GET_WORK_ORDER } from '../../graphql/work-orders/GetWorkOrder.gql'
 import { GET_WORK_ORDER_PARTS } from '../../graphql/work-order-costs/GetWorkOrderParts.gql'
 import { ADD_WORK_ORDER_EXTERNAL_COST } from '../../graphql/work-order-costs/AddWorkOrderExternalCost.gql'
@@ -19,7 +21,7 @@ import type {
   WorkOrderExternalCost,
 } from '../../graphql/work-order-costs/types'
 import type { WorkOrderDetail } from '../../graphql/work-orders/types'
-import './WorkOrderCostsSection.css'
+import { cn } from '../../lib/utils'
 
 // ── Helpers ────────────────────────────────────────────────
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -81,7 +83,7 @@ function ExternalCostModal({
       title={editing ? 'Editar lançamento' : 'Lançar serviço externo'}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={saving}>
+          <Button variant="link" onClick={onClose} disabled={saving}>
             Cancelar
           </Button>
           <Button onClick={onConfirm} loading={saving}>
@@ -90,47 +92,55 @@ function ExternalCostModal({
         </>
       }
     >
-      <div className="wo-costs__form">
-        <Input
-          id="ext-description"
-          label="Descrição"
-          value={form.description}
-          onChange={(e) => onChange('description', e.target.value)}
-          placeholder="Ex.: Retífica do motor principal"
-          maxLength={300}
-        />
-        <Input
-          id="ext-supplier"
-          label="Fornecedor (opcional)"
-          value={form.supplier}
-          onChange={(e) => onChange('supplier', e.target.value)}
-          placeholder="Ex.: Retificadora Oeste"
-          maxLength={200}
-        />
-        <Input
-          id="ext-amount"
-          label="Valor (R$)"
-          type="number"
-          min={0}
-          step={0.01}
-          value={form.amount}
-          onChange={(e) => onChange('amount', e.target.value)}
-          placeholder="0,00"
-        />
-        <Input
-          id="ext-incurredAt"
-          label="Competência"
-          type="date"
-          value={form.incurredAt}
-          onChange={(e) => onChange('incurredAt', e.target.value)}
-          hint="Mês a que o custo pertence — pode ser anterior ao lançamento."
-        />
-        {error && (
-          <p className="wo-costs__error" role="alert">
-            {error}
-          </p>
-        )}
-      </div>
+      <FormGrid columns={2}>
+        <FormField span="full">
+          <Input
+            id="ext-description"
+            label="Descrição"
+            required
+            value={form.description}
+            onChange={(e) => onChange('description', e.target.value)}
+            placeholder="Ex.: Retífica do motor principal"
+            maxLength={300}
+          />
+        </FormField>
+        <FormField span="full">
+          <Input
+            id="ext-supplier"
+            label="Fornecedor (opcional)"
+            value={form.supplier}
+            onChange={(e) => onChange('supplier', e.target.value)}
+            placeholder="Ex.: Retificadora Oeste"
+            maxLength={200}
+          />
+        </FormField>
+        <FormField>
+          <Input
+            id="ext-amount"
+            label="Valor (R$)"
+            required
+            type="number"
+            min={0}
+            step={0.01}
+            value={form.amount}
+            onChange={(e) => onChange('amount', e.target.value)}
+            placeholder="0,00"
+            className="font-mono tabular-nums"
+          />
+        </FormField>
+        <FormField>
+          <Input
+            id="ext-incurredAt"
+            label="Competência"
+            required
+            type="date"
+            value={form.incurredAt}
+            onChange={(e) => onChange('incurredAt', e.target.value)}
+            hint="Mês a que o custo pertence."
+          />
+        </FormField>
+      </FormGrid>
+      {error && <FormAlert className="m-0 mt-3">{error}</FormAlert>}
     </Modal>
   )
 }
@@ -239,135 +249,104 @@ export default function WorkOrderCostsSection({
   const saving = adding || updating
 
   return (
-    <section className="detail-card wo-costs">
-      <div className="wo-costs__header">
-        <h2 className="detail-card__title">Custos</h2>
-        {canManage && (
+    <SheetSection
+      title="Custos"
+      aside={
+        canManage && (
           <Button size="sm" variant="secondary" onClick={openCreate}>
             Lançar serviço externo
           </Button>
-        )}
-      </div>
-
+        )
+      }
+    >
       {!workOrder.costIsComplete && (
-        <p className="wo-costs__warning" role="status">
-          Custo incompleto: faltou preço de peça ou taxa horária. O total abaixo
-          subestima o gasto real.
+        <p
+          className="mb-4 border-l-[3px] border-warning bg-warning-soft px-3 py-2 text-sm text-[var(--warning-text)]"
+          role="status"
+        >
+          Custo incompleto: faltou preço de peça ou taxa horária. O total abaixo subestima o gasto real.
         </p>
       )}
 
-      {/* ── Peças ─────────────────────────────────────── */}
-      <h3 className="wo-costs__subtitle">Peças</h3>
-      {partsLoading ? (
-        <div className="wo-costs__loading">
-          <Spinner size="sm" />
-        </div>
-      ) : parts.length === 0 ? (
-        <p className="wo-costs__empty">Nenhuma peça utilizada.</p>
-      ) : (
-        <table className="wo-costs__table">
-          <thead>
-            <tr>
-              <th>Peça</th>
-              <th>Código</th>
-              <th className="wo-costs__num">Qtd.</th>
-              <th className="wo-costs__num">Preço congelado</th>
-              <th className="wo-costs__num">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {parts.map((part) => (
-              <tr key={part.id}>
-                <td>{part.sparePart.name}</td>
-                <td>{part.sparePart.partNumber}</td>
-                <td className="wo-costs__num">{part.quantityUsed}</td>
-                <td className="wo-costs__num">{money(part.unitCostSnapshot)}</td>
-                <td className="wo-costs__num">
-                  {part.unitCostSnapshot == null
-                    ? '—'
-                    : money(part.unitCostSnapshot * part.quantityUsed)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <div className="flex flex-col gap-5">
+        <CostBlock title="Peças">
+          {partsLoading ? (
+            <div className="flex flex-col gap-2 py-2">
+              <Skeleton className="w-2/3" />
+              <Skeleton className="w-1/2" />
+            </div>
+          ) : parts.length === 0 ? (
+            <Empty>Nenhuma peça utilizada.</Empty>
+          ) : (
+            <CostTable
+              headers={['Peça', 'Código', 'Qtd.', 'Preço congelado', 'Subtotal']}
+              numeric={[2, 3, 4]}
+              rows={parts.map((part) => ({
+                key: part.id,
+                cells: [
+                  part.sparePart.name,
+                  <span className="font-mono">{part.sparePart.partNumber}</span>,
+                  part.quantityUsed,
+                  money(part.unitCostSnapshot),
+                  part.unitCostSnapshot == null ? '—' : money(part.unitCostSnapshot * part.quantityUsed),
+                ],
+              }))}
+            />
+          )}
+        </CostBlock>
 
-      {/* ── Mão de obra ───────────────────────────────── */}
-      <h3 className="wo-costs__subtitle">Mão de obra</h3>
-      <dl className="wo-costs__list">
-        <div className="wo-costs__row">
-          <dt>Horas apontadas</dt>
-          <dd>{workOrder.laborHours == null ? '—' : `${workOrder.laborHours} h`}</dd>
-        </div>
-        <div className="wo-costs__row">
-          <dt>Custo de mão de obra</dt>
-          <dd>{money(cost?.laborCost)}</dd>
-        </div>
-      </dl>
+        <CostBlock title="Mão de obra">
+          <dl className="flex flex-col">
+            <Line label="Horas apontadas" value={workOrder.laborHours == null ? '—' : `${workOrder.laborHours} h`} />
+            <Line label="Custo de mão de obra" value={money(cost?.laborCost)} />
+          </dl>
+        </CostBlock>
 
-      {/* ── Serviços externos ─────────────────────────── */}
-      <h3 className="wo-costs__subtitle">Serviços externos</h3>
-      {externalCosts.length === 0 ? (
-        <p className="wo-costs__empty">Nenhum lançamento.</p>
-      ) : (
-        <table className="wo-costs__table">
-          <thead>
-            <tr>
-              <th>Descrição</th>
-              <th>Fornecedor</th>
-              <th>Competência</th>
-              <th className="wo-costs__num">Valor</th>
-              {canManage && <th />}
-            </tr>
-          </thead>
-          <tbody>
-            {externalCosts.map((item) => (
-              <tr key={item.id}>
-                <td>{item.description}</td>
-                <td>{item.supplier ?? '—'}</td>
-                <td>{formatDate(item.incurredAt)}</td>
-                <td className="wo-costs__num">{money(item.amount)}</td>
-                {canManage && (
-                  <td className="wo-costs__actions">
-                    <button type="button" onClick={() => openEdit(item)}>
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="wo-costs__remove"
-                      disabled={removing}
-                      onClick={() => void removeCost({ variables: { id: item.id } })}
-                    >
-                      Remover
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        <CostBlock title="Serviços externos">
+          {externalCosts.length === 0 ? (
+            <Empty>Nenhum lançamento.</Empty>
+          ) : (
+            <CostTable
+              headers={['Descrição', 'Fornecedor', 'Competência', 'Valor', ...(canManage ? [''] : [])]}
+              numeric={[3]}
+              rows={externalCosts.map((item) => ({
+                key: item.id,
+                cells: [
+                  item.description,
+                  item.supplier ?? '—',
+                  <span className="font-mono tabular-nums">{formatDate(item.incurredAt)}</span>,
+                  money(item.amount),
+                  ...(canManage
+                    ? [
+                        <span className="flex justify-end gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(item)}>
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-error"
+                            disabled={removing}
+                            onClick={() => void removeCost({ variables: { id: item.id } })}
+                          >
+                            Remover
+                          </Button>
+                        </span>,
+                      ]
+                    : []),
+                ],
+              }))}
+            />
+          )}
+        </CostBlock>
 
-      {/* ── Totais ────────────────────────────────────── */}
-      <dl className="wo-costs__list wo-costs__list--totals">
-        <div className="wo-costs__row">
-          <dt>Peças</dt>
-          <dd>{money(cost?.partsCost)}</dd>
-        </div>
-        <div className="wo-costs__row">
-          <dt>Mão de obra</dt>
-          <dd>{money(cost?.laborCost)}</dd>
-        </div>
-        <div className="wo-costs__row">
-          <dt>Serviços externos</dt>
-          <dd>{money(cost?.externalCost)}</dd>
-        </div>
-        <div className="wo-costs__row wo-costs__row--total">
-          <dt>Total</dt>
-          <dd>{money(cost?.total)}</dd>
-        </div>
-      </dl>
+        <dl className="ml-auto flex w-full max-w-xs flex-col border-t-2 border-ink pt-2">
+          <Line label="Peças" value={money(cost?.partsCost)} />
+          <Line label="Mão de obra" value={money(cost?.laborCost)} />
+          <Line label="Serviços externos" value={money(cost?.externalCost)} />
+          <Line label="Total" value={money(cost?.total)} strong />
+        </dl>
+      </div>
 
       <ExternalCostModal
         open={modalOpen}
@@ -379,6 +358,70 @@ export default function WorkOrderCostsSection({
         onClose={closeModal}
         onConfirm={handleConfirm}
       />
-    </section>
+    </SheetSection>
+  )
+}
+
+// ── Peças de apresentação ──────────────────────────────────
+function CostBlock({ title, children }: { readonly title: string; readonly children: ReactNode }) {
+  return (
+    <div>
+      <h3 className="mb-1.5 text-xs font-medium text-quiet">{title}</h3>
+      {children}
+    </div>
+  )
+}
+
+function Empty({ children }: { readonly children: ReactNode }) {
+  return <p className="py-1 text-sm text-faint">{children}</p>
+}
+
+function Line({ label, value, strong = false }: { readonly label: string; readonly value: string; readonly strong?: boolean }) {
+  return (
+    <div className={cn('flex justify-between gap-4 py-1 text-sm', strong ? 'font-semibold text-ink' : 'text-body')}>
+      <dt>{label}</dt>
+      <dd className="font-mono tabular-nums">{value}</dd>
+    </div>
+  )
+}
+
+interface CostTableProps {
+  readonly headers: readonly string[]
+  /** Índices das colunas numéricas (alinhadas à direita, em Mono). */
+  readonly numeric: readonly number[]
+  readonly rows: readonly { readonly key: number; readonly cells: readonly ReactNode[] }[]
+}
+
+function CostTable({ headers, numeric, rows }: CostTableProps) {
+  const align = (i: number) => (numeric.includes(i) ? 'text-right font-mono tabular-nums' : 'text-left')
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr>
+            {headers.map((h, i) => (
+              <th
+                key={`${h}-${i}`}
+                scope="col"
+                className={cn('border-b border-rule bg-subtle px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-quiet', align(i))}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key} className="border-b border-rule">
+              {row.cells.map((cell, i) => (
+                <td key={i} className={cn('px-2.5 py-1.5 text-ink', align(i))}>
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }

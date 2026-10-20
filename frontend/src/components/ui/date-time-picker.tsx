@@ -4,6 +4,8 @@ import { ptBR } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+
+import { FIELD_CONTROL, FieldLabel } from './input'
 import { Calendar } from './calendar'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
 
@@ -55,25 +57,13 @@ export function DateTimePicker({
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      {label && (
-        <span className="text-sm font-medium leading-none text-foreground">
-          {label}
-          {required && <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>}
-        </span>
-      )}
+      {label && <FieldLabel required={required}>{label}</FieldLabel>}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
             disabled={disabled}
-            className={cn(
-              'flex h-10 w-full items-center gap-2 rounded-md border border-input px-4 text-sm',
-              'bg-transparent text-left shadow-sm',
-              'hover:bg-muted',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-              'disabled:cursor-not-allowed disabled:opacity-50',
-              !value && 'text-muted-foreground',
-            )}
+            className={cn(FIELD_CONTROL, 'flex h-9 items-center gap-2 text-left', !value && 'text-faint')}
           >
             <CalendarIcon className="h-4 w-4 shrink-0 opacity-60" />
             {value

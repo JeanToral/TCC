@@ -27,7 +27,7 @@ const SECTION_LABELS: Record<string, string> = {
 
 const NEW_LABELS: Record<string, string> = {
   assets: 'Novo ativo',
-  'work-orders': 'Nova OS',
+  'work-orders': 'Abrir OS',
   'spare-parts': 'Nova peça',
   'preventive-plans': 'Novo plano',
   users: 'Novo usuário',

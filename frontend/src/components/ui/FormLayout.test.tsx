@@ -11,17 +11,18 @@ import {
 } from './FormLayout'
 
 describe('FormLayout', () => {
-  it('deve renderizar um formulário com os filhos', () => {
+  it('deve renderizar um formulário com cabeçalho e filhos', () => {
     // Arrange / Act
-    render(
-      <FormLayout>
+    const { container } = render(
+      <FormLayout header={<h1>Nova OS</h1>}>
         <p>conteúdo</p>
       </FormLayout>,
     )
 
     // Assert
+    expect(container.querySelector('form')).not.toBeNull()
+    expect(screen.getByRole('heading', { level: 1, name: 'Nova OS' })).toBeInTheDocument()
     expect(screen.getByText('conteúdo')).toBeInTheDocument()
-    expect(document.querySelector('form.form-layout')).not.toBeNull()
   })
 
   it('deve encaminhar o onSubmit para o elemento form', () => {
@@ -42,12 +43,13 @@ describe('FormLayout', () => {
 })
 
 describe('FormSection', () => {
-  it('deve renderizar o título como heading de nível 2', () => {
+  it('deve expor a seção como região nomeada pelo título de nível 2', () => {
     // Arrange / Act
     render(<FormSection title="Identificação">campos</FormSection>)
 
     // Assert
     expect(screen.getByRole('heading', { level: 2, name: 'Identificação' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Identificação' })).toHaveTextContent('campos')
   })
 
   it('deve renderizar a dica quando informada', () => {
@@ -77,15 +79,15 @@ describe('FormGrid', () => {
     const { container } = render(<FormGrid>campos</FormGrid>)
 
     // Assert
-    expect(container.querySelector('.form-grid')).toHaveClass('form-grid--3')
+    expect(container.firstElementChild).toHaveAttribute('data-columns', '3')
   })
 
-  it('deve limitar a 2 colunas quando columns é 2', () => {
+  it('deve respeitar o número de colunas informado', () => {
     // Arrange / Act
-    const { container } = render(<FormGrid columns={2}>campos</FormGrid>)
+    const { container } = render(<FormGrid columns={1}>campos</FormGrid>)
 
     // Assert
-    expect(container.querySelector('.form-grid')).not.toHaveClass('form-grid--3')
+    expect(container.firstElementChild).toHaveAttribute('data-columns', '1')
   })
 })
 
@@ -95,7 +97,7 @@ describe('FormField', () => {
     const { container } = render(<FormField span="full">campo</FormField>)
 
     // Assert
-    expect(container.querySelector('.form-field')).toHaveClass('form-field--full')
+    expect(container.firstElementChild).toHaveAttribute('data-span', 'full')
   })
 
   it('não deve ocupar a linha inteira sem span', () => {
@@ -103,22 +105,34 @@ describe('FormField', () => {
     const { container } = render(<FormField>campo</FormField>)
 
     // Assert
-    expect(container.querySelector('.form-field')).not.toHaveClass('form-field--full')
+    expect(container.firstElementChild).not.toHaveAttribute('data-span')
   })
 })
 
 describe('FormActions', () => {
-  it('deve renderizar as ações num rodapé', () => {
+  it('deve renderizar as ações num rodapé com a legenda de obrigatórios', () => {
     // Arrange / Act
-    const { container } = render(
+    render(
       <FormActions>
         <button type="button">Cancelar</button>
       </FormActions>,
     )
 
     // Assert
-    expect(container.querySelector('footer.form-actions')).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
+    expect(screen.getByRole('contentinfo')).toContainElement(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.getByText('Campos marcados com * são obrigatórios.')).toBeInTheDocument()
+  })
+
+  it('deve omitir a legenda quando note é null', () => {
+    // Arrange / Act
+    render(
+      <FormActions note={null}>
+        <button type="button">Salvar</button>
+      </FormActions>,
+    )
+
+    // Assert
+    expect(screen.queryByText(/obrigatórios/)).toBeNull()
   })
 })
 
@@ -131,11 +145,12 @@ describe('FormAlert', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Falha ao salvar')
   })
 
-  it('deve aplicar a variante de aviso', () => {
+  it('deve anunciar sucesso como status, não como alerta', () => {
     // Arrange / Act
-    render(<FormAlert variant="warning">Atenção</FormAlert>)
+    render(<FormAlert variant="success">Perfil atualizado.</FormAlert>)
 
     // Assert
-    expect(screen.getByRole('alert')).toHaveClass('form-alert--warning')
+    expect(screen.getByRole('status')).toHaveTextContent('Perfil atualizado.')
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })
