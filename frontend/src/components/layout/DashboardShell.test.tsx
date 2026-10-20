@@ -12,7 +12,7 @@ function adminSection() {
 }
 
 describe('DashboardShell', () => {
-  it('deve exibir a seção Administração aberta, sem botão de expandir, para o Sysadmin', () => {
+  it('deve exibir a seção Administração aberta para o Sysadmin', () => {
     // Arrange / Act
     renderWithProviders(<DashboardShell />, { route: '/dashboard', permissions: ['*'] })
 
@@ -20,12 +20,11 @@ describe('DashboardShell', () => {
     const section = adminSection()
     expect(section).not.toBeNull()
     const links = within(section as HTMLElement).getAllByRole('link').map((l) => l.textContent)
-    expect(links).toEqual(['Usuários', 'Permissões', 'Logs'])
+    expect(links).toEqual(['Usuários', 'Perfis de acesso', 'Logs'])
     expect(within(section as HTMLElement).getByRole('link', { name: 'Logs' })).toHaveAttribute(
       'href',
       '/dashboard/audit-log',
     )
-    expect(screen.queryByRole('button', { name: /administração/i })).toBeNull()
   })
 
   it('deve esconder Logs de quem não tem auditlog.read', () => {
@@ -58,5 +57,65 @@ describe('DashboardShell', () => {
     expect(adminSection()).toBeNull()
     expect(screen.queryByText('Administração')).toBeNull()
     expect(screen.getByRole('link', { name: 'Ordens de Serviço' })).toBeInTheDocument()
+  })
+
+  it('deve agrupar a navegação em Análise, Operação, Cadastros e Administração', () => {
+    // Arrange / Act
+    renderWithProviders(<DashboardShell />, { route: '/dashboard', permissions: ['*'] })
+
+    // Assert
+    const nav = screen.getByRole('navigation', { name: 'Navegação principal' })
+    const titles = within(nav).getAllByRole('heading').map((h) => h.textContent)
+    expect(titles).toEqual(['Análise', 'Operação', 'Cadastros', 'Administração'])
+    const operacao = screen.getByRole('list', { name: 'Operação' })
+    expect(within(operacao).getAllByRole('link').map((l) => l.textContent)).toEqual([
+      'Ordens de Serviço',
+      'Planos Preventivos',
+    ])
+  })
+
+  it('deve marcar como atual o item da rota aberta', () => {
+    // Arrange / Act
+    renderWithProviders(<DashboardShell />, { route: '/dashboard/assets', permissions: ['*'] })
+
+    // Assert
+    expect(screen.getByRole('link', { name: 'Ativos' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('deve abrir o menu deslizante e fechá-lo com Esc', async () => {
+    // Arrange
+    const { user } = renderWithProviders(<DashboardShell />, { route: '/dashboard', permissions: ['*'] })
+    const toggle = screen.getByRole('button', { name: 'Abrir menu' })
+
+    // Act
+    await user.click(toggle)
+
+    // Assert
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await user.keyboard('{Escape}')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('deve fechar o menu deslizante ao navegar', async () => {
+    // Arrange
+    const { user } = renderWithProviders(<DashboardShell />, { route: '/dashboard', permissions: ['*'] })
+    const toggle = screen.getByRole('button', { name: 'Abrir menu' })
+    await user.click(toggle)
+
+    // Act
+    await user.click(screen.getByRole('link', { name: 'Ativos' }))
+
+    // Assert
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('deve exibir a trilha de navegação da rota atual', () => {
+    // Arrange / Act
+    renderWithProviders(<DashboardShell />, { route: '/dashboard/work-orders/41', permissions: ['*'] })
+
+    // Assert
+    const trail = screen.getByRole('navigation', { name: 'Trilha de navegação' })
+    expect(within(trail).getByText('OS-0041')).toHaveAttribute('aria-current', 'page')
   })
 })

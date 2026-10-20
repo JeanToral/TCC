@@ -1,21 +1,53 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/*
+ * Fonte única de cor: os tokens semânticos de :root (claro e escuro, abaixo).
+ * O Tailwind só os referencia — trocar o tema troca as utilidades junto.
+ */
+@theme inline {
+  /* Nomes do shadcn (components/ui) */
+  --color-background:             var(--surface-white);
+  --color-foreground:             var(--text-primary);
+  --color-primary:                var(--primary);
+  --color-primary-foreground:     var(--text-inverse);
+  --color-muted:                  var(--surface-subtle);
+  --color-muted-foreground:       var(--text-secondary);
+  --color-border:                 var(--border);
+  --color-input:                  var(--border);
+  --color-ring:                   var(--border-focus);
+  --color-destructive:            var(--error);
+  --color-destructive-foreground: var(--text-inverse);
 
-@theme {
-  /* Colors mapped from project design system */
-  --color-background:          #ffffff;
-  --color-foreground:          #111827;
-  --color-primary:             #d13c26;
-  --color-primary-foreground:  #ffffff;
-  --color-muted:               #f9fafb;
-  --color-muted-foreground:    #9ca3af;
-  --color-border:              #e5e7eb;
-  --color-input:               #e5e7eb;
-  --color-ring:                #d13c26;
-  --color-destructive:         #dc2626;
-  --color-destructive-foreground: #ffffff;
+  /* Folha técnica */
+  --color-canvas:        var(--surface-muted);
+  --color-sheet:         var(--surface-white);
+  --color-subtle:        var(--surface-subtle);
+  --color-sidebar:       var(--surface-dark);
+  --color-sidebar-panel: var(--surface-panel);
+  --color-rule:          var(--rule);
+  --color-rule-strong:   var(--border-strong);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft:  var(--primary-light);
 
-  /* Radius */
+  /* Texto */
+  --color-ink:     var(--text-primary);
+  --color-body:    var(--text-body);
+  --color-quiet:   var(--text-secondary);
+  --color-faint:   var(--text-muted);
+  --color-inverse: var(--text-inverse);
+
+  /* Status */
+  --color-success:      var(--success);
+  --color-success-soft: var(--success-bg);
+  --color-warning:      var(--warning);
+  --color-warning-soft: var(--warning-bg);
+  --color-info:         var(--info);
+  --color-info-soft:    var(--info-bg);
+  --color-error:        var(--error);
+  --color-error-soft:   var(--error-bg);
+
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -46,6 +78,7 @@
     --border:         #e5e7eb;
     --border-strong:  #d1d5db;
     --border-focus:   #d13c26;
+    --rule:           var(--border);
 
     /* Status */
     --error:          #dc2626;
@@ -83,7 +116,7 @@
     --radius-lg:  12px;
 
     color-scheme: light;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
     font-size: 14px;
     line-height: 1.5;
     color: var(--text-primary);
@@ -95,16 +128,6 @@
 
   /* Tema escuro — aplicado em <html data-theme="dark"> (ver lib/appearance.ts) */
   :root[data-theme='dark'] {
-    --color-background:          #161b26;
-    --color-foreground:          #f3f4f6;
-    --color-primary:             #e0533b;
-    --color-muted:               #1f2532;
-    --color-muted-foreground:    #9ca3af;
-    --color-border:              #2a3140;
-    --color-input:               #2a3140;
-    --color-ring:                #e0533b;
-    --color-destructive:         #f87171;
-
     --primary:        #e0533b;
     --primary-hover:  #c8432c;
     --primary-light:  rgba(224, 83, 59, 0.14);
@@ -123,6 +146,8 @@
     --border:         #2a3140;
     --border-strong:  #3a4252;
     --border-focus:   #e0533b;
+    /* As réguas da folha somem com --border no escuro */
+    --rule:           var(--border-strong);
 
     --error:          #f87171;
     --error-bg:       rgba(248, 113, 113, 0.12);
@@ -148,6 +173,19 @@
     --shadow-lg:  0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -4px rgba(0,0,0,0.5);
 
     color-scheme: dark;
+  }
+
+  /* Seções da folha numeradas pela ordem: 01 — , 02 — … */
+  .sheet-counter {
+    counter-reset: sheet-section;
+  }
+
+  .sheet-numbered {
+    counter-increment: sheet-section;
+  }
+
+  .sheet-numbered::before {
+    content: counter(sheet-section, decimal-leading-zero) ' — ';
   }
 
   /* Lista nativa do <select>: o popup não herda o fundo do tema, só a cor do texto */

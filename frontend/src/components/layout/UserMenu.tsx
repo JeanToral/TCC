@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
+import { ChevronDown, CircleUserRound, LogOut } from 'lucide-react'
 
-import { ChevronDownIcon, LogOutIcon, UserCircleIcon } from '../icons'
 import { useAuth } from '../../contexts/AuthContext'
 import { useAppearance } from '../../contexts/AppearanceContext'
 import { GET_ME } from '../../graphql/users/GetMe.gql'
 import type { GetMeData } from '../../graphql/users/types'
 import type { SizePreference, ThemePreference } from '../../lib/appearance'
+import { cn } from '../../lib/utils'
 
 interface Choice<T extends string> {
   readonly value: T
@@ -35,16 +36,16 @@ interface SegmentedProps<T extends string> {
 
 function Segmented<T extends string>({ label, choices, value, onChange }: SegmentedProps<T>) {
   return (
-    <div className="user-menu__field">
-      <span className="user-menu__field-label">{label}</span>
-      <div className="user-menu__segmented" role="radiogroup" aria-label={label}>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs text-quiet">{label}</span>
+      <div className="grid grid-cols-3 gap-0.5 rounded-xs bg-subtle p-0.5" role="radiogroup" aria-label={label}>
         {choices.map((choice) => (
           <button
             key={choice.value}
             type="button"
             role="radio"
             aria-checked={choice.value === value}
-            className={`user-menu__segment${choice.value === value ? ' user-menu__segment--active' : ''}`}
+            className="rounded-xs px-1 py-1 text-xs font-medium text-quiet hover:text-ink aria-checked:bg-sheet aria-checked:text-ink aria-checked:shadow-sm"
             onClick={() => onChange(choice.value)}
           >
             {choice.label}
@@ -95,45 +96,53 @@ export default function UserMenu() {
   const displayName = me?.name ?? email ?? 'Usuário'
   const displayEmail = me?.email ?? email ?? ''
 
+  const itemClass =
+    'flex w-full items-center gap-2.5 rounded-xs px-2.5 py-2 text-left text-sm text-body hover:bg-subtle'
+
   return (
-    <div className="user-menu" ref={containerRef}>
+    <div className="relative ml-1" ref={containerRef}>
       <button
         type="button"
-        className="user-menu__trigger"
+        className="flex h-9 max-w-64 items-center gap-2 rounded-xs px-1.5 text-sm font-medium text-body hover:bg-subtle"
         aria-label="Menu do usuário"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((o) => !o)}
       >
-        <span className="user-menu__avatar">
-          <UserCircleIcon />
-        </span>
-        <span className="user-menu__name">{displayName}</span>
-        <span className={`user-menu__chevron${isOpen ? ' user-menu__chevron--open' : ''}`}>
-          <ChevronDownIcon />
-        </span>
+        <CircleUserRound className="size-6 shrink-0 text-faint" aria-hidden="true" />
+        <span className="truncate max-sm:hidden">{displayName}</span>
+        <ChevronDown
+          className={cn('size-3.5 shrink-0 text-faint transition-transform', isOpen && 'rotate-180')}
+          aria-hidden="true"
+        />
       </button>
 
       {isOpen && (
-        <div className="user-menu__panel" role="dialog" aria-label="Menu do usuário">
-          <div className="user-menu__header">
-            <span className="user-menu__header-label">Conectado como</span>
-            <span className="user-menu__header-name">{displayName}</span>
-            {displayEmail && <span className="user-menu__header-email">{displayEmail}</span>}
+        <div
+          className="absolute top-full right-0 z-50 mt-2 w-72 rounded-xs border border-rule bg-sheet p-1.5 shadow-lg"
+          role="dialog"
+          aria-label="Menu do usuário"
+        >
+          <div className="mb-1.5 flex flex-col gap-0.5 border-b border-rule px-2.5 pt-2 pb-2.5">
+            <span className="text-[0.6875rem] text-faint">Conectado como</span>
+            <span className="truncate text-sm font-semibold text-ink">{displayName}</span>
+            {displayEmail && <span className="truncate text-xs text-quiet">{displayEmail}</span>}
           </div>
 
-          <button type="button" className="user-menu__item" onClick={handleProfile}>
-            <UserCircleIcon />
+          <button type="button" className={itemClass} onClick={handleProfile}>
+            <CircleUserRound className="size-4 shrink-0" aria-hidden="true" />
             Meu perfil
           </button>
 
-          <div className="user-menu__section">
-            <span className="user-menu__section-title">Aparência</span>
+          <div className="my-1.5 flex flex-col gap-2.5 border-y border-rule p-2.5">
+            <span className="font-mono text-[0.6875rem] font-medium uppercase tracking-wider text-faint">
+              Aparência
+            </span>
             <Segmented label="Tema" choices={THEME_CHOICES} value={theme} onChange={setTheme} />
             <Segmented label="Tamanho" choices={SIZE_CHOICES} value={size} onChange={setSize} />
           </div>
 
-          <button type="button" className="user-menu__item user-menu__item--danger" onClick={handleLogout}>
-            <LogOutIcon />
+          <button type="button" className={cn(itemClass, 'text-error')} onClick={handleLogout}>
+            <LogOut className="size-4 shrink-0" aria-hidden="true" />
             Sair
           </button>
         </div>
