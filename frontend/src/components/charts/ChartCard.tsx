@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react'
+import { Children, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { TooltipPayloadEntry } from 'recharts'
 
-import Spinner from '../ui/Spinner'
-import './ChartCard.css'
+import { cn } from '../../lib/utils'
+import Skeleton from '../ui/Skeleton'
 
 // ── Legenda ───────────────────────────────────────────────
 export interface LegendItem {
@@ -12,6 +12,16 @@ export interface LegendItem {
   readonly color: string
   /** A chave espelha a marca: retângulo para barras, traço para linhas. */
   readonly shape: 'bar' | 'line'
+}
+
+function LegendKey({ shape, color }: { readonly shape: LegendItem['shape']; readonly color: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn('inline-block shrink-0', shape === 'bar' ? 'size-2.5 rounded-[1px]' : 'h-0.5 w-3.5')}
+      style={{ background: color }}
+    />
+  )
 }
 
 // ── Tabela acessível (gêmea do gráfico) ───────────────────
@@ -52,45 +62,42 @@ export function ChartCard({
   const firstLoad = loading && isEmpty
 
   return (
-    <section className="chart-card" aria-label={title}>
-      <header className="chart-card__header">
-        <h2 className="chart-card__title">{title}</h2>
-        {subtitle && <p className="chart-card__subtitle">{subtitle}</p>}
+    <section aria-label={title} className="flex min-w-0 flex-col gap-3 px-5 pt-4 pb-4">
+      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="sheet-numbered font-mono text-xs font-medium uppercase tracking-wider text-quiet">{title}</h2>
         {legend && legend.length > 1 && !isEmpty && (
-          <ul className="chart-card__legend" aria-hidden="true">
+          <ul className="ml-auto flex gap-3.5" aria-hidden="true">
             {legend.map((item) => (
-              <li key={item.label} className="chart-card__legend-item">
-                <span
-                  className={`chart-card__key chart-card__key--${item.shape}`}
-                  style={{ background: item.color }}
-                />
+              <li key={item.label} className="inline-flex items-center gap-1.5 text-xs text-quiet">
+                <LegendKey shape={item.shape} color={item.color} />
                 {item.label}
               </li>
             ))}
           </ul>
         )}
+        {subtitle && <p className="order-1 basis-full text-xs text-quiet">{subtitle}</p>}
       </header>
 
+      {/* Altura em rem: acompanha o tamanho de fonte escolhido, eixos incluídos. */}
       <div
-        className={`chart-card__body${loading && !firstLoad ? ' chart-card__body--refreshing' : ''}`}
+        className={cn(
+          'relative h-64 transition-opacity [&_.recharts-surface:focus]:outline-none [&_.recharts-wrapper:focus]:outline-none',
+          loading && !firstLoad && 'opacity-50',
+        )}
         aria-hidden="true"
       >
-        {firstLoad && (
-          <div className="chart-card__state">
-            <Spinner />
-          </div>
-        )}
-        {!firstLoad && error && <div className="chart-card__state chart-card__state--error">{error}</div>}
-        {!firstLoad && !error && isEmpty && <div className="chart-card__state">{emptyMessage}</div>}
+        {firstLoad && <Skeleton className="h-full" />}
+        {!firstLoad && error && <ChartState className="text-error">{error}</ChartState>}
+        {!firstLoad && !error && isEmpty && <ChartState>{emptyMessage}</ChartState>}
         {!firstLoad && !error && !isEmpty && children}
       </div>
 
       {(footnote || reportHref) && (
-        <footer className="chart-card__footer">
-          {footnote && <p className="chart-card__footnote">{footnote}</p>}
+        <footer className="flex items-baseline justify-between gap-4">
+          {footnote && <p className="text-xs text-quiet">{footnote}</p>}
           {reportHref && (
-            <Link to={reportHref} className="chart-card__report-link">
-              Ver relatório →
+            <Link to={reportHref} className="ml-auto whitespace-nowrap text-[0.8125rem] font-medium">
+              Ver relatório
             </Link>
           )}
         </footer>
@@ -121,6 +128,29 @@ export function ChartCard({
   )
 }
 
+function ChartState({ children, className }: { readonly children: ReactNode; readonly className?: string }) {
+  return (
+    <div className={cn('flex h-full items-center justify-center px-4 text-center text-[0.8125rem] text-faint', className)}>
+      {children}
+    </div>
+  )
+}
+
+/** Grade de gráficos de uma folha: duas colunas no desktop, divididas por régua. */
+export function ChartGrid({ children }: { readonly children: ReactNode }) {
+  const single = Children.toArray(children).filter(Boolean).length === 1
+  return (
+    <div
+      className={cn(
+        'grid border-t border-rule [nav+&]:border-t-0 [&>*]:border-b [&>*]:border-rule [&>*:last-child]:border-b-0',
+        !single && 'lg:grid-cols-2 lg:[&>*:nth-child(odd)]:border-r lg:[&>*:nth-last-child(2):nth-child(odd)]:border-b-0',
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
 // ── Tooltip ───────────────────────────────────────────────
 export interface ChartTooltipProps {
   readonly active?: boolean
@@ -144,19 +174,16 @@ export function ChartTooltip({
   const title = label === undefined ? '' : formatLabel ? formatLabel(String(label)) : String(label)
 
   return (
-    <div className="chart-tooltip">
-      {title && <div className="chart-tooltip__title">{title}</div>}
-      <ul className="chart-tooltip__rows">
+    <div className="min-w-32 rounded-xs border border-rule bg-sheet px-2.5 py-2 shadow-md">
+      {title && <div className="mb-1 text-xs text-quiet">{title}</div>}
+      <ul className="flex flex-col gap-1">
         {[...payload].reverse().map((entry) => (
-          <li key={String(entry.dataKey ?? entry.name)} className="chart-tooltip__row">
-            <span
-              className={`chart-card__key chart-card__key--${shape}`}
-              style={{ background: entry.color }}
-            />
-            <strong className="chart-tooltip__value">
+          <li key={String(entry.dataKey ?? entry.name)} className="flex items-center gap-1.5">
+            <LegendKey shape={shape} color={entry.color ?? 'currentColor'} />
+            <strong className="font-mono text-sm tabular-nums text-ink">
               {typeof entry.value === 'number' ? formatValue(entry.value) : '—'}
             </strong>
-            {payload.length > 1 && <span className="chart-tooltip__name">{entry.name}</span>}
+            {payload.length > 1 && <span className="text-xs text-quiet">{entry.name}</span>}
           </li>
         ))}
       </ul>

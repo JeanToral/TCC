@@ -1,29 +1,45 @@
-import { Link } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 
-import Badge from '../../components/ui/Badge'
-import Spinner from '../../components/ui/Spinner'
+import { ChartGrid } from '../../components/charts/ChartCard'
+import DataTable, { type DataTableColumn } from '../../components/ui/DataTable'
+import EmptyState from '../../components/ui/EmptyState'
+import { FormAlert } from '../../components/ui/FormLayout'
+import PriorityMark from '../../components/ui/PriorityMark'
+import { SheetSection } from '../../components/ui/Sheet'
 import { GET_SLA_BREACHES } from '../../graphql/dashboard/GetSlaBreaches.gql'
-import type { DashboardFilterInput, GetSlaBreachesData } from '../../graphql/dashboard/types'
-import type { Priority } from '../../graphql/work-orders/types'
-import { formatHours } from '../../lib/period'
+import type { DashboardFilterInput, GetSlaBreachesData, SlaBreach } from '../../graphql/dashboard/types'
+import { splitHours } from '../../lib/period'
+import { formatWorkOrderCode } from '../../lib/work-order-labels'
 import { SlaTrendChart } from '../dashboard/DashboardCharts'
 
-const PRIORITY_LABELS: Record<Priority, string> = {
-  LOW: 'Baixa',
-  MEDIUM: 'Média',
-  HIGH: 'Alta',
-  CRITICAL: 'Crítica',
-}
-
-const PRIORITY_VARIANT: Record<Priority, 'default' | 'info' | 'warning' | 'error'> = {
-  LOW: 'default',
-  MEDIUM: 'info',
-  HIGH: 'warning',
-  CRITICAL: 'error',
-}
-
 const DATE_TIME = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+
+function hours(value: number): string {
+  const { value: v, unit } = splitHours(value)
+  return `${v} ${unit}`
+}
+
+const COLUMNS: readonly DataTableColumn<SlaBreach>[] = [
+  {
+    key: 'code',
+    header: 'Nº',
+    link: true,
+    className: 'w-24',
+    cell: (b) => <span className="font-mono font-medium">{formatWorkOrderCode(b.workOrderId)}</span>,
+  },
+  { key: 'title', header: 'Título', mobile: 'title', cell: (b) => b.title },
+  { key: 'asset', header: 'Ativo', cell: (b) => <span className="font-mono text-[0.8125rem]">{b.assetTag}</span> },
+  { key: 'priority', header: 'Prioridade', cell: (b) => <PriorityMark priority={b.priority} /> },
+  { key: 'opened', header: 'Aberta em', align: 'right', mobile: 'hidden', cell: (b) => DATE_TIME.format(new Date(b.createdAt)) },
+  { key: 'started', header: 'Iniciada em', align: 'right', mobile: 'hidden', cell: (b) => DATE_TIME.format(new Date(b.startedAt)) },
+  { key: 'limit', header: 'Prazo', align: 'right', mobile: 'hidden', cell: (b) => hours(b.limitHours) },
+  {
+    key: 'delay',
+    header: 'Atraso',
+    align: 'right',
+    cell: (b) => <span className="font-semibold text-error">+{hours(b.delayHours)}</span>,
+  },
+]
 
 interface ReportTabProps {
   readonly filter: DashboardFilterInput
@@ -34,71 +50,32 @@ export default function SlaReport({ filter }: ReportTabProps) {
     variables: { filter },
     fetchPolicy: 'cache-and-network',
   })
-  const breaches = data?.slaBreaches ?? []
 
   return (
     <>
-      <div className="chart-grid">
+      <ChartGrid>
         <SlaTrendChart filter={filter} />
-      </div>
+      </ChartGrid>
 
-      <section className="report-section" aria-label="OS fora do SLA">
-        <h2 className="report-section__title">OS que começaram fora do prazo</h2>
-        <p className="report-section__hint">
-          Concluídas no período. Prazo para início: Crítica 2h, Alta 8h, Média 48h, Baixa 7 dias.
-        </p>
-
-        {loading && !data && (
-          <div className="page-loading">
-            <Spinner />
-          </div>
+      <SheetSection
+        title="OS que começaram fora do prazo"
+        hint="Concluídas no período. Prazo para início: Crítica 2 h, Alta 8 h, Média 48 h, Baixa 7 dias."
+        flush
+      >
+        {error ? (
+          <FormAlert className="mb-5">{error.message}</FormAlert>
+        ) : (
+          <DataTable
+            label="OS fora do SLA"
+            columns={COLUMNS}
+            rows={data?.slaBreaches ?? []}
+            getRowKey={(b) => b.workOrderId}
+            rowHref={(b) => `/dashboard/work-orders/${b.workOrderId}`}
+            loading={loading && !data}
+            empty={<EmptyState message="Nenhuma OS concluída no período começou fora do prazo." />}
+          />
         )}
-        {error && <div className="page-error" role="alert">{error.message}</div>}
-        {data && breaches.length === 0 && (
-          <p className="report-empty">Nenhuma OS concluída no período começou fora do prazo.</p>
-        )}
-
-        {breaches.length > 0 && (
-          <div className="report-table-wrap">
-            <table className="report-table">
-              <thead>
-                <tr>
-                  <th className="report-table__num">Nº</th>
-                  <th>Título</th>
-                  <th>Ativo</th>
-                  <th>Prioridade</th>
-                  <th className="report-table__num">Aberta em</th>
-                  <th className="report-table__num">Iniciada em</th>
-                  <th className="report-table__num">Prazo</th>
-                  <th className="report-table__num">Atraso</th>
-                </tr>
-              </thead>
-              <tbody>
-                {breaches.map((b) => (
-                  <tr key={b.workOrderId}>
-                    <td className="report-table__num">{b.workOrderId}</td>
-                    <td>
-                      <Link to={`/dashboard/work-orders/${b.workOrderId}`}>{b.title}</Link>
-                    </td>
-                    <td>
-                      <strong>{b.assetTag}</strong> {b.assetName}
-                    </td>
-                    <td>
-                      <Badge variant={PRIORITY_VARIANT[b.priority]}>{PRIORITY_LABELS[b.priority]}</Badge>
-                    </td>
-                    <td className="report-table__num">{DATE_TIME.format(new Date(b.createdAt))}</td>
-                    <td className="report-table__num">{DATE_TIME.format(new Date(b.startedAt))}</td>
-                    <td className="report-table__num">{formatHours(b.limitHours)}</td>
-                    <td className="report-table__num report-table__num--strong">
-                      +{formatHours(b.delayHours)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      </SheetSection>
     </>
   )
 }

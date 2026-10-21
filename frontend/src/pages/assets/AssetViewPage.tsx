@@ -20,21 +20,14 @@ import { GET_DASHBOARD_KPIS } from '../../graphql/dashboard/GetDashboardKpis.gql
 import type { GetDashboardKpisData } from '../../graphql/dashboard/types'
 import { GET_ASSET_COSTS } from '../../graphql/finance/GetAssetCosts.gql'
 import type { GetAssetCostsData } from '../../graphql/finance/types'
+import { splitHours } from '../../lib/period'
 import { errorMessage } from '../../lib/utils'
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const DATE = new Intl.DateTimeFormat('pt-BR')
 const DATE_TIME = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-const HOURS = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
-
 function formatDate(iso: string | null): string {
   return iso ? DATE.format(new Date(iso)) : '—'
-}
-
-/** Horas → valor e unidade separados, para o mostrador. */
-function splitHours(hours: number | null): { readonly value: string | null; readonly unit: string } {
-  if (hours === null) return { value: null, unit: 'h' }
-  return hours >= 48 ? { value: HOURS.format(hours / 24), unit: 'd' } : { value: HOURS.format(hours), unit: 'h' }
 }
 
 // ── Indicadores (dashboard.read) ───────────────────────────

@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 
-import { ChartCard, ChartTooltip, type LegendItem } from '../../components/charts/ChartCard'
+import { ChartCard, ChartGrid, ChartTooltip, type LegendItem } from '../../components/charts/ChartCard'
 import { GET_DASHBOARD_MONTHLY_TREND } from '../../graphql/dashboard/GetDashboardMonthlyTrend.gql'
 import { GET_DASHBOARD_STATUS_COUNTS } from '../../graphql/dashboard/GetDashboardStatusCounts.gql'
 import type {
@@ -389,14 +389,14 @@ export default function DashboardCharts({
   const report = (tab: string) => `/dashboard/reports/${tab}${search}`
 
   return (
-    <div className="chart-grid">
+    <ChartGrid>
       <StatusChart filter={filter} reportHref={report('work-orders')} />
       <OpenedCompletedChart filter={filter} reportHref={report('work-orders')} />
       <TypeMixChart filter={filter} reportHref={report('work-orders')} />
       <SlaTrendChart filter={filter} reportHref={report('sla')} />
       <MttrChart kpis={kpis} loading={kpisLoading} limit={10} reportHref={report('reliability')} />
       {canReadCost && <CostTrendChart filter={filter} reportHref={report('costs')} />}
-    </div>
+    </ChartGrid>
   )
 }
 

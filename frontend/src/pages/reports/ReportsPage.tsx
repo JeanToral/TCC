@@ -3,15 +3,17 @@ import { Navigate, NavLink, useParams } from 'react-router-dom'
 
 import ReportFilters from '../../components/reports/ReportFilters'
 import ExportButton from '../../components/ui/ExportButton'
+import { FormAlert } from '../../components/ui/FormLayout'
+import { Sheet, SheetHeader } from '../../components/ui/Sheet'
 import { useAuth } from '../../contexts/AuthContext'
 import type { DashboardFilterInput } from '../../graphql/dashboard/types'
 import { useReportFilters } from '../../hooks/useReportFilters'
+import { cn } from '../../lib/utils'
 import CostsReport from './CostsReport'
 import ReliabilityReport from './ReliabilityReport'
 import SlaReport from './SlaReport'
 import StockReport from './StockReport'
 import WorkOrdersReport from './WorkOrdersReport'
-import './ReportsPage.css'
 
 interface ReportTab {
   readonly id: string
@@ -70,9 +72,10 @@ export default function ReportsPage() {
 
   if (!hasPermission('dashboard.read')) {
     return (
-      <div className="page-error" role="alert">
-        Você não tem permissão para ver os relatórios.
-      </div>
+      <Sheet>
+        <SheetHeader eyebrow="Análise" title="Relatórios" />
+        <FormAlert className="mb-5">Você não tem permissão para ver os relatórios.</FormAlert>
+      </Sheet>
     )
   }
 
@@ -87,36 +90,39 @@ export default function ReportsPage() {
   const { Component } = current
 
   return (
-    <div className="reports-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <h1 className="page-header__title">Relatórios</h1>
-          <span className="page-header__count">{current.label}</span>
-        </div>
-        <div className="page-header__actions">
-          <ExportButton
-            path={current.exportPath}
-            params={exportParams}
-            fallbackName={current.exportName}
-          />
-        </div>
-      </header>
+    <Sheet>
+      <SheetHeader
+        eyebrow="Análise"
+        title="Relatórios"
+        actions={
+          <>
+            <ReportFilters filters={filters} />
+            <ExportButton path={current.exportPath} params={exportParams} fallbackName={current.exportName} />
+          </>
+        }
+      />
 
-      <nav className="report-tabs" aria-label="Relatórios">
+      {/* Abas de pasta: a aba aberta se funde à folha abaixo dela. */}
+      <nav aria-label="Relatórios" className="flex gap-1 overflow-x-auto border-b border-rule bg-subtle px-5 pt-2">
         {tabs.map((t) => (
           <NavLink
             key={t.id}
             to={`/dashboard/reports/${t.id}${filters.search}`}
-            className={({ isActive }) => `report-tabs__tab${isActive ? ' report-tabs__tab--active' : ''}`}
+            className={({ isActive }) =>
+              cn(
+                '-mb-px whitespace-nowrap rounded-t-xs border border-b-0 px-3.5 py-2 text-sm hover:no-underline',
+                isActive
+                  ? 'border-rule bg-sheet font-medium text-ink shadow-[inset_0_2px_0_var(--primary)]'
+                  : 'border-transparent text-quiet hover:text-ink',
+              )
+            }
           >
             {t.label}
           </NavLink>
         ))}
       </nav>
 
-      <ReportFilters filters={filters} />
-
       <Component filter={filter} />
-    </div>
+    </Sheet>
   )
 }

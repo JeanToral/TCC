@@ -143,7 +143,7 @@ describe('ReportsPage', () => {
       'aria-current',
       'page',
     )
-    expect(await screen.findByRole('link', { name: 'Troca de rolamento' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'OS-0041' })).toHaveAttribute(
       'href',
       '/dashboard/work-orders/41',
     )
@@ -207,7 +207,7 @@ describe('ReportsPage', () => {
     })
 
     // Assert
-    expect(await screen.findByText('+3.0h')).toBeInTheDocument()
+    expect(await screen.findByText('+3 h')).toBeInTheDocument()
     expect(captured.get(GET_SLA_BREACHES)?.[0]).toEqual({
       assetId: 3,
       from: new Date(2025, 3, 1).toISOString(),
@@ -283,8 +283,8 @@ describe('ReportsPage', () => {
     // Assert
     const section = await screen.findByRole('region', { name: 'Confiabilidade por ativo' })
     const row = await within(section).findByRole('row', { name: /Injetora 03/ })
-    expect(row).toHaveTextContent('4.5h')
-    expect(row).toHaveTextContent('30.0d')
+    expect(row).toHaveTextContent('4,5 h')
+    expect(row).toHaveTextContent('30 d')
   })
 
   it('deve separar peças abaixo do mínimo do consumo no período', async () => {
@@ -298,7 +298,7 @@ describe('ReportsPage', () => {
 
     // Assert
     const below = await screen.findByRole('region', { name: 'Peças abaixo do mínimo' })
-    expect(within(below).getByRole('row', { name: /ROL-6205/ })).toHaveTextContent('8')
+    expect(await within(below).findByRole('row', { name: /ROL-6205/ })).toHaveTextContent('8')
     expect(within(below).queryByText('FLT-AR01')).not.toBeInTheDocument()
 
     const consumption = screen.getByRole('region', { name: 'Consumo no período' })

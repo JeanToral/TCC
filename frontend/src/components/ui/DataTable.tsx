@@ -29,6 +29,8 @@ interface DataTableProps<T> {
   readonly loading?: boolean
   /** Exibido quando não está carregando e não há linhas. */
   readonly empty?: ReactNode
+  /** Linha de totais, uma célula por coluna. */
+  readonly footer?: readonly ReactNode[]
   /** Desligar em tabelas dentro de uma seção da ficha. Padrão: true. */
   readonly stickyHeader?: boolean
 }
@@ -53,6 +55,7 @@ export default function DataTable<T>({
   rowHref,
   loading = false,
   empty,
+  footer,
   stickyHeader = true,
 }: DataTableProps<T>) {
   const navigate = useNavigate()
@@ -113,9 +116,13 @@ export default function DataTable<T>({
                 {columns.map((col) => (
                   <td
                     key={col.key}
+                    data-label={col.header}
                     className={cn(
                       'px-3 py-2.5 align-middle text-ink max-sm:p-0',
-                      col.align === 'right' && 'text-right tabular-nums',
+                      col.align === 'right' && 'text-right font-mono tabular-nums',
+                      // No celular o cabeçalho some: número sem rótulo não diz nada.
+                      col.align === 'right' &&
+                        "max-sm:text-left max-sm:before:font-sans max-sm:before:text-faint max-sm:before:content-[attr(data-label)_':_']",
                       MOBILE_CELL[col.mobile ?? 'meta'],
                       col.className,
                     )}
@@ -133,6 +140,25 @@ export default function DataTable<T>({
             )
           })}
         </tbody>
+
+        {footer && rows.length > 0 && (
+          <tfoot className="max-sm:block">
+            <tr className="border-t-2 border-ink font-semibold max-sm:flex max-sm:flex-wrap max-sm:gap-x-3 max-sm:px-4 max-sm:py-3">
+              {columns.map((col, i) => (
+                <td
+                  key={col.key}
+                  className={cn(
+                    'px-3 py-2.5 text-ink max-sm:p-0',
+                    col.align === 'right' && 'text-right font-mono tabular-nums',
+                    col.mobile === 'hidden' && 'max-sm:hidden',
+                  )}
+                >
+                  {footer[i]}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
       </table>
       {showSkeleton && <span className="sr-only" role="status">Carregando…</span>}
     </div>

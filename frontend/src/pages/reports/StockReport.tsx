@@ -1,8 +1,43 @@
 import { useQuery } from '@apollo/client/react'
 
-import Spinner from '../../components/ui/Spinner'
+import DataTable, { type DataTableColumn } from '../../components/ui/DataTable'
+import EmptyState from '../../components/ui/EmptyState'
+import { FormAlert } from '../../components/ui/FormLayout'
+import { SheetSection } from '../../components/ui/Sheet'
 import { GET_STOCK_REPORT } from '../../graphql/dashboard/GetStockReport.gql'
-import type { DashboardFilterInput, GetStockReportData } from '../../graphql/dashboard/types'
+import type { DashboardFilterInput, GetStockReportData, StockReportRow } from '../../graphql/dashboard/types'
+
+const code: DataTableColumn<StockReportRow> = {
+  key: 'code',
+  header: 'Código',
+  link: true,
+  className: 'w-32',
+  cell: (r) => <span className="font-mono font-medium">{r.partNumber}</span>,
+}
+const name: DataTableColumn<StockReportRow> = { key: 'name', header: 'Peça', mobile: 'title', cell: (r) => r.name }
+
+const BELOW_COLUMNS: readonly DataTableColumn<StockReportRow>[] = [
+  code,
+  name,
+  { key: 'qty', header: 'Saldo', align: 'right', cell: (r) => r.quantity },
+  { key: 'min', header: 'Mínimo', align: 'right', cell: (r) => r.minimumStock },
+  {
+    key: 'missing',
+    header: 'Faltam',
+    align: 'right',
+    cell: (r) => <span className="font-semibold text-error">{r.minimumStock - r.quantity}</span>,
+  },
+]
+
+const CONSUMED_COLUMNS: readonly DataTableColumn<StockReportRow>[] = [
+  code,
+  name,
+  { key: 'consumed', header: 'Consumido', align: 'right', cell: (r) => <span className="font-semibold">{r.consumed}</span> },
+  { key: 'wos', header: 'OS', align: 'right', cell: (r) => r.workOrders },
+  { key: 'qty', header: 'Saldo atual', align: 'right', mobile: 'hidden', cell: (r) => r.quantity },
+]
+
+const partHref = (r: StockReportRow) => `/dashboard/spare-parts/${r.sparePartId}/edit`
 
 interface ReportTabProps {
   readonly filter: DashboardFilterInput
@@ -16,87 +51,35 @@ export default function StockReport({ filter }: ReportTabProps) {
   const rows = data?.stockReport ?? []
   const below = rows.filter((r) => r.belowMinimum)
   const consumed = rows.filter((r) => r.consumed > 0).sort((a, b) => b.consumed - a.consumed)
+  const firstLoad = loading && !data
 
-  if (loading && !data) {
-    return (
-      <div className="page-loading">
-        <Spinner />
-      </div>
-    )
-  }
-  if (error) return <div className="page-error" role="alert">{error.message}</div>
+  if (error) return <FormAlert className="mb-5">{error.message}</FormAlert>
 
   return (
     <>
-      <section className="report-section" aria-label="Peças abaixo do mínimo">
-        <h2 className="report-section__title">Peças abaixo do mínimo</h2>
-        <p className="report-section__hint">Saldo de agora — não depende do período nem do ativo.</p>
+      <SheetSection title="Peças abaixo do mínimo" hint="Saldo de agora — não depende do período nem do ativo." flush>
+        <DataTable
+          label="Peças abaixo do mínimo"
+          columns={BELOW_COLUMNS}
+          rows={below}
+          getRowKey={(r) => r.sparePartId}
+          rowHref={partHref}
+          loading={firstLoad}
+          empty={<EmptyState message="Nenhuma peça abaixo do estoque mínimo." />}
+        />
+      </SheetSection>
 
-        {below.length === 0 ? (
-          <p className="report-empty">Nenhuma peça abaixo do estoque mínimo.</p>
-        ) : (
-          <div className="report-table-wrap">
-            <table className="report-table">
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Peça</th>
-                  <th className="report-table__num">Saldo</th>
-                  <th className="report-table__num">Mínimo</th>
-                  <th className="report-table__num">Faltam</th>
-                </tr>
-              </thead>
-              <tbody>
-                {below.map((r) => (
-                  <tr key={r.sparePartId}>
-                    <td><code>{r.partNumber}</code></td>
-                    <td>{r.name}</td>
-                    <td className="report-table__num">{r.quantity}</td>
-                    <td className="report-table__num">{r.minimumStock}</td>
-                    <td className="report-table__num report-table__num--strong">
-                      {r.minimumStock - r.quantity}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className="report-section" aria-label="Consumo no período">
-        <h2 className="report-section__title">Consumo no período</h2>
-        <p className="report-section__hint">Peças baixadas em OS concluídas no período e no ativo filtrados.</p>
-
-        {consumed.length === 0 ? (
-          <p className="report-empty">Nenhuma peça consumida no período.</p>
-        ) : (
-          <div className="report-table-wrap">
-            <table className="report-table">
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Peça</th>
-                  <th className="report-table__num">Consumido</th>
-                  <th className="report-table__num">OS</th>
-                  <th className="report-table__num">Saldo atual</th>
-                </tr>
-              </thead>
-              <tbody>
-                {consumed.map((r) => (
-                  <tr key={r.sparePartId}>
-                    <td><code>{r.partNumber}</code></td>
-                    <td>{r.name}</td>
-                    <td className="report-table__num report-table__num--strong">{r.consumed}</td>
-                    <td className="report-table__num">{r.workOrders}</td>
-                    <td className="report-table__num">{r.quantity}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <SheetSection title="Consumo no período" hint="Peças baixadas em OS concluídas no período e no ativo filtrados." flush>
+        <DataTable
+          label="Consumo no período"
+          columns={CONSUMED_COLUMNS}
+          rows={consumed}
+          getRowKey={(r) => r.sparePartId}
+          rowHref={partHref}
+          loading={firstLoad}
+          empty={<EmptyState message="Nenhuma peça consumida no período." />}
+        />
+      </SheetSection>
     </>
   )
 }

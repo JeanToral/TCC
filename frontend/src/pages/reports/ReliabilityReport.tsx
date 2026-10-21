@@ -1,10 +1,27 @@
 import { useQuery } from '@apollo/client/react'
 
-import Spinner from '../../components/ui/Spinner'
+import { ChartGrid } from '../../components/charts/ChartCard'
+import DataTable, { type DataTableColumn } from '../../components/ui/DataTable'
+import EmptyState from '../../components/ui/EmptyState'
+import { FormAlert } from '../../components/ui/FormLayout'
+import { SheetSection } from '../../components/ui/Sheet'
 import { GET_DASHBOARD_KPIS } from '../../graphql/dashboard/GetDashboardKpis.gql'
-import type { DashboardFilterInput, GetDashboardKpisData } from '../../graphql/dashboard/types'
-import { formatHours } from '../../lib/period'
+import type { AssetKpi, DashboardFilterInput, GetDashboardKpisData } from '../../graphql/dashboard/types'
+import { splitHours } from '../../lib/period'
 import { MttrChart } from '../dashboard/DashboardCharts'
+
+function hours(value: number | null): string {
+  const { value: v, unit } = splitHours(value)
+  return v === null ? '—' : `${v} ${unit}`
+}
+
+const COLUMNS: readonly DataTableColumn<AssetKpi>[] = [
+  { key: 'asset', header: 'Ativo', link: true, mobile: 'title', cell: (k) => <span className="font-medium">{k.assetName}</span> },
+  { key: 'mttr', header: 'MTTR', align: 'right', cell: (k) => hours(k.mttr) },
+  { key: 'mtbf', header: 'MTBF', align: 'right', cell: (k) => hours(k.mtbf) },
+  { key: 'completed', header: 'Corretivas concluídas', align: 'right', cell: (k) => k.completedWorkOrders },
+  { key: 'total', header: 'OS totais', align: 'right', mobile: 'hidden', cell: (k) => k.totalWorkOrders },
+]
 
 interface ReportTabProps {
   readonly filter: DashboardFilterInput
@@ -19,54 +36,29 @@ export default function ReliabilityReport({ filter }: ReportTabProps) {
 
   return (
     <>
-      <div className="chart-grid">
+      <ChartGrid>
         <MttrChart kpis={kpis} loading={loading} />
-      </div>
+      </ChartGrid>
 
-      <section className="report-section" aria-label="Confiabilidade por ativo">
-        <h2 className="report-section__title">Confiabilidade por ativo</h2>
-        <p className="report-section__hint">
-          MTTR: média de (conclusão − início) das corretivas concluídas no período. MTBF: média do
-          intervalo entre o fim de uma corretiva e o início da seguinte — exige ao menos duas falhas.
-        </p>
-
-        {loading && !data && (
-          <div className="page-loading">
-            <Spinner />
-          </div>
+      <SheetSection
+        title="Confiabilidade por ativo"
+        hint="MTTR: média de (conclusão − início) das corretivas concluídas no período. MTBF: média do intervalo entre o fim de uma corretiva e o início da seguinte — exige ao menos duas falhas."
+        flush
+      >
+        {error ? (
+          <FormAlert className="mb-5">{error.message}</FormAlert>
+        ) : (
+          <DataTable
+            label="Confiabilidade por ativo"
+            columns={COLUMNS}
+            rows={kpis}
+            getRowKey={(k) => k.assetId}
+            rowHref={(k) => `/dashboard/assets/${k.assetId}`}
+            loading={loading && !data}
+            empty={<EmptyState message="Nenhuma OS corretiva concluída no período." />}
+          />
         )}
-        {error && <div className="page-error" role="alert">{error.message}</div>}
-        {data && kpis.length === 0 && (
-          <p className="report-empty">Nenhuma OS corretiva concluída no período.</p>
-        )}
-
-        {kpis.length > 0 && (
-          <div className="report-table-wrap">
-            <table className="report-table">
-              <thead>
-                <tr>
-                  <th>Ativo</th>
-                  <th className="report-table__num">MTTR</th>
-                  <th className="report-table__num">MTBF</th>
-                  <th className="report-table__num">Corretivas concluídas</th>
-                  <th className="report-table__num">OS totais</th>
-                </tr>
-              </thead>
-              <tbody>
-                {kpis.map((k) => (
-                  <tr key={k.assetId}>
-                    <td><strong>{k.assetName}</strong></td>
-                    <td className="report-table__num">{formatHours(k.mttr)}</td>
-                    <td className="report-table__num">{formatHours(k.mtbf)}</td>
-                    <td className="report-table__num">{k.completedWorkOrders}</td>
-                    <td className="report-table__num">{k.totalWorkOrders}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      </SheetSection>
     </>
   )
 }

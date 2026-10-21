@@ -7,7 +7,6 @@ import { NativeSelect } from '../ui/select'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import type { GetAssetsData } from '../../graphql/assets/types'
 import type { ReportFilters as ReportFiltersState } from '../../hooks/useReportFilters'
-import './ReportFilters.css'
 
 interface ReportFiltersProps {
   readonly filters: ReportFiltersState
@@ -29,11 +28,11 @@ export default function ReportFilters({ filters }: ReportFiltersProps) {
   }
 
   return (
-    <div className="report-filters">
+    <div className="flex flex-wrap items-end gap-3">
       <NativeSelect
         id="filter-asset"
         label="Ativo"
-        className="report-filters__select"
+        className="w-56"
         value={filters.assetId ?? ''}
         onChange={(e) => filters.setAssetId(e.target.value ? Number(e.target.value) : undefined)}
       >
@@ -55,7 +54,7 @@ export default function ReportFilters({ filters }: ReportFiltersProps) {
       {!filters.isDefault && (
         <button
           type="button"
-          className="report-filters__reset"
+          className="h-9 rounded-xs px-2 text-sm text-quiet underline-offset-4 hover:text-ink hover:underline"
           onClick={() => {
             setDraft(undefined)
             filters.reset()

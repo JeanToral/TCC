@@ -5,6 +5,8 @@ import { CalendarIcon } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 
 import { cn } from '@/lib/utils'
+
+import { FIELD_CONTROL, FieldLabel } from './input'
 import { Calendar } from './calendar'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
 
@@ -37,23 +39,16 @@ export function DateRangePicker({
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      {label && (
-        <span className="text-sm font-medium leading-none text-foreground">
-          {label}
-        </span>
-      )}
+      {label && <FieldLabel>{label}</FieldLabel>}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
             disabled={disabled}
             className={cn(
-              'flex h-10 w-full items-center gap-2 rounded-md border border-input px-4 text-sm',
-              'bg-transparent text-left shadow-sm whitespace-nowrap',
-              'hover:bg-muted',
-              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-              'disabled:cursor-not-allowed disabled:opacity-50',
-              !value?.from && 'text-muted-foreground',
+              FIELD_CONTROL,
+              'flex h-9 items-center gap-2 whitespace-nowrap text-left font-mono tabular-nums',
+              !value?.from && 'font-sans text-faint',
             )}
           >
             <CalendarIcon className="h-4 w-4 shrink-0 opacity-60" />

@@ -1,74 +1,67 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  defaultDateRange,
-  formatHours,
-  formatMonth,
-  formatMonthLong,
-  toPeriodFilter,
-} from './period'
+import { formatHours, previousPeriod, splitHours, toPeriodFilter } from './period'
 
-describe('period', () => {
-  describe('defaultDateRange', () => {
-    it('deve começar no dia 1º de 5 meses atrás e terminar agora', () => {
-      // Arrange
-      const now = new Date(2026, 9, 11, 15, 30)
+describe('previousPeriod', () => {
+  it('deve devolver o intervalo de mesma duração imediatamente anterior', () => {
+    // Arrange
+    const range = { from: new Date(2026, 4, 1), to: new Date(2026, 4, 31) }
 
-      // Act
-      const range = defaultDateRange(now)
+    // Act
+    const previous = previousPeriod(range)
 
-      // Assert
-      expect(range.from).toEqual(new Date(2026, 4, 1))
-      expect(range.to).toBe(now)
-    })
-
-    it('deve atravessar a virada de ano', () => {
-      // Act
-      const range = defaultDateRange(new Date(2026, 1, 15))
-
-      // Assert
-      expect(range.from).toEqual(new Date(2025, 8, 1))
-    })
+    // Assert
+    expect(previous).toEqual({ from: new Date(2026, 2, 31), to: new Date(2026, 3, 30) })
   })
 
-  describe('toPeriodFilter', () => {
-    it('deve estender o fim até o último instante do dia escolhido', () => {
-      // Arrange
-      const range = { from: new Date(2026, 4, 1), to: new Date(2026, 4, 31) }
+  it('deve tratar um único dia como período de um dia', () => {
+    // Arrange
+    const day = new Date(2026, 9, 20)
 
-      // Act
-      const filter = toPeriodFilter(range)
+    // Act
+    const previous = previousPeriod({ from: day, to: day })
 
-      // Assert
-      expect(filter.from).toBe(new Date(2026, 4, 1, 0, 0, 0, 0).toISOString())
-      expect(filter.to).toBe(new Date(2026, 4, 31, 23, 59, 59, 999).toISOString())
-    })
-
-    it('deve omitir as pontas não escolhidas', () => {
-      expect(toPeriodFilter(undefined)).toEqual({})
-      expect(toPeriodFilter({ from: new Date(2026, 4, 1), to: undefined })).toEqual({
-        from: new Date(2026, 4, 1).toISOString(),
-      })
-    })
+    // Assert
+    expect(previous).toEqual({ from: new Date(2026, 9, 19), to: new Date(2026, 9, 19) })
   })
 
-  describe('formatMonth', () => {
-    it('deve abreviar o mês em português', () => {
-      expect(formatMonth('2026-05')).toBe('mai/26')
-      expect(formatMonth('2025-12')).toBe('dez/25')
-    })
-
-    it('deve escrever o mês por extenso', () => {
-      expect(formatMonthLong('2026-05')).toBe('maio de 2026')
-    })
+  it('não deve calcular com intervalo incompleto', () => {
+    // Arrange / Act / Assert
+    expect(previousPeriod({ from: new Date(2026, 4, 1), to: undefined })).toBeUndefined()
   })
+})
 
-  describe('formatHours', () => {
-    it('deve escolher a unidade pela magnitude', () => {
-      expect(formatHours(null)).toBe('—')
-      expect(formatHours(0.75)).toBe('45min')
-      expect(formatHours(4.4)).toBe('4.4h')
-      expect(formatHours(48)).toBe('2.0d')
-    })
+describe('toPeriodFilter', () => {
+  it('deve incluir o último dia inteiro', () => {
+    // Arrange / Act
+    const filter = toPeriodFilter({ from: new Date(2026, 4, 1, 15), to: new Date(2026, 4, 31) })
+
+    // Assert
+    expect(new Date(filter.from ?? '').getHours()).toBe(0)
+    expect(new Date(filter.to ?? '').getHours()).toBe(23)
+  })
+})
+
+describe('formatHours', () => {
+  it.each([
+    [null, '—'],
+    [0.5, '30min'],
+    [4.25, '4.3h'],
+    [72, '3.0d'],
+  ])('deve formatar %s como %s', (hours, expected) => {
+    // Arrange / Act / Assert
+    expect(formatHours(hours)).toBe(expected)
+  })
+})
+
+describe('splitHours', () => {
+  it.each([
+    [null, { value: null, unit: 'h' }],
+    [4.25, { value: '4,3', unit: 'h' }],
+    [47, { value: '47', unit: 'h' }],
+    [72, { value: '3', unit: 'd' }],
+  ] as const)('deve separar %s em valor e unidade', (hours, expected) => {
+    // Arrange / Act / Assert
+    expect(splitHours(hours)).toEqual(expected)
   })
 })

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 
 import Button from './Button'
 import { downloadExport, type ExportFormat, type ExportParams } from '../../lib/download'
-import './ExportButton.css'
 
 interface ExportButtonProps {
   /** Caminho do relatório no backend, ex.: `work-orders`. */
@@ -55,7 +54,7 @@ export default function ExportButton({ path, params, fallbackName, disabled }: E
   }
 
   return (
-    <div className="export-button" ref={rootRef}>
+    <div className="relative" ref={rootRef}>
       <Button
         variant="secondary"
         onClick={() => setOpen((o) => !o)}
@@ -68,17 +67,17 @@ export default function ExportButton({ path, params, fallbackName, disabled }: E
       </Button>
 
       {open && (
-        <ul className="export-button__menu" role="menu">
+        <ul className="absolute top-full right-0 z-50 mt-1 w-60 rounded-xs border border-rule bg-sheet p-1 shadow-lg" role="menu">
           {OPTIONS.map((opt) => (
             <li key={opt.format} role="none">
               <button
                 type="button"
                 role="menuitem"
-                className="export-button__item"
+                className="flex w-full flex-col items-start gap-0.5 rounded-xs px-2.5 py-2 text-left hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none"
                 onClick={() => void handleExport(opt.format)}
               >
-                <span className="export-button__label">{opt.label}</span>
-                <span className="export-button__hint">{opt.hint}</span>
+                <span className="text-sm font-medium text-ink">{opt.label}</span>
+                <span className="text-xs text-quiet">{opt.hint}</span>
               </button>
             </li>
           ))}
@@ -86,7 +85,7 @@ export default function ExportButton({ path, params, fallbackName, disabled }: E
       )}
 
       {error && (
-        <p className="export-button__error" role="alert">
+        <p className="absolute top-full right-0 z-40 mt-1 w-64 border-l-[3px] border-error bg-error-soft px-3 py-2 text-xs text-error" role="alert">
           {error}
         </p>
       )}

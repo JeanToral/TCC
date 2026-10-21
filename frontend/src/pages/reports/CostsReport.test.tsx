@@ -78,9 +78,9 @@ describe('CostsReport', () => {
     })
 
     // Assert
-    expect(await screen.findByText('Custo realizado')).toBeInTheDocument()
+    expect((await screen.findAllByText('R$ 715,00')).length).toBeGreaterThan(0)
+    expect(screen.getByText('Custo realizado')).toBeInTheDocument()
     expect(screen.getByText('Custo previsto')).toBeInTheDocument()
-    expect(screen.getAllByText('R$ 715,00').length).toBeGreaterThan(0)
     expect(screen.getAllByText('R$ 130,00').length).toBeGreaterThan(0)
   })
 
@@ -104,7 +104,7 @@ describe('CostsReport', () => {
     // da tabela, por isso a busca é por todos.
     expect((await screen.findAllByText('Corretiva')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Preventiva').length).toBeGreaterThan(0)
-    expect(screen.getByText('84% do realizado')).toBeInTheDocument()
+    expect(await screen.findByText('84% do realizado')).toBeInTheDocument()
     expect(screen.getByText('16% do realizado')).toBeInTheDocument()
   })
 
@@ -120,8 +120,7 @@ describe('CostsReport', () => {
     })
 
     // Assert
-    await screen.findByText('Custo realizado')
-    expect(screen.getByText(/OS com custo incompleto/)).toHaveTextContent(
+    expect(await screen.findByText(/OS com custo incompleto/)).toHaveTextContent(
       /2\s*de\s*4 OS com custo incompleto/,
     )
   })

@@ -1,50 +1,53 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 
+import { ChartGrid } from '../../components/charts/ChartCard'
 import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
-import Spinner from '../../components/ui/Spinner'
+import DataTable, { type DataTableColumn } from '../../components/ui/DataTable'
+import EmptyState from '../../components/ui/EmptyState'
+import { FormAlert } from '../../components/ui/FormLayout'
+import PriorityMark from '../../components/ui/PriorityMark'
+import { SheetSection } from '../../components/ui/Sheet'
 import type { DashboardFilterInput } from '../../graphql/dashboard/types'
 import { GET_WORK_ORDERS } from '../../graphql/work-orders/GetWorkOrders.gql'
-import type {
-  GetWorkOrdersData,
-  Priority,
-  WorkOrderListItem,
-  WorkOrderStatus,
-} from '../../graphql/work-orders/types'
+import type { GetWorkOrdersData, WorkOrderListItem } from '../../graphql/work-orders/types'
+import {
+  WORK_ORDER_STATUS_LABELS,
+  WORK_ORDER_STATUS_VARIANT,
+  WORK_ORDER_TYPE_LABELS,
+  formatWorkOrderCode,
+} from '../../lib/work-order-labels'
 import { OpenedCompletedChart, StatusChart, TypeMixChart } from '../dashboard/DashboardCharts'
 
 const PAGE_SIZE = 50
-
-const STATUS_LABELS: Record<WorkOrderStatus, string> = {
-  REQUESTED: 'Solicitada',
-  APPROVED: 'Aprovada',
-  REJECTED: 'Rejeitada',
-  SCHEDULED: 'Agendada',
-  IN_PROGRESS: 'Em andamento',
-  COMPLETED: 'Concluída',
-  CANCELLED: 'Cancelada',
-}
-
-const STATUS_VARIANT: Record<WorkOrderStatus, 'default' | 'success' | 'warning' | 'error' | 'info'> = {
-  REQUESTED: 'info',
-  APPROVED: 'success',
-  REJECTED: 'error',
-  SCHEDULED: 'warning',
-  IN_PROGRESS: 'warning',
-  COMPLETED: 'success',
-  CANCELLED: 'default',
-}
-
-const PRIORITY_LABELS: Record<Priority, string> = {
-  LOW: 'Baixa',
-  MEDIUM: 'Média',
-  HIGH: 'Alta',
-  CRITICAL: 'Crítica',
-}
-
 const DATE = new Intl.DateTimeFormat('pt-BR')
+
+const COLUMNS: readonly DataTableColumn<WorkOrderListItem>[] = [
+  {
+    key: 'code',
+    header: 'Nº',
+    link: true,
+    className: 'w-24',
+    cell: (wo) => <span className="font-mono font-medium">{formatWorkOrderCode(wo.id)}</span>,
+  },
+  { key: 'title', header: 'Título', mobile: 'title', cell: (wo) => wo.title },
+  { key: 'asset', header: 'Ativo', cell: (wo) => <span className="font-mono text-[0.8125rem]">{wo.asset.tag}</span> },
+  { key: 'type', header: 'Tipo', mobile: 'hidden', cell: (wo) => WORK_ORDER_TYPE_LABELS[wo.type] },
+  { key: 'priority', header: 'Prioridade', cell: (wo) => <PriorityMark priority={wo.priority} /> },
+  {
+    key: 'status',
+    header: 'Situação',
+    cell: (wo) => <Badge variant={WORK_ORDER_STATUS_VARIANT[wo.status]}>{WORK_ORDER_STATUS_LABELS[wo.status]}</Badge>,
+  },
+  {
+    key: 'created',
+    header: 'Aberta em',
+    align: 'right',
+    mobile: 'hidden',
+    cell: (wo) => <span className="font-mono text-quiet">{DATE.format(new Date(wo.createdAt))}</span>,
+  },
+]
 
 interface ReportTabProps {
   readonly filter: DashboardFilterInput
@@ -80,68 +83,34 @@ export default function WorkOrdersReport({ filter }: ReportTabProps) {
 
   return (
     <>
-      <div className="chart-grid">
+      <ChartGrid>
         <StatusChart filter={filter} />
         <OpenedCompletedChart filter={filter} />
         <TypeMixChart filter={filter} />
-      </div>
+      </ChartGrid>
 
-      <section className="report-section" aria-label="Ordens de serviço do período">
-        <h2 className="report-section__title">Ordens de serviço abertas no período</h2>
-
-        {loading && !data && (
-          <div className="page-loading">
-            <Spinner />
-          </div>
+      <SheetSection title="Ordens de serviço abertas no período" flush>
+        {error ? (
+          <FormAlert className="mb-5">{error.message}</FormAlert>
+        ) : (
+          <DataTable
+            label="Ordens de serviço do período"
+            columns={COLUMNS}
+            rows={rows}
+            getRowKey={(wo) => wo.id}
+            rowHref={(wo) => `/dashboard/work-orders/${wo.id}`}
+            loading={loading && !data}
+            empty={<EmptyState message="Nenhuma OS aberta no período." />}
+          />
         )}
-        {error && <div className="page-error" role="alert">{error.message}</div>}
-        {data && rows.length === 0 && <p className="report-empty">Nenhuma OS aberta no período.</p>}
-
-        {rows.length > 0 && (
-          <div className="report-table-wrap">
-            <table className="report-table">
-              <thead>
-                <tr>
-                  <th className="report-table__num">Nº</th>
-                  <th>Título</th>
-                  <th>Ativo</th>
-                  <th>Tipo</th>
-                  <th>Prioridade</th>
-                  <th>Status</th>
-                  <th className="report-table__num">Aberta em</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((wo) => (
-                  <tr key={wo.id}>
-                    <td className="report-table__num">{wo.id}</td>
-                    <td>
-                      <Link to={`/dashboard/work-orders/${wo.id}`}>{wo.title}</Link>
-                    </td>
-                    <td>
-                      <strong>{wo.asset.tag}</strong> {wo.asset.name}
-                    </td>
-                    <td>{wo.type === 'CORRECTIVE' ? 'Corretiva' : 'Preventiva'}</td>
-                    <td>{PRIORITY_LABELS[wo.priority]}</td>
-                    <td>
-                      <Badge variant={STATUS_VARIANT[wo.status]}>{STATUS_LABELS[wo.status]}</Badge>
-                    </td>
-                    <td className="report-table__num">{DATE.format(new Date(wo.createdAt))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
         {connection?.pageInfo.hasNextPage && (
-          <div className="report-load-more">
+          <div className="flex justify-center border-t border-rule px-5 py-3">
             <Button variant="secondary" onClick={handleLoadMore} loading={loadingMore}>
               Carregar mais
             </Button>
           </div>
         )}
-      </section>
+      </SheetSection>
     </>
   )
 }

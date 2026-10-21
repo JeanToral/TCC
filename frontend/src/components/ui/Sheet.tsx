@@ -51,7 +51,7 @@ export function SheetHeader({ title, eyebrow, code, meta, actions, children }: S
           {title}
         </h1>
         {children}
-        {actions && <div className="mt-3 flex flex-wrap items-center gap-2">{actions}</div>}
+        {actions && <div className="mt-3 flex flex-wrap items-end gap-2">{actions}</div>}
       </div>
 
       {meta && meta.length > 0 && (
@@ -72,6 +72,8 @@ export function SheetHeader({ title, eyebrow, code, meta, actions, children }: S
 
 interface SheetSectionProps {
   readonly title: string
+  /** Nota sob o título: como o número é calculado, de onde vem o dado. */
+  readonly hint?: string
   /** Conteúdo à direita da régua, ex.: um botão "Adicionar". */
   readonly aside?: ReactNode
   readonly children: ReactNode
@@ -80,10 +82,10 @@ interface SheetSectionProps {
   readonly className?: string
 }
 
-export function SheetSection({ title, aside, children, flush = false, className }: SheetSectionProps) {
+export function SheetSection({ title, hint, aside, children, flush = false, className }: SheetSectionProps) {
   const id = useId()
   return (
-    <section aria-labelledby={id} className={cn('border-rule not-first:border-t', className)}>
+    <section aria-labelledby={id} className={cn('border-rule not-first:border-t [nav+&]:border-t-0', className)}>
       <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-2">
         <h2
           id={id}
@@ -93,6 +95,7 @@ export function SheetSection({ title, aside, children, flush = false, className 
         </h2>
         {aside}
       </div>
+      {hint && <p className="-mt-1 px-5 pb-3 text-xs text-quiet">{hint}</p>}
       <div className={flush ? undefined : 'px-5 pb-5'}>{children}</div>
     </section>
   )

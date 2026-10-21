@@ -1,12 +1,15 @@
-import { Link } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 
-import Spinner from '../../components/ui/Spinner'
+import { ChartGrid } from '../../components/charts/ChartCard'
+import DataTable, { type DataTableColumn } from '../../components/ui/DataTable'
+import EmptyState from '../../components/ui/EmptyState'
+import { FormAlert } from '../../components/ui/FormLayout'
+import Readout, { ReadoutStrip } from '../../components/ui/Readout'
+import { SheetSection } from '../../components/ui/Sheet'
 import type { DashboardFilterInput } from '../../graphql/dashboard/types'
 import { GET_ASSET_COSTS } from '../../graphql/finance/GetAssetCosts.gql'
 import type { AssetCost, GetAssetCostsData } from '../../graphql/finance/types'
 import { CostTrendChart } from '../dashboard/DashboardCharts'
-import './CostsReport.css'
 
 // ── Helpers ────────────────────────────────────────────────
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -59,24 +62,51 @@ function sumTotals(rows: readonly AssetCost[]): Totals {
   )
 }
 
-// ── SummaryCard ────────────────────────────────────────────
-function SummaryCard({
-  label,
-  value,
-  hint,
-}: {
-  readonly label: string
-  readonly value: string
-  readonly hint?: string
-}) {
-  return (
-    <div className="finance-card">
-      <span className="finance-card__label">{label}</span>
-      <strong className="finance-card__value">{value}</strong>
-      {hint && <span className="finance-card__hint">{hint}</span>}
-    </div>
-  )
-}
+// ── Colunas ────────────────────────────────────────────────
+const COLUMNS: readonly DataTableColumn<AssetCost>[] = [
+  {
+    key: 'asset',
+    header: 'Ativo',
+    link: true,
+    mobile: 'title',
+    cell: (row) => (
+      <span className="flex flex-col">
+        <span className="font-mono font-medium">{row.assetTag}</span>
+        <span className="text-xs text-quiet max-sm:hidden">{row.assetName}</span>
+      </span>
+    ),
+  },
+  { key: 'parts', header: 'Peças', align: 'right', mobile: 'hidden', cell: (r) => money(r.realizedPartsCost) },
+  { key: 'labor', header: 'Mão de obra', align: 'right', mobile: 'hidden', cell: (r) => money(r.realizedLaborCost) },
+  { key: 'external', header: 'Externos', align: 'right', mobile: 'hidden', cell: (r) => money(r.realizedExternalCost) },
+  {
+    key: 'realized',
+    header: 'Realizado',
+    align: 'right',
+    cell: (r) => <span className="font-semibold">{money(r.realizedTotal)}</span>,
+  },
+  { key: 'corrective', header: 'Corretiva', align: 'right', mobile: 'hidden', cell: (r) => money(r.realizedCorrectiveCost) },
+  { key: 'preventive', header: 'Preventiva', align: 'right', mobile: 'hidden', cell: (r) => money(r.realizedPreventiveCost) },
+  { key: 'forecast', header: 'Previsto', align: 'right', cell: (r) => <span className="text-quiet">{money(r.forecastTotal)}</span> },
+  {
+    key: 'wos',
+    header: 'OS',
+    align: 'right',
+    cell: (r) => (
+      <span className="inline-flex items-center gap-1.5">
+        {r.workOrdersWithIncompleteCost > 0 && (
+          <span
+            className="inline-flex size-4 items-center justify-center rounded-xs bg-warning-soft font-sans text-[0.625rem] font-bold text-[var(--warning-text)]"
+            title={`${r.workOrdersWithIncompleteCost} OS com custo incompleto`}
+          >
+            !
+          </span>
+        )}
+        {r.completedWorkOrders}
+      </span>
+    ),
+  },
+]
 
 // ── CostsReport ────────────────────────────────────────────
 interface ReportTabProps {
@@ -93,128 +123,60 @@ export default function CostsReport({ filter }: ReportTabProps) {
 
   return (
     <>
-      <div className="chart-grid">
+      <ChartGrid>
         <CostTrendChart filter={filter} />
-      </div>
+      </ChartGrid>
 
-      {error && (
-        <div className="page-error" role="alert">
-          {error.message}
-        </div>
-      )}
+      {error && <FormAlert className="mb-5">{error.message}</FormAlert>}
 
-      {loading ? (
-        <div className="page-loading">
-          <Spinner size="lg" />
-        </div>
-      ) : (
-        <>
-          {/* ── Cobertura ───────────────────────────── */}
-          {totals.incomplete > 0 && (
-            <p className="finance-coverage" role="status">
-              {money(totals.realized)} — <strong>{totals.incomplete}</strong> de{' '}
-              {totals.completed} OS com custo incompleto. Faltou preço de peça ou
-              taxa horária; o total subestima o gasto real.
-            </p>
-          )}
+      <SheetSection title="Resumo do período" flush>
+        {totals.incomplete > 0 && (
+          <p
+            className="mx-5 mb-3 border-l-[3px] border-warning bg-warning-soft px-3 py-2 text-sm text-[var(--warning-text)]"
+            role="status"
+          >
+            {money(totals.realized)} — <strong>{totals.incomplete}</strong> de {totals.completed} OS com custo
+            incompleto. Faltou preço de peça ou taxa horária; o total subestima o gasto real.
+          </p>
+        )}
+        <ReadoutStrip className="border-t border-rule">
+          <Readout label="Custo realizado" value={loading ? null : money(totals.realized)} />
+          <Readout label="Custo previsto" value={loading ? null : money(totals.forecast)} detail="OS abertas, a preços atuais — estimativa" />
+          <Readout
+            label="Corretiva"
+            value={loading ? null : money(totals.corrective)}
+            detail={`${percent(totals.corrective, totals.realized)} do realizado`}
+          />
+          <Readout
+            label="Preventiva"
+            value={loading ? null : money(totals.preventive)}
+            detail={`${percent(totals.preventive, totals.realized)} do realizado`}
+          />
+        </ReadoutStrip>
+      </SheetSection>
 
-          {/* ── Resumo ──────────────────────────────── */}
-          <div className="finance-cards">
-            <SummaryCard label="Custo realizado" value={money(totals.realized)} />
-            <SummaryCard
-              label="Custo previsto"
-              value={money(totals.forecast)}
-              hint="OS abertas, a preços atuais — estimativa"
-            />
-            <SummaryCard
-              label="Corretiva"
-              value={money(totals.corrective)}
-              hint={`${percent(totals.corrective, totals.realized)} do realizado`}
-            />
-            <SummaryCard
-              label="Preventiva"
-              value={money(totals.preventive)}
-              hint={`${percent(totals.preventive, totals.realized)} do realizado`}
-            />
-          </div>
-
-          {/* ── Tabela ──────────────────────────────── */}
-          {rows.length === 0 ? (
-            <p className="finance-empty">
-              Nenhum custo registrado no período selecionado.
-            </p>
-          ) : (
-            <div className="finance-table-wrap">
-              <table className="finance-table">
-                <thead>
-                  <tr>
-                    <th>Ativo</th>
-                    <th className="finance-table__num">Peças</th>
-                    <th className="finance-table__num">Mão de obra</th>
-                    <th className="finance-table__num">Externos</th>
-                    <th className="finance-table__num">Realizado</th>
-                    <th className="finance-table__num">Corretiva</th>
-                    <th className="finance-table__num">Preventiva</th>
-                    <th className="finance-table__num">Previsto</th>
-                    <th className="finance-table__num">OS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.assetId}>
-                      <td>
-                        <Link to={`/dashboard/assets/${row.assetId}`} className="finance-table__asset">
-                          <strong>{row.assetTag}</strong>
-                          <span>{row.assetName}</span>
-                        </Link>
-                      </td>
-                      <td className="finance-table__num">{money(row.realizedPartsCost)}</td>
-                      <td className="finance-table__num">{money(row.realizedLaborCost)}</td>
-                      <td className="finance-table__num">{money(row.realizedExternalCost)}</td>
-                      <td className="finance-table__num finance-table__num--strong">
-                        {money(row.realizedTotal)}
-                      </td>
-                      <td className="finance-table__num">{money(row.realizedCorrectiveCost)}</td>
-                      <td className="finance-table__num">{money(row.realizedPreventiveCost)}</td>
-                      <td className="finance-table__num finance-table__num--muted">
-                        {money(row.forecastTotal)}
-                      </td>
-                      <td className="finance-table__num">
-                        {row.completedWorkOrders}
-                        {row.workOrdersWithIncompleteCost > 0 && (
-                          <span
-                            className="finance-table__flag"
-                            title={`${row.workOrdersWithIncompleteCost} OS com custo incompleto`}
-                          >
-                            !
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <th>Total</th>
-                    <td className="finance-table__num">{money(totals.parts)}</td>
-                    <td className="finance-table__num">{money(totals.labor)}</td>
-                    <td className="finance-table__num">{money(totals.external)}</td>
-                    <td className="finance-table__num finance-table__num--strong">
-                      {money(totals.realized)}
-                    </td>
-                    <td className="finance-table__num">{money(totals.corrective)}</td>
-                    <td className="finance-table__num">{money(totals.preventive)}</td>
-                    <td className="finance-table__num finance-table__num--muted">
-                      {money(totals.forecast)}
-                    </td>
-                    <td className="finance-table__num">{totals.completed}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </>
-      )}
+      <SheetSection title="Custo por ativo" flush>
+        <DataTable
+          label="Custo por ativo"
+          columns={COLUMNS}
+          rows={rows}
+          getRowKey={(r) => r.assetId}
+          rowHref={(r) => `/dashboard/assets/${r.assetId}`}
+          loading={loading}
+          empty={<EmptyState message="Nenhum custo registrado no período selecionado." />}
+          footer={[
+            'Total',
+            money(totals.parts),
+            money(totals.labor),
+            money(totals.external),
+            money(totals.realized),
+            money(totals.corrective),
+            money(totals.preventive),
+            money(totals.forecast),
+            totals.completed,
+          ]}
+        />
+      </SheetSection>
     </>
   )
 }

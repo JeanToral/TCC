@@ -9,6 +9,8 @@ import { GET_DASHBOARD_KPIS } from '../../graphql/dashboard/GetDashboardKpis.gql
 import { GET_DASHBOARD_MONTHLY_TREND } from '../../graphql/dashboard/GetDashboardMonthlyTrend.gql'
 import { GET_DASHBOARD_SLA_RATE } from '../../graphql/dashboard/GetDashboardSlaRate.gql'
 import { GET_DASHBOARD_STATUS_COUNTS } from '../../graphql/dashboard/GetDashboardStatusCounts.gql'
+import { GET_SLA_BREACHES } from '../../graphql/dashboard/GetSlaBreaches.gql'
+import { GET_STOCK_REPORT } from '../../graphql/dashboard/GetStockReport.gql'
 import type { DashboardFilterInput, MonthlyTrendPoint } from '../../graphql/dashboard/types'
 import { GET_MONTHLY_COSTS } from '../../graphql/finance/GetMonthlyCosts.gql'
 import { defaultDateRange, toPeriodFilter } from '../../lib/period'
@@ -60,6 +62,28 @@ const COSTS = [
   { month: '2026-10', corrective: 0, preventive: 80, total: 80, workOrdersWithIncompleteCost: 0 },
 ].map((c) => ({ __typename: 'MonthlyCostPoint', ...c }))
 
+const STOCK = [
+  { sparePartId: 1, partNumber: 'ROL-6205', name: 'Rolamento', quantity: 2, minimumStock: 10, belowMinimum: true, consumed: 0, workOrders: 0 },
+  { sparePartId: 2, partNumber: 'FLT-AR01', name: 'Filtro de ar', quantity: 20, minimumStock: 6, belowMinimum: false, consumed: 3, workOrders: 1 },
+].map((r) => ({ __typename: 'StockReportRow', ...r }))
+
+const BREACHES = [
+  {
+    workOrderId: 41,
+    title: 'Troca de rolamento',
+    assetId: 1,
+    assetTag: 'TRN-001',
+    assetName: 'Torno CNC #1',
+    priority: 'CRITICAL',
+    type: 'CORRECTIVE',
+    createdAt: '2026-09-10T12:00:00.000Z',
+    startedAt: '2026-09-10T17:00:00.000Z',
+    completedAt: '2026-09-11T12:00:00.000Z',
+    limitHours: 2,
+    delayHours: 3,
+  },
+].map((b) => ({ __typename: 'SlaBreach', ...b }))
+
 function mocks(
   overrides: { trend?: typeof TREND; status?: typeof STATUS; kpis?: typeof KPIS } = {},
   captured?: Captured,
@@ -73,6 +97,8 @@ function mocks(
     mock(GET_DASHBOARD_STATUS_COUNTS, { dashboardStatusCounts: overrides.status ?? STATUS }),
     mock(GET_DASHBOARD_MONTHLY_TREND, { dashboardMonthlyTrend: overrides.trend ?? TREND }),
     mock(GET_MONTHLY_COSTS, { monthlyCosts: COSTS }),
+    mock(GET_STOCK_REPORT, { stockReport: STOCK }),
+    mock(GET_SLA_BREACHES, { slaBreaches: BREACHES }),
   ]
 }
 
@@ -186,7 +212,7 @@ describe('DashboardPage — gráficos', () => {
     expect(captured[0]?.to?.slice(0, 10)).toBe(expected.to?.slice(0, 10))
   })
 
-  it('deve levar os filtros da URL para o relatório pelo "Ver relatório →"', async () => {
+  it('deve levar os filtros da URL para o relatório pelo "Ver relatório"', async () => {
     // Arrange / Act
     renderWithProviders(<DashboardPage />, {
       route: '/dashboard?assetId=3&from=2025-04-01&to=2025-06-30',
@@ -197,12 +223,12 @@ describe('DashboardPage — gráficos', () => {
 
     // Assert
     const sla = await screen.findByRole('region', { name: '% dentro do SLA por mês' })
-    expect(within(sla).getByRole('link', { name: 'Ver relatório →' })).toHaveAttribute(
+    expect(within(sla).getByRole('link', { name: 'Ver relatório' })).toHaveAttribute(
       'href',
       '/dashboard/reports/sla?assetId=3&from=2025-04-01&to=2025-06-30',
     )
     const mttr = screen.getByRole('region', { name: 'Ativos com maior MTTR' })
-    expect(within(mttr).getByRole('link', { name: 'Ver relatório →' })).toHaveAttribute(
+    expect(within(mttr).getByRole('link', { name: 'Ver relatório' })).toHaveAttribute(
       'href',
       '/dashboard/reports/reliability?assetId=3&from=2025-04-01&to=2025-06-30',
     )
@@ -215,5 +241,72 @@ describe('DashboardPage — gráficos', () => {
 
     // Assert
     expect(screen.queryByRole('columnheader', { name: /MTBF/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('DashboardPage — quadro de turno', () => {
+  const { from: currentFrom } = toPeriodFilter(defaultDateRange())
+
+  /** KPIs diferentes para o período atual e o anterior. */
+  function comparisonMocks(): MockLink.MockedResponse[] {
+    const previousKpis = [{ ...KPIS[0], mttr: 8, mtbf: 600 }, { ...KPIS[1], mttr: 8 }]
+    const byPeriod = (data: Record<string, unknown>, current: boolean): MockLink.MockedResponse => ({
+      request: {
+        query: GET_DASHBOARD_KPIS,
+        variables: (vars: { filter?: DashboardFilterInput }) => (vars.filter?.from === currentFrom) === current,
+      },
+      maxUsageCount: Number.POSITIVE_INFINITY,
+      result: { data },
+    })
+    return [
+      byPeriod({ dashboardKpis: KPIS }, true),
+      byPeriod({ dashboardKpis: previousKpis }, false),
+      ...mocks().filter((m) => m.request.query !== GET_DASHBOARD_KPIS),
+    ]
+  }
+
+  it('deve comparar o MTTR com o período anterior e indicar melhora', async () => {
+    // Arrange / Act
+    renderWithProviders(<DashboardPage />, { mocks: comparisonMocks(), permissions: ['dashboard.read'] })
+
+    // Assert — MTTR atual (4,5 + 7) / 2 = 5,75 h; anterior 8 h: caiu 2,25 h
+    const strip = await screen.findByRole('region', { name: 'Indicadores do período' })
+    const delta = await within(strip).findByText('▼ 2,3 h')
+    expect(delta).toHaveClass('text-success')
+  })
+
+  it('deve trocar o card de OEE por uma nota de cálculo pendente', async () => {
+    // Arrange / Act
+    renderWithProviders(<DashboardPage />, { mocks: mocks(), permissions: ['dashboard.read'] })
+
+    // Assert
+    expect(await screen.findByText(/OEE ainda não calculado/)).toBeInTheDocument()
+    expect(screen.queryByText('Em breve')).toBeNull()
+  })
+
+  it('deve listar em Atenção as peças abaixo do mínimo e as OS iniciadas fora do SLA', async () => {
+    // Arrange / Act
+    renderWithProviders(<DashboardPage />, { mocks: mocks(), permissions: ['dashboard.read'] })
+
+    // Assert
+    const stock = await screen.findByRole('region', { name: 'Estoque abaixo do mínimo' })
+    expect(await within(stock).findByRole('link', { name: /ROL-6205/ })).toHaveAttribute(
+      'href',
+      '/dashboard/spare-parts/1/edit',
+    )
+    expect(within(stock).queryByText('FLT-AR01')).toBeNull()
+
+    const sla = screen.getByRole('region', { name: 'Iniciadas fora do SLA no período' })
+    expect(await within(sla).findByRole('link', { name: /OS-0041/ })).toHaveAttribute('href', '/dashboard/work-orders/41')
+    expect(within(sla).getByText('+3 h')).toBeInTheDocument()
+  })
+
+  it('deve orientar quem não tem dashboard.read para a lista de OS', () => {
+    // Arrange / Act
+    renderWithProviders(<DashboardPage />, { mocks: [], permissions: ['workorder.read'] })
+
+    // Assert
+    expect(screen.getByRole('link', { name: 'Ver ordens de serviço' })).toHaveAttribute('href', '/dashboard/work-orders')
+    expect(screen.queryByRole('region', { name: 'Indicadores do período' })).toBeNull()
   })
 })

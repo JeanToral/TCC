@@ -1,135 +1,214 @@
+import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 
+import AttentionPanel from '../../components/dashboard/AttentionPanel'
 import ReportFilters from '../../components/reports/ReportFilters'
-import Spinner from '../../components/ui/Spinner'
+import EmptyState from '../../components/ui/EmptyState'
+import { FormAlert } from '../../components/ui/FormLayout'
+import Readout, { ReadoutStrip } from '../../components/ui/Readout'
+import { Sheet, SheetHeader, SheetSection } from '../../components/ui/Sheet'
 import { useAuth } from '../../contexts/AuthContext'
 import { GET_DASHBOARD_KPIS } from '../../graphql/dashboard/GetDashboardKpis.gql'
 import { GET_DASHBOARD_SLA_RATE } from '../../graphql/dashboard/GetDashboardSlaRate.gql'
-import type { AssetKpi, GetDashboardKpisData, GetDashboardSlaRateData } from '../../graphql/dashboard/types'
+import type {
+  AssetKpi,
+  DashboardFilterInput,
+  GetDashboardKpisData,
+  GetDashboardSlaRateData,
+} from '../../graphql/dashboard/types'
 import { useReportFilters } from '../../hooks/useReportFilters'
-import { formatHours } from '../../lib/period'
+import { previousPeriod, splitHours, toPeriodFilter } from '../../lib/period'
+import { cn } from '../../lib/utils'
 import DashboardCharts from './DashboardCharts'
-import './DashboardPage.css'
 
-interface KpiCardProps {
-  readonly label: string
-  readonly value: string
-  readonly subtitle: string
-  readonly variant?: 'default' | 'highlight'
+interface Summary {
+  readonly avgMttr: number | null
+  readonly avgMtbf: number | null
+  readonly totalCompleted: number
+  readonly assetCount: number
+  readonly slaPercentage: number | null
+  readonly slaWithin: number
+  readonly slaTotal: number
 }
 
-function KpiCard({ label, value, subtitle, variant = 'default' }: KpiCardProps) {
+function average(values: readonly number[]): number | null {
+  return values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : null
+}
+
+function summarize(kpis: readonly AssetKpi[] | undefined, sla: GetDashboardSlaRateData | undefined): Summary {
+  const rows = kpis ?? []
+  const rate = sla?.dashboardSlaRate
+  return {
+    avgMttr: average(rows.flatMap((k) => (k.mttr === null ? [] : [k.mttr]))),
+    avgMtbf: average(rows.flatMap((k) => (k.mtbf === null ? [] : [k.mtbf]))),
+    totalCompleted: rows.reduce((sum, k) => sum + k.completedWorkOrders, 0),
+    assetCount: rows.length,
+    slaPercentage: rate && rate.total > 0 ? rate.percentage : null,
+    slaWithin: rate?.withinSla ?? 0,
+    slaTotal: rate?.total ?? 0,
+  }
+}
+
+/** KPIs e % de SLA de um recorte — o mesmo par de queries serve ao período atual e ao anterior. */
+function useSummary(filter: DashboardFilterInput, skip: boolean) {
+  const kpis = useQuery<GetDashboardKpisData>(GET_DASHBOARD_KPIS, {
+    variables: { filter },
+    fetchPolicy: 'cache-and-network',
+    skip,
+  })
+  const sla = useQuery<GetDashboardSlaRateData>(GET_DASHBOARD_SLA_RATE, {
+    variables: { filter },
+    fetchPolicy: 'cache-and-network',
+    skip,
+  })
+  return {
+    summary: summarize(kpis.data?.dashboardKpis, sla.data),
+    kpis: kpis.data?.dashboardKpis ?? [],
+    loading: kpis.loading,
+    error: kpis.error ?? sla.error,
+  }
+}
+
+const NUMBER = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
+
+interface DeltaProps {
+  readonly current: number | null
+  readonly previous: number | null
+  /** Qual direção é melhora. `neutral` só informa a variação. */
+  readonly better: 'lower' | 'higher' | 'neutral'
+  readonly format: (value: number) => string
+}
+
+/** "▼ 0,8 h vs. período anterior" — verde quando melhora, vermelho quando piora. */
+function Delta({ current, previous, better, format }: DeltaProps) {
+  if (current === null || previous === null) return <span>Sem base no período anterior</span>
+  const diff = current - previous
+  if (Math.abs(diff) < 0.05) return <span>Igual ao período anterior</span>
+
+  const improved = better === 'neutral' ? null : better === 'lower' ? diff < 0 : diff > 0
   return (
-    <div className={`kpi-card kpi-card--${variant}`}>
-      <span className="kpi-card__label">{label}</span>
-      <span className="kpi-card__value">{value}</span>
-      <span className="kpi-card__subtitle">{subtitle}</span>
-    </div>
+    <span>
+      <span
+        className={cn(
+          'font-mono font-medium',
+          improved === true && 'text-success',
+          improved === false && 'text-error',
+        )}
+      >
+        {diff > 0 ? '▲' : '▼'} {format(Math.abs(diff))}
+      </span>{' '}
+      vs. período anterior
+    </span>
   )
 }
 
-function computeSummary(kpis: readonly AssetKpi[]) {
-  const withMttr = kpis.filter((k) => k.mttr !== null)
-  const withMtbf = kpis.filter((k) => k.mtbf !== null)
-
-  const avgMttr =
-    withMttr.length > 0
-      ? withMttr.reduce((sum, k) => sum + (k.mttr ?? 0), 0) / withMttr.length
-      : null
-
-  const avgMtbf =
-    withMtbf.length > 0
-      ? withMtbf.reduce((sum, k) => sum + (k.mtbf ?? 0), 0) / withMtbf.length
-      : null
-
-  const totalCompleted = kpis.reduce((sum, k) => sum + k.completedWorkOrders, 0)
-
-  return { avgMttr, avgMtbf, totalCompleted, assetCount: kpis.length }
+function formatDuration(hours: number): string {
+  const { value, unit } = splitHours(hours)
+  return `${value} ${unit}`
 }
 
 export default function DashboardPage() {
   const { hasPermission } = useAuth()
   const filters = useReportFilters()
-  const { filter } = filters
+  const { filter, dateRange } = filters
 
-  const { data, loading, error } = useQuery<GetDashboardKpisData>(GET_DASHBOARD_KPIS, {
-    variables: { filter },
-    fetchPolicy: 'cache-and-network',
-  })
+  const previousFilter = useMemo<DashboardFilterInput>(
+    () => ({
+      ...(filter.assetId !== undefined ? { assetId: filter.assetId } : {}),
+      ...toPeriodFilter(previousPeriod(dateRange)),
+    }),
+    [filter.assetId, dateRange],
+  )
 
-  const { data: slaData } = useQuery<GetDashboardSlaRateData>(GET_DASHBOARD_SLA_RATE, {
-    variables: { filter },
-    fetchPolicy: 'cache-and-network',
-  })
+  const canRead = hasPermission('dashboard.read')
+  const current = useSummary(filter, !canRead)
+  const previous = useSummary(previousFilter, !canRead)
 
-  const kpis = data?.dashboardKpis ?? []
-  const summary = computeSummary(kpis)
-  const slaRate = slaData?.dashboardSlaRate
+  if (!canRead) {
+    return (
+      <Sheet>
+        <SheetHeader eyebrow="Análise" title="Dashboard" />
+        <EmptyState
+          message="Os indicadores ficam com gestores e engenheiros. Suas ordens de serviço estão na lista de OS."
+          action={<Link to="/dashboard/work-orders">Ver ordens de serviço</Link>}
+        />
+      </Sheet>
+    )
+  }
+
+  const s = current.summary
+  const p = previous.summary
+  const mttr = splitHours(s.avgMttr)
+  const mtbf = splitHours(s.avgMtbf)
 
   return (
-    <div className="dashboard-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <h1 className="page-header__title">Dashboard</h1>
-          <span className="page-header__count">KPIs de Manutenção</span>
-        </div>
-      </header>
+    <Sheet>
+      <SheetHeader eyebrow="Quadro de turno" title="Dashboard" actions={<ReportFilters filters={filters} />} />
 
-      <ReportFilters filters={filters} />
+      {current.error && <FormAlert className="mb-5">Erro ao carregar dados: {current.error.message}</FormAlert>}
 
-      {/* ── Cards de resumo ──────────────────────────── */}
-      {(kpis.length > 0 || slaRate !== undefined) && (
-        <div className="kpi-summary">
-          <KpiCard
+      <SheetSection title="Indicadores do período" flush>
+        <ReadoutStrip className="border-t border-rule">
+          <Readout
             label="MTTR médio"
-            value={formatHours(summary.avgMttr)}
-            subtitle="Tempo médio de reparo"
-            variant="highlight"
+            value={mttr.value}
+            unit={mttr.unit}
+            detail={<Delta current={s.avgMttr} previous={p.avgMttr} better="lower" format={formatDuration} />}
           />
-          <KpiCard
+          <Readout
             label="MTBF médio"
-            value={formatHours(summary.avgMtbf)}
-            subtitle="Tempo médio entre falhas"
-            variant="highlight"
+            value={mtbf.value}
+            unit={mtbf.unit}
+            detail={<Delta current={s.avgMtbf} previous={p.avgMtbf} better="higher" format={formatDuration} />}
           />
-          <KpiCard
-            label="OS corretivas concluídas"
-            value={String(summary.totalCompleted)}
-            subtitle={`em ${summary.assetCount} ${summary.assetCount === 1 ? 'ativo' : 'ativos'}`}
-          />
-          <KpiCard
-            label="% dentro do SLA"
-            value={slaRate !== undefined && slaRate.total > 0 ? `${slaRate.percentage}%` : '—'}
-            subtitle={
-              slaRate !== undefined && slaRate.total > 0
-                ? `${slaRate.withinSla} de ${slaRate.total} OS no prazo`
-                : 'Sem OS concluídas no período'
+          <Readout
+            label="Dentro do SLA"
+            value={s.slaPercentage === null ? null : NUMBER.format(s.slaPercentage)}
+            unit="%"
+            detail={
+              s.slaTotal > 0 ? (
+                <>
+                  {s.slaWithin} de {s.slaTotal} OS no prazo ·{' '}
+                  <Delta
+                    current={s.slaPercentage}
+                    previous={p.slaPercentage}
+                    better="higher"
+                    format={(v) => `${NUMBER.format(v)} p.p.`}
+                  />
+                </>
+              ) : (
+                'Sem OS concluídas no período'
+              )
             }
-            variant="highlight"
           />
-          <KpiCard label="OEE" value="—" subtitle="Em breve" />
-        </div>
-      )}
+          <Readout
+            label="Corretivas concluídas"
+            value={String(s.totalCompleted)}
+            detail={
+              <Delta
+                current={s.totalCompleted}
+                previous={p.totalCompleted}
+                better="neutral"
+                format={(v) => NUMBER.format(v)}
+              />
+            }
+          />
+        </ReadoutStrip>
+        <p className="border-t border-rule px-5 py-2 text-xs text-faint">
+          OEE ainda não calculado: Performance e Qualidade não são registradas no sistema.
+        </p>
+      </SheetSection>
 
-      {loading && !data && !slaData && (
-        <div className="page-loading">
-          <Spinner size="lg" />
-        </div>
-      )}
-
-      {error && (
-        <div className="page-error" role="alert">
-          Erro ao carregar dados: {error.message}
-        </div>
-      )}
+      <AttentionPanel filter={filter} search={filters.search} />
 
       <DashboardCharts
         filter={filter}
-        kpis={kpis}
-        kpisLoading={loading}
+        kpis={current.kpis}
+        kpisLoading={current.loading}
         canReadCost={hasPermission('cost.read')}
         search={filters.search}
       />
-    </div>
+    </Sheet>
   )
 }
