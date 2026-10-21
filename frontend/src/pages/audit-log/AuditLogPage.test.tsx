@@ -75,14 +75,15 @@ describe('AuditLogPage', () => {
     })
 
     // Act
-    const table = await screen.findByRole('table')
+    await screen.findByText('Perfil alterado')
+    const table = screen.getByRole('table')
 
     // Assert
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows).toHaveLength(2)
-    expect(within(rows[0]).getByText('Role alterada')).toBeInTheDocument()
+    expect(within(rows[0]).getByText('Perfil alterado')).toBeInTheDocument()
     expect(within(rows[0]).getByText('Admin')).toBeInTheDocument()
-    expect(within(rows[0]).getByRole('link', { name: 'Role #3' })).toHaveAttribute('href', '/dashboard/roles/3')
+    expect(within(rows[0]).getByRole('link', { name: 'Perfil de acesso #3' })).toHaveAttribute('href', '/dashboard/roles/3')
     expect(within(rows[1]).getByRole('link', { name: 'Ordem de Serviço #41' })).toHaveAttribute(
       'href',
       '/dashboard/work-orders/41',
@@ -112,14 +113,14 @@ describe('AuditLogPage', () => {
       permissions: ['auditlog.read'],
       mocks: [page([ROLE_UPDATE, WO_APPROVE]), page([WO_APPROVE], { targetType: 'WorkOrder' })],
     })
-    await screen.findByText('Role alterada')
+    await screen.findByText('Perfil alterado')
 
     // Act
     await user.selectOptions(screen.getByLabelText('Tipo de registro'), 'WorkOrder')
 
     // Assert
     await screen.findByText('1 registro')
-    expect(screen.queryByText('Role alterada')).toBeNull()
+    expect(screen.queryByText('Perfil alterado')).toBeNull()
     expect(screen.getByText('OS aprovada')).toBeInTheDocument()
   })
 

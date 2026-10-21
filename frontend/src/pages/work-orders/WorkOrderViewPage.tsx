@@ -7,7 +7,7 @@ import Button from '../../components/ui/Button'
 import EmptyState from '../../components/ui/EmptyState'
 import MoreActions from '../../components/ui/MoreActions'
 import PriorityMark from '../../components/ui/PriorityMark'
-import { Sheet, SheetHeader, SheetSection } from '../../components/ui/Sheet'
+import { Sheet, SheetFacts, SheetHeader, SheetSection } from '../../components/ui/Sheet'
 import Skeleton from '../../components/ui/Skeleton'
 import {
   ApproveModal,
@@ -77,20 +77,6 @@ function PermButton({
         {children}
       </Button>
     </span>
-  )
-}
-
-/** Coluna lateral da ficha: pares rótulo/valor. */
-function FactList({ items }: { readonly items: readonly { readonly label: string; readonly value: ReactNode }[] }) {
-  return (
-    <dl className="flex flex-col gap-2.5">
-      {items.map((item) => (
-        <div key={item.label} className="flex flex-col gap-0.5">
-          <dt className="text-[0.6875rem] font-medium uppercase tracking-wider text-faint">{item.label}</dt>
-          <dd className="text-sm text-ink">{item.value}</dd>
-        </div>
-      ))}
-    </dl>
   )
 }
 
@@ -304,7 +290,7 @@ export default function WorkOrderViewPage() {
             </SheetSection>
 
             <SheetSection title="Responsáveis">
-              <FactList
+              <SheetFacts
                 items={[
                   { label: 'Solicitado por', value: wo.requestedBy.name },
                   { label: 'Técnico responsável', value: wo.assignedTo?.name ?? '—' },
@@ -313,7 +299,7 @@ export default function WorkOrderViewPage() {
             </SheetSection>
 
             <SheetSection title="Agenda">
-              <FactList
+              <SheetFacts
                 items={[
                   { label: 'Início previsto', value: <span className="font-mono tabular-nums">{formatDateTime(wo.scheduledStart)}</span> },
                   { label: 'Fim previsto', value: <span className="font-mono tabular-nums">{formatDateTime(wo.scheduledEnd)}</span> },
@@ -324,7 +310,7 @@ export default function WorkOrderViewPage() {
             </SheetSection>
 
             <SheetSection title="Documento">
-              <FactList
+              <SheetFacts
                 items={[
                   { label: 'Emitida em', value: <span className="font-mono tabular-nums">{formatDateTime(wo.createdAt)}</span> },
                   { label: 'Atualizada em', value: <span className="font-mono tabular-nums">{formatDateTime(wo.updatedAt)}</span> },

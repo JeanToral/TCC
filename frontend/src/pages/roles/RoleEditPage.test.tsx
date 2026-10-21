@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import type { MockLink } from '@apollo/client/testing'
 import { describe, expect, it } from 'vitest'
 
@@ -11,7 +11,7 @@ import { renderWithProviders } from '../../test/renderWithProviders'
 // Grupos de permissão renderizados pela tela.
 const PERM_GROUP_LABELS = [
   'Usuários',
-  'Roles',
+  'Perfis de acesso',
   'Ativos',
   'Ordens de Serviço',
   'Peças de Reposição',
@@ -57,10 +57,10 @@ describe('RoleEditPage — modo criação', () => {
     renderWithProviders(<RoleEditPage />, { mocks: [rolesMgmtMock()] })
 
     // Assert
-    expect(screen.getByRole('heading', { name: 'Nova Role' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Nome da role')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Novo perfil de acesso' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Nome do perfil')).toBeInTheDocument()
     expect(screen.getByLabelText('Descrição (opcional)')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Criar role' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cadastrar perfil' })).toBeInTheDocument()
   })
 
   it('deve renderizar os 9 grupos de permissão', () => {
@@ -78,7 +78,7 @@ describe('RoleEditPage — modo criação', () => {
     const { user } = renderWithProviders(<RoleEditPage />, { mocks: [rolesMgmtMock()] })
 
     // Act
-    await user.click(screen.getByRole('button', { name: 'Criar role' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar perfil' }))
 
     // Assert
     expect(await screen.findByText('Nome é obrigatório.')).toBeInTheDocument()
@@ -92,11 +92,7 @@ describe('RoleEditPage — modo criação', () => {
     await user.click(screen.getByLabelText('Dashboard'))
 
     // Assert — o grupo Dashboard tem uma única permissão: dashboard.read
-    const dashboardGroup = screen.getByLabelText('Dashboard').closest('.role-edit-page__perm-group')
-    expect(dashboardGroup).not.toBeNull()
-    expect(
-      within(dashboardGroup as HTMLElement).getByLabelText('Visualizar'),
-    ).toBeChecked()
+    expect(screen.getByLabelText('Visualizar — Dashboard')).toBeChecked()
   })
 
   it('deve oferecer as permissões de custo', async () => {
@@ -107,10 +103,8 @@ describe('RoleEditPage — modo criação', () => {
     await user.click(screen.getByLabelText('Custos'))
 
     // Assert — o grupo Custos tem cost.read (Visualizar) e cost.manage (Gerenciar)
-    const group = screen.getByLabelText('Custos').closest('.role-edit-page__perm-group')
-    expect(group).not.toBeNull()
-    expect(within(group as HTMLElement).getByLabelText('Visualizar')).toBeChecked()
-    expect(within(group as HTMLElement).getByLabelText('Gerenciar')).toBeChecked()
+    expect(screen.getByLabelText('Visualizar — Custos')).toBeChecked()
+    expect(screen.getByLabelText('Gerenciar — Custos')).toBeChecked()
   })
 
   it('deve enviar as permissões marcadas como array na mutation', async () => {
@@ -142,9 +136,9 @@ describe('RoleEditPage — modo criação', () => {
     })
 
     // Act
-    await user.type(screen.getByLabelText('Nome da role'), 'Supervisor')
+    await user.type(screen.getByLabelText('Nome do perfil'), 'Supervisor')
     await user.click(screen.getByLabelText('Dashboard'))
-    await user.click(screen.getByRole('button', { name: 'Criar role' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar perfil' }))
 
     // Assert
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -169,7 +163,7 @@ describe('RoleEditPage — role de sistema', () => {
 
     // Assert
     expect(
-      await screen.findByText('Esta é uma role de sistema e não pode ser editada.'),
+      await screen.findByText('Este é um perfil de sistema e não pode ser editado.'),
     ).toBeInTheDocument()
   })
 
@@ -180,11 +174,11 @@ describe('RoleEditPage — role de sistema', () => {
       path: '/roles/:id',
       mocks: [roleMock({ isSystem: true }), rolesMgmtMock()],
     })
-    await screen.findByText('Esta é uma role de sistema e não pode ser editada.')
+    await screen.findByText('Este é um perfil de sistema e não pode ser editado.')
 
     // Assert
     expect(screen.queryByRole('button', { name: 'Salvar alterações' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument()
   })
 
   it('deve desabilitar os campos em role de sistema', async () => {
@@ -194,10 +188,10 @@ describe('RoleEditPage — role de sistema', () => {
       path: '/roles/:id',
       mocks: [roleMock({ isSystem: true }), rolesMgmtMock()],
     })
-    await screen.findByText('Esta é uma role de sistema e não pode ser editada.')
+    await screen.findByText('Este é um perfil de sistema e não pode ser editado.')
 
     // Assert
-    expect(screen.getByLabelText('Nome da role')).toBeDisabled()
+    expect(screen.getByLabelText('Nome do perfil')).toBeDisabled()
     expect(screen.getByLabelText('Descrição (opcional)')).toBeDisabled()
     expect(screen.getByLabelText('Ativos')).toBeDisabled()
   })
@@ -212,6 +206,6 @@ describe('RoleEditPage — role de sistema', () => {
 
     // Assert
     expect(await screen.findByRole('button', { name: 'Salvar alterações' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Nome da role')).toBeEnabled()
+    expect(screen.getByLabelText('Nome do perfil')).toBeEnabled()
   })
 })

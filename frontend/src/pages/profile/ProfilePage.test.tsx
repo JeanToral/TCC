@@ -47,8 +47,8 @@ describe('ProfilePage', () => {
     // Assert
     expect(await screen.findByLabelText('Nome completo')).toHaveValue('Ana Técnica')
     expect(screen.getByLabelText('E-mail')).toHaveValue('ana@cmms.local')
-    expect(screen.getByLabelText('Papel')).toHaveValue('Technician')
-    expect(screen.getByLabelText('Papel')).toBeDisabled()
+    expect(screen.getByLabelText('Perfil de acesso')).toHaveValue('Technician')
+    expect(screen.getByLabelText('Perfil de acesso')).toBeDisabled()
   })
 
   it('não deve oferecer troca de senha', async () => {

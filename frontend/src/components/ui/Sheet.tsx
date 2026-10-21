@@ -100,3 +100,22 @@ export function SheetSection({ title, hint, aside, children, flush = false, clas
     </section>
   )
 }
+
+export interface SheetFact {
+  readonly label: string
+  readonly value: ReactNode
+}
+
+/** Pares rótulo/valor empilhados, para a coluna lateral da ficha. */
+export function SheetFacts({ items }: { readonly items: readonly SheetFact[] }) {
+  return (
+    <dl className="flex flex-col gap-2.5">
+      {items.map((item) => (
+        <div key={item.label} className="flex flex-col gap-0.5">
+          <dt className="text-[0.6875rem] font-medium uppercase tracking-wider text-faint">{item.label}</dt>
+          <dd className="text-sm text-ink">{item.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}

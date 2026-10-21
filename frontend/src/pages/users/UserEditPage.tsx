@@ -2,6 +2,7 @@ import { type ChangeEvent, type FormEvent, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client/react'
 
+import { usePageCrumb } from '../../components/layout/Breadcrumbs'
 import { useAuth } from '../../contexts/AuthContext'
 import Button from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/checkbox'
@@ -14,9 +15,9 @@ import {
   FormSection,
 } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
 import { NativeSelect } from '../../components/ui/select'
-import Spinner from '../../components/ui/Spinner'
+import { SheetHeader } from '../../components/ui/Sheet'
+import Skeleton from '../../components/ui/Skeleton'
 import { CREATE_USER } from '../../graphql/users/CreateUser.gql'
 import { GET_USER } from '../../graphql/users/GetUser.gql'
 import { GET_ROLES } from '../../graphql/users/GetRoles.gql'
@@ -29,7 +30,6 @@ import type {
   UpdateUserData,
 } from '../../graphql/users/types'
 import { errorMessage } from '../../lib/utils'
-import './UserEditPage.css'
 
 interface FormState {
   name: string
@@ -66,6 +66,7 @@ export default function UserEditPage() {
     GET_USER,
     { variables: { id: Number(id) }, skip: !isEdit },
   )
+  usePageCrumb(userData?.user?.name)
 
   // Fetch available roles
   const { data: rolesData, loading: rolesLoading } = useQuery<GetRolesData>(GET_ROLES)
@@ -135,7 +136,7 @@ export default function UserEditPage() {
     } else if (form.password && form.password.length < 8) {
       next.password = 'A senha deve ter pelo menos 8 caracteres.'
     }
-    if (!form.roleId) next.roleId = 'Selecione uma função.'
+    if (!form.roleId) next.roleId = 'Selecione um perfil de acesso.'
     if (form.hourlyRate.trim()) {
       const rate = Number(form.hourlyRate)
       if (Number.isNaN(rate) || rate < 0) next.hourlyRate = 'Informe um valor válido.'
@@ -179,158 +180,140 @@ export default function UserEditPage() {
 
   if (isEdit && userLoading) {
     return (
-      <div className="page-loading">
-        <Spinner size="lg" />
+      <div className="flex max-w-5xl flex-col gap-3 rounded-xs border border-rule bg-sheet p-5" role="status" aria-label="Carregando">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-24" />
       </div>
     )
   }
 
+  const backTo = isEdit ? `/dashboard/users/${id}` : '/dashboard/users'
+
   return (
-    <div className="user-edit-page">
-      {/* Header */}
-      <header className="page-header">
-        <div className="page-header__info">
-          <button
-            type="button"
-            className="page-back"
-            onClick={() =>
-              navigate(isEdit ? `/dashboard/users/${id}` : '/dashboard/users')
-            }
-          >
-            ← {isEdit ? 'Voltar' : 'Usuários'}
-          </button>
-          <h1 className="page-header__title">
-            {isEdit ? 'Editar Usuário' : 'Novo Usuário'}
-          </h1>
-        </div>
-      </header>
+    <FormLayout
+      onSubmit={handleSubmit}
+      noValidate
+      header={<SheetHeader eyebrow="Usuário" title={isEdit ? 'Editar usuário' : 'Novo usuário'} />}
+    >
+      {submitError && <FormAlert>{submitError}</FormAlert>}
 
-      {/* Form */}
-      <FormLayout onSubmit={handleSubmit} noValidate>
-        {submitError && <FormAlert>{submitError}</FormAlert>}
+      <FormSection title="Informações do usuário">
+        <FormGrid>
+          <FormField>
+            <Input
+              label="Nome completo"
+              required
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              error={errors.name}
+              placeholder="Ex.: João da Silva"
+              autoComplete="name"
+              disabled={submitting}
+            />
+          </FormField>
+          <FormField>
+            <Input
+              label="E-mail"
+              required
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={handleChange}
+              error={errors.email}
+              placeholder="joao@empresa.com"
+              autoComplete="email"
+              disabled={submitting}
+            />
+          </FormField>
+          <FormField>
+            <Input
+              label={isEdit ? 'Nova senha (opcional)' : 'Senha'}
+              required={!isEdit}
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={handleChange}
+              error={errors.password}
+              placeholder={isEdit ? 'Deixe em branco para não alterar' : '••••••••'}
+              autoComplete="new-password"
+              hint="Mínimo de 8 caracteres."
+              disabled={submitting}
+            />
+          </FormField>
+        </FormGrid>
+      </FormSection>
 
-        <FormSection title="Informações do usuário">
-          <FormGrid>
-            <FormField>
-              <Input
-                label="Nome completo"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                error={errors.name}
-                placeholder="Ex.: João da Silva"
-                autoComplete="name"
-                disabled={submitting}
-              />
-            </FormField>
-            <FormField>
-              <Input
-                label="E-mail"
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={handleChange}
-                error={errors.email}
-                placeholder="joao@empresa.com"
-                autoComplete="email"
-                disabled={submitting}
-              />
-            </FormField>
-            <FormField>
-              <Input
-                label={isEdit ? 'Nova senha (opcional)' : 'Senha'}
-                name="password"
-                type="password"
-                value={form.password}
-                onChange={handleChange}
-                error={errors.password}
-                placeholder={isEdit ? 'Deixe em branco para não alterar' : '••••••••'}
-                autoComplete="new-password"
-                hint="Mínimo de 8 caracteres."
-                disabled={submitting}
-              />
-            </FormField>
-          </FormGrid>
-        </FormSection>
-
-        <FormSection title="Função e status">
-          <FormGrid>
-            <FormField>
-              <NativeSelect
-                id="roleId"
-                name="roleId"
-                label="Função"
-                value={form.roleId}
-                onChange={handleChange}
-                disabled={submitting || rolesLoading}
-                error={errors.roleId}
-              >
-                <option value="">
-                  {rolesLoading ? 'Carregando funções…' : 'Selecione uma função'}
+      <FormSection title="Acesso">
+        <FormGrid>
+          <FormField>
+            <NativeSelect
+              id="roleId"
+              name="roleId"
+              label="Perfil de acesso"
+              required
+              value={form.roleId}
+              onChange={handleChange}
+              disabled={submitting || rolesLoading}
+              error={errors.roleId}
+            >
+              <option value="">
+                {rolesLoading ? 'Carregando perfis…' : 'Selecione um perfil de acesso'}
+              </option>
+              {rolesData?.roles.map((role) => (
+                <option key={role.id} value={String(role.id)}>
+                  {role.name}
                 </option>
-                {rolesData?.roles.map((role) => (
-                  <option key={role.id} value={String(role.id)}>
-                    {role.name}
-                  </option>
-                ))}
-              </NativeSelect>
+              ))}
+            </NativeSelect>
+          </FormField>
+
+          {canManageCost && (
+            <FormField>
+              <Input
+                label="Taxa horária (R$)"
+                name="hourlyRate"
+                type="number"
+                min={0}
+                step={0.01}
+                value={form.hourlyRate}
+                onChange={handleChange}
+                error={errors.hourlyRate}
+                placeholder="Ex.: 45,00"
+                hint="Usada no custo de mão de obra das OS atendidas."
+                disabled={submitting}
+              />
             </FormField>
+          )}
 
-            {canManageCost && (
-              <FormField>
-                <Input
-                  label="Taxa horária (R$)"
-                  name="hourlyRate"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={form.hourlyRate}
-                  onChange={handleChange}
-                  error={errors.hourlyRate}
-                  placeholder="Ex.: 45,00"
-                  hint="Usada no custo de mão de obra das OS atendidas."
+          {isEdit && (
+            <FormField span="full">
+              <label htmlFor="isActive" className="flex items-start gap-2.5 py-1.5">
+                <Checkbox
+                  id="isActive"
+                  checked={form.isActive}
+                  onCheckedChange={handleCheckboxChange}
                   disabled={submitting}
+                  className="mt-0.5"
                 />
-              </FormField>
-            )}
+                <span className="flex flex-col">
+                  <span className="text-sm text-ink">Usuário ativo</span>
+                  <span className="text-xs text-quiet">Usuários inativos não conseguem fazer login.</span>
+                </span>
+              </label>
+            </FormField>
+          )}
+        </FormGrid>
+      </FormSection>
 
-            {isEdit && (
-              <FormField span="full">
-                <div className="user-edit-page__toggle-row">
-                  <div className="user-edit-page__toggle-label">
-                    <Label htmlFor="isActive">Usuário ativo</Label>
-                    <span className="user-edit-page__toggle-hint">
-                      Usuários inativos não conseguem fazer login.
-                    </span>
-                  </div>
-                  <Checkbox
-                    id="isActive"
-                    checked={form.isActive}
-                    onCheckedChange={handleCheckboxChange}
-                    disabled={submitting}
-                  />
-                </div>
-              </FormField>
-            )}
-          </FormGrid>
-        </FormSection>
-
-        <FormActions>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() =>
-              navigate(isEdit ? `/dashboard/users/${id}` : '/dashboard/users')
-            }
-            disabled={submitting}
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" loading={submitting}>
-            {isEdit ? 'Salvar alterações' : 'Criar usuário'}
-          </Button>
-        </FormActions>
-      </FormLayout>
-    </div>
+      <FormActions>
+        <Button type="button" variant="link" onClick={() => navigate(backTo)} disabled={submitting}>
+          Cancelar
+        </Button>
+        <Button type="submit" loading={submitting}>
+          {isEdit ? 'Salvar alterações' : 'Cadastrar usuário'}
+        </Button>
+      </FormActions>
+    </FormLayout>
   )
 }

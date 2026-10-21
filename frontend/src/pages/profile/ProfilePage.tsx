@@ -14,7 +14,8 @@ import {
 } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
 import { errorMessage } from '../../lib/utils'
-import Spinner from '../../components/ui/Spinner'
+import { SheetHeader } from '../../components/ui/Sheet'
+import Skeleton from '../../components/ui/Skeleton'
 import { GET_ME } from '../../graphql/users/GetMe.gql'
 import { UPDATE_MY_PROFILE } from '../../graphql/users/UpdateMyProfile.gql'
 import type {
@@ -100,7 +101,11 @@ function ProfileForm({ profile }: { readonly profile: MyProfile }) {
   }
 
   return (
-    <FormLayout onSubmit={(e) => void handleSubmit(e)} noValidate>
+    <FormLayout
+      onSubmit={(e) => void handleSubmit(e)}
+      noValidate
+      header={<SheetHeader eyebrow="Conta" title="Meu perfil" meta={[{ label: 'Perfil de acesso', value: profile.role.name }]} />}
+    >
       {submitError && <FormAlert>{submitError}</FormAlert>}
       {saved && <FormAlert variant="success">Perfil atualizado.</FormAlert>}
 
@@ -109,6 +114,7 @@ function ProfileForm({ profile }: { readonly profile: MyProfile }) {
           <FormField>
             <Input
               label="Nome completo"
+              required
               name="name"
               value={form.name}
               onChange={handleChange}
@@ -120,6 +126,7 @@ function ProfileForm({ profile }: { readonly profile: MyProfile }) {
           <FormField>
             <Input
               label="E-mail"
+              required
               name="email"
               type="email"
               value={form.email}
@@ -148,21 +155,16 @@ function ProfileForm({ profile }: { readonly profile: MyProfile }) {
         </FormGrid>
       </FormSection>
 
-      <FormSection title="Acesso" hint="O papel é definido por um administrador.">
-        <FormGrid columns={2}>
+      <FormSection title="Acesso" hint="O perfil de acesso é definido por um administrador.">
+        <FormGrid columns={1} className="max-w-md">
           <FormField>
-            <Input label="Papel" name="role" value={profile.role.name} readOnly disabled />
+            <Input label="Perfil de acesso" name="role" value={profile.role.name} readOnly disabled />
           </FormField>
         </FormGrid>
       </FormSection>
 
       <FormActions>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => navigate('/dashboard')}
-          disabled={submitting}
-        >
+        <Button type="button" variant="link" onClick={() => navigate('/dashboard')} disabled={submitting}>
           Voltar
         </Button>
         <Button type="submit" loading={submitting} disabled={!dirty}>
@@ -176,21 +178,16 @@ function ProfileForm({ profile }: { readonly profile: MyProfile }) {
 export default function ProfilePage() {
   const { data, loading, error } = useQuery<GetMeData>(GET_ME)
 
-  return (
-    <div className="profile-page">
-      <header className="page-header">
-        <div className="page-header__info">
-          <h1 className="page-header__title">Meu perfil</h1>
-        </div>
-      </header>
+  if (loading) {
+    return (
+      <div className="flex max-w-5xl flex-col gap-3 rounded-xs border border-rule bg-sheet p-5" role="status" aria-label="Carregando">
+        <Skeleton className="h-6 w-40" />
+        <Skeleton className="h-24" />
+      </div>
+    )
+  }
 
-      {loading && (
-        <div className="page-loading">
-          <Spinner size="lg" />
-        </div>
-      )}
-      {error && <FormAlert>Não foi possível carregar o perfil: {error.message}</FormAlert>}
-      {data?.me && <ProfileForm key={data.me.id} profile={data.me} />}
-    </div>
-  )
+  if (error) return <FormAlert className="m-0">Não foi possível carregar o perfil: {error.message}</FormAlert>
+
+  return data?.me ? <ProfileForm key={data.me.id} profile={data.me} /> : null
 }

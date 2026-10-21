@@ -40,12 +40,12 @@ describe('UserEditPage — modo criação', () => {
     renderWithProviders(<UserEditPage />, { mocks: [rolesMock(), usersMock()] })
 
     // Assert
-    expect(screen.getByRole('heading', { name: 'Novo Usuário' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Novo usuário' })).toBeInTheDocument()
     expect(screen.getByLabelText('Nome completo')).toBeInTheDocument()
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument()
     expect(screen.getByLabelText('Senha')).toBeInTheDocument()
-    expect(screen.getByLabelText('Função')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Criar usuário' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Perfil de acesso')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cadastrar usuário' })).toBeInTheDocument()
   })
 
   it('não deve exibir o campo "Usuário ativo" ao criar', () => {
@@ -72,13 +72,13 @@ describe('UserEditPage — modo criação', () => {
     })
 
     // Act
-    await user.click(screen.getByRole('button', { name: 'Criar usuário' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar usuário' }))
 
     // Assert
     expect(await screen.findByText('Nome é obrigatório.')).toBeInTheDocument()
     expect(screen.getByText('E-mail é obrigatório.')).toBeInTheDocument()
     expect(screen.getByText('Senha é obrigatória.')).toBeInTheDocument()
-    expect(screen.getByText('Selecione uma função.')).toBeInTheDocument()
+    expect(screen.getByText('Selecione um perfil de acesso.')).toBeInTheDocument()
   })
 
   it('deve rejeitar e-mail em formato inválido', async () => {
@@ -89,7 +89,7 @@ describe('UserEditPage — modo criação', () => {
 
     // Act
     await user.type(screen.getByLabelText('E-mail'), 'joao-arroba-empresa')
-    await user.click(screen.getByRole('button', { name: 'Criar usuário' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar usuário' }))
 
     // Assert
     expect(await screen.findByText('Informe um e-mail válido.')).toBeInTheDocument()
@@ -103,7 +103,7 @@ describe('UserEditPage — modo criação', () => {
 
     // Act
     await user.type(screen.getByLabelText('Senha'), '1234567')
-    await user.click(screen.getByRole('button', { name: 'Criar usuário' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar usuário' }))
 
     // Assert
     expect(
@@ -146,8 +146,8 @@ describe('UserEditPage — modo criação', () => {
     await user.type(screen.getByLabelText('Nome completo'), 'João da Silva')
     await user.type(screen.getByLabelText('E-mail'), 'joao@empresa.com')
     await user.type(screen.getByLabelText('Senha'), 'senha1234')
-    await user.selectOptions(screen.getByLabelText('Função'), '2')
-    await user.click(screen.getByRole('button', { name: 'Criar usuário' }))
+    await user.selectOptions(screen.getByLabelText('Perfil de acesso'), '2')
+    await user.click(screen.getByRole('button', { name: 'Cadastrar usuário' }))
 
     // Assert
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -221,9 +221,9 @@ describe('UserEditPage — taxa horária (dado salarial)', () => {
     await user.type(screen.getByLabelText('Nome completo'), 'Técnico Novo')
     await user.type(screen.getByLabelText('E-mail'), 'novo@empresa.com')
     await user.type(screen.getByLabelText('Senha'), 'senha1234')
-    await user.selectOptions(screen.getByLabelText('Função'), '2')
+    await user.selectOptions(screen.getByLabelText('Perfil de acesso'), '2')
     await user.type(screen.getByLabelText('Taxa horária (R$)'), '45')
-    await user.click(screen.getByRole('button', { name: 'Criar usuário' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar usuário' }))
 
     // Assert
     await waitFor(() => expect(sent).toHaveLength(1))
@@ -239,7 +239,7 @@ describe('UserEditPage — taxa horária (dado salarial)', () => {
 
     // Act
     await user.type(screen.getByLabelText('Taxa horária (R$)'), '-10')
-    await user.click(screen.getByRole('button', { name: 'Criar usuário' }))
+    await user.click(screen.getByRole('button', { name: 'Cadastrar usuário' }))
 
     // Assert
     expect(await screen.findByText('Informe um valor válido.')).toBeInTheDocument()
@@ -297,8 +297,8 @@ describe('UserEditPage — modo edição e erros do servidor', () => {
     await user.type(screen.getByLabelText('Nome completo'), 'João da Silva')
     await user.type(screen.getByLabelText('E-mail'), 'joao@empresa.com')
     await user.type(screen.getByLabelText('Senha'), 'senha1234')
-    await user.selectOptions(screen.getByLabelText('Função'), '2')
-    await user.click(screen.getByRole('button', { name: 'Criar usuário' }))
+    await user.selectOptions(screen.getByLabelText('Perfil de acesso'), '2')
+    await user.click(screen.getByRole('button', { name: 'Cadastrar usuário' }))
 
     // Assert
     expect(await screen.findByRole('alert')).toHaveTextContent('E-mail já cadastrado')
