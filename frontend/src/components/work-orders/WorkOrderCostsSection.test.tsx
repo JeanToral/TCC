@@ -148,7 +148,7 @@ describe('WorkOrderCostsSection', () => {
       { mocks: [partsMock(), workOrderMock()], permissions: ['cost.read'] },
     )
 
-    // Assert — espera as peças carregarem: Spinner também usa role="status"
+    // Assert — espera as peças carregarem antes de procurar o aviso (role="status")
     await screen.findByText('Rolamento 6205')
     expect(screen.getByRole('status')).toHaveTextContent('Custo incompleto')
   })
