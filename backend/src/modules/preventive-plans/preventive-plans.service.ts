@@ -1,7 +1,8 @@
 // ─────────────────────── Imports ────────────────────────
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Priority, WorkOrderType } from '../../generated/prisma';
 
+import { dayKey } from '../../common/reporting/month-buckets';
 import { WorkOrdersService } from '../work-orders/work-orders.service';
 import { type PreventivePlanRecord, PreventivePlansRepository } from './preventive-plans.repository';
 import type { CreatePreventivePlanInput } from './dto/create-preventive-plan.input';
@@ -27,20 +28,29 @@ export class PreventivePlansService {
     return plan;
   }
 
-  create(input: CreatePreventivePlanInput): Promise<PreventivePlanRecord> {
+  async create(input: CreatePreventivePlanInput): Promise<PreventivePlanRecord> {
     return this.repo.create({
       ...input,
-      nextDueAt: new Date(input.nextDueAt),
+      nextDueAt: this.parseNextDueAt(input.nextDueAt),
     });
   }
 
+  /** Plano atrasado continua editável: a data só é validada quando vem no input. */
   async update(id: number, input: UpdatePreventivePlanInput): Promise<PreventivePlanRecord> {
     await this.findById(id);
     const { nextDueAt, ...rest } = input;
     return this.repo.update(id, {
       ...rest,
-      ...(nextDueAt ? { nextDueAt: new Date(nextDueAt) } : {}),
+      ...(nextDueAt ? { nextDueAt: this.parseNextDueAt(nextDueAt) } : {}),
     });
+  }
+
+  private parseNextDueAt(value: string): Date {
+    const date = new Date(value);
+    if (dayKey(date) < dayKey(new Date())) {
+      throw new BadRequestException('Próxima execução não pode ser antes de hoje');
+    }
+    return date;
   }
 
   async delete(id: number): Promise<PreventivePlanRecord> {

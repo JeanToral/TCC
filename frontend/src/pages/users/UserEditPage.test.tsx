@@ -182,7 +182,7 @@ describe('UserEditPage — taxa horária (dado salarial)', () => {
     })
 
     // Assert
-    expect(screen.getByLabelText('Taxa horária (R$)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Taxa horária')).toBeInTheDocument()
   })
 
   it('deve enviar hourlyRate na mutation quando informado', async () => {
@@ -222,7 +222,7 @@ describe('UserEditPage — taxa horária (dado salarial)', () => {
     await user.type(screen.getByLabelText('E-mail'), 'novo@empresa.com')
     await user.type(screen.getByLabelText('Senha'), 'senha1234')
     await user.selectOptions(screen.getByLabelText('Perfil de acesso'), '2')
-    await user.type(screen.getByLabelText('Taxa horária (R$)'), '45')
+    await user.type(screen.getByLabelText('Taxa horária'), '4500')
     await user.click(screen.getByRole('button', { name: 'Cadastrar usuário' }))
 
     // Assert
@@ -230,7 +230,7 @@ describe('UserEditPage — taxa horária (dado salarial)', () => {
     expect((sent[0].input as { hourlyRate: number }).hourlyRate).toBe(45)
   })
 
-  it('deve rejeitar taxa horária negativa', async () => {
+  it('não deve aceitar sinal negativo na taxa horária', async () => {
     // Arrange
     const { user } = renderWithProviders(<UserEditPage />, {
       mocks: [rolesMock(), usersMock()],
@@ -238,11 +238,10 @@ describe('UserEditPage — taxa horária (dado salarial)', () => {
     })
 
     // Act
-    await user.type(screen.getByLabelText('Taxa horária (R$)'), '-10')
-    await user.click(screen.getByRole('button', { name: 'Cadastrar usuário' }))
+    await user.type(screen.getByLabelText('Taxa horária'), '-10')
 
-    // Assert
-    expect(await screen.findByText('Informe um valor válido.')).toBeInTheDocument()
+    // Assert — o campo só aceita dígitos
+    expect(screen.getByLabelText('Taxa horária')).toHaveValue('0,10')
   })
 })
 

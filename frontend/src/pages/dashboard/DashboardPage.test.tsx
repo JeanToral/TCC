@@ -167,7 +167,7 @@ describe('DashboardPage — gráficos', () => {
     // Assert
     const table = await chartTable('Ativos com maior MTTR')
     const rows = within(table).getAllByRole('row').slice(1)
-    expect(rows.map((r) => r.textContent)).toEqual(['Compressor7.0h', 'Torno CNC #14.5h'])
+    expect(rows.map((r) => r.textContent)).toEqual(['Compressor7,0 h', 'Torno CNC #14,5 h'])
   })
 
   it('deve avisar quando o período não tem OS', async () => {

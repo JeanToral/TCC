@@ -238,6 +238,7 @@ export default function AssetEditPage() {
               value={installDate}
               onSelect={setInstallDate}
               disabled={submitting}
+              toDate={new Date()}
             />
           </FormField>
         </FormGrid>

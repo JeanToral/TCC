@@ -92,9 +92,11 @@
     --warning-text:   #92400e;
     --success-text:   #065f46;
 
-    /* Gráficos — slots 1–2 da paleta categórica validada (azul, laranja) */
-    --chart-1:        #2a78d6;
-    --chart-2:        #eb6834;
+    /* Gráficos — azul-ardósia e âmbar, validados (CVD, contraste) contra a folha
+       e a ΔE ≥ 15 do vermelho primário, que fica reservado a alerta e ação */
+    --chart-1:        #3674a5;
+    --chart-2:        #b88513;
+    --chart-muted:    #c9ced6;
     --chart-grid:     #eef0f3;
     --chart-axis:     #d1d5db;
 
@@ -147,8 +149,9 @@
     --warning-text:   #fcd34d;
     --success-text:   #6ee7b7;
 
-    --chart-1:        #3987e5;
-    --chart-2:        #d95926;
+    --chart-1:        #5492c5;
+    --chart-2:        #ac8b26;
+    --chart-muted:    #343c4b;
     --chart-grid:     #232a37;
     --chart-axis:     #3a4252;
 

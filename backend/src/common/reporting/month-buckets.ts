@@ -19,6 +19,13 @@ const MONTH_FORMAT = new Intl.DateTimeFormat('en-CA', {
   month: '2-digit',
 });
 
+const DAY_FORMAT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: REPORT_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 // ─────────────────────── Types ───────────────────────────
 export interface ReportPeriod {
   readonly from: Date;
@@ -26,6 +33,11 @@ export interface ReportPeriod {
 }
 
 // ─────────────────────── Helpers ─────────────────────────
+/** Dia da data no fuso da planta, no formato `YYYY-MM-DD` — comparável como string. */
+export function dayKey(date: Date): string {
+  return DAY_FORMAT.format(date);
+}
+
 /** Mês da data no fuso da planta, no formato `YYYY-MM`. */
 export function monthKey(date: Date): string {
   const parts = MONTH_FORMAT.formatToParts(date);

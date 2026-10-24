@@ -1,34 +1,47 @@
 import * as React from 'react'
-import { format } from 'date-fns'
+import { format, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-import { FIELD_CONTROL, FieldLabel } from './input'
+import { FIELD_CONTROL, FieldLabel, FieldMessage } from './input'
 import { Calendar } from './calendar'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
 
 interface DateTimePickerProps {
+  id?: string
   label?: string
   value?: Date
   onSelect: (date: Date | undefined) => void
   placeholder?: string
   disabled?: boolean
   required?: boolean
+  /** Primeiro dia selecionável. */
+  fromDate?: Date
+  /** Data e hora dadas ao escolher um dia quando ainda não há valor. Padrão: 00:00. */
+  defaultTime?: (day: Date) => Date
+  error?: string
   className?: string
 }
 
 export function DateTimePicker({
+  id,
   label,
   value,
   onSelect,
   placeholder = 'Selecionar data e hora',
   disabled,
   required,
+  fromDate,
+  defaultTime,
+  error,
   className,
 }: DateTimePickerProps) {
   const [open, setOpen] = React.useState(false)
+  const autoId = React.useId()
+  const triggerId = id ?? autoId
+  const messageId = `${triggerId}-message`
 
   const timeValue = value
     ? `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`
@@ -39,12 +52,12 @@ export function DateTimePicker({
       onSelect(undefined)
       return
     }
-    const combined = new Date(day)
-    if (value) {
-      combined.setHours(value.getHours(), value.getMinutes(), 0, 0)
-    } else {
-      combined.setHours(0, 0, 0, 0)
+    if (!value && defaultTime) {
+      onSelect(defaultTime(day))
+      return
     }
+    const combined = new Date(day)
+    combined.setHours(value?.getHours() ?? 0, value?.getMinutes() ?? 0, 0, 0)
     onSelect(combined)
   }
 
@@ -57,12 +70,19 @@ export function DateTimePicker({
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      {label && <FieldLabel required={required}>{label}</FieldLabel>}
+      {label && (
+        <FieldLabel htmlFor={triggerId} required={required}>
+          {label}
+        </FieldLabel>
+      )}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
+            id={triggerId}
             type="button"
             disabled={disabled}
+            aria-invalid={!!error}
+            aria-describedby={error ? messageId : undefined}
             className={cn(FIELD_CONTROL, 'flex h-9 items-center gap-2 text-left', !value && 'text-faint')}
           >
             <CalendarIcon className="h-4 w-4 shrink-0 opacity-60" />
@@ -77,6 +97,8 @@ export function DateTimePicker({
             selected={value}
             onSelect={handleDaySelect}
             locale={ptBR}
+            defaultMonth={value ?? fromDate}
+            disabled={fromDate ? { before: startOfDay(fromDate) } : undefined}
             autoFocus
           />
           <div className="border-t border-border px-4 py-3 flex items-center gap-3">
@@ -93,6 +115,7 @@ export function DateTimePicker({
           </div>
         </PopoverContent>
       </Popover>
+      <FieldMessage id={messageId} error={error} />
     </div>
   )
 }

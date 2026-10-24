@@ -38,6 +38,9 @@ const SLA_HOURS: Record<Priority, number> = {
   [Priority.LOW]: 168,
 };
 
+/** Folga para quem escolhe "agora" e demora a confirmar o agendamento. */
+const SCHEDULE_PAST_TOLERANCE_MS = 5 * 60 * 1000;
+
 // ─────────────────────── Service ────────────────────────
 @Injectable()
 export class WorkOrdersService {
@@ -125,6 +128,12 @@ export class WorkOrdersService {
   async schedule(id: number, input: ScheduleWorkOrderInput, actorId: number): Promise<WorkOrderRecord> {
     const workOrder = await this.findById(id);
     this.assertValidTransition(workOrder.status, WorkOrderStatus.SCHEDULED);
+    if (input.scheduledStart.getTime() < Date.now() - SCHEDULE_PAST_TOLERANCE_MS) {
+      throw new BadRequestException('Início previsto não pode estar no passado');
+    }
+    if (input.scheduledEnd && input.scheduledEnd < input.scheduledStart) {
+      throw new BadRequestException('Fim previsto não pode ser antes do início');
+    }
     const updated = await this.repo.update(id, {
       status: WorkOrderStatus.SCHEDULED,
       assignedToId: input.assignedToId,

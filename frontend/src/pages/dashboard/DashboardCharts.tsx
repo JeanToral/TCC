@@ -3,9 +3,11 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   LabelList,
   Line,
   LineChart,
+  Rectangle,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -24,12 +26,18 @@ import type {
 import { GET_MONTHLY_COSTS } from '../../graphql/finance/GetMonthlyCosts.gql'
 import type { GetMonthlyCostsData } from '../../graphql/finance/types'
 import type { WorkOrderStatus } from '../../graphql/work-orders/types'
-import { formatHours, formatMonth, formatMonthLong } from '../../lib/period'
+import { formatHours, formatMonth, formatMonthLong, partialMonths, partialMonthsNote } from '../../lib/period'
 
 // ── Aparência compartilhada (cores vêm dos tokens do tema) ──
 const SERIES_1 = 'var(--chart-1)'
 const SERIES_2 = 'var(--chart-2)'
-const TICK = { fill: 'var(--text-muted)', fontSize: '0.75rem' }
+const MUTED = 'var(--chart-muted)'
+/** Números e meses em mono, como no resto do sistema; nomes (status, ativo) em sans. */
+const TICK = { fill: 'var(--text-secondary)', fontSize: '0.6875rem', fontFamily: 'var(--font-mono)' }
+const TICK_NAME = { fill: 'var(--text-secondary)', fontSize: '0.75rem' }
+const VALUE_LABEL = { fill: 'var(--text-secondary)', fontSize: '0.6875rem', fontFamily: 'var(--font-mono)' }
+/** Mês parcial: a barra não é comparável às outras, então fica mais clara. */
+const PARTIAL_OPACITY = 0.45
 const GRID = { stroke: 'var(--chart-grid)' }
 const AXIS_LINE = { stroke: 'var(--chart-axis)' }
 const BAR_CURSOR = { fill: 'var(--surface-subtle)' }
@@ -37,7 +45,11 @@ const LINE_CURSOR = { stroke: 'var(--chart-axis)', strokeWidth: 1 }
 /** O "respiro" de 2px entre barras e segmentos é o próprio fundo do cartão. */
 const BAR_GAP = { stroke: 'var(--surface-white)', strokeWidth: 2 }
 const BAR_SIZE = 24
-const MARGIN = { top: 8, right: 12, bottom: 0, left: 0 }
+const MARGIN = { top: 8, right: 20, bottom: 0, left: 0 }
+/** Altura de cada linha nos gráficos de barras horizontais por ativo. */
+const ROW_HEIGHT_REM = 2
+
+const TERMINAL_STATUSES: readonly WorkOrderStatus[] = ['COMPLETED', 'REJECTED', 'CANCELLED']
 
 const STATUS_LABELS: Record<WorkOrderStatus, string> = {
   REQUESTED: 'Solicitada',
@@ -60,6 +72,29 @@ const INTEGER = new Intl.NumberFormat('pt-BR')
 
 const formatCount = (value: number) => INTEGER.format(value)
 const formatPercent = (value: number) => `${value}%`
+
+/** Marcas redondas para o eixo: 0, 1 mil, 2 mil… em vez de 850, 1,7 mil, 2,6 mil. */
+function niceTicks(max: number, count = 4): number[] {
+  if (max <= 0) return [0]
+  const raw = max / count
+  const magnitude = 10 ** Math.floor(Math.log10(raw))
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((candidate) => candidate >= raw) ?? raw
+  const ticks = [0]
+  while (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + step)
+  return ticks
+}
+
+/** Eixo e rodapé dos gráficos mensais: `out/26*` e a nota do trecho coberto. */
+function monthAxis(filter: DashboardFilterInput) {
+  const partial = partialMonths(filter)
+  return {
+    isPartial: (month: string) => partial.has(month),
+    tick: (month: string) => `${formatMonth(month)}${partial.has(month) ? '*' : ''}`,
+    note: partialMonthsNote(partial),
+  }
+}
+
+const joinNotes = (...notes: readonly (string | undefined)[]) => notes.filter(Boolean).join(' ') || undefined
 
 const OPEN_VS_DONE: readonly LegendItem[] = [
   { label: 'Abertas', color: SERIES_1, shape: 'line' },
@@ -95,12 +130,13 @@ export function StatusChart({ filter, reportHref }: ChartProps) {
   const rows = (data?.dashboardStatusCounts ?? []).map((s) => ({
     label: STATUS_LABELS[s.status],
     count: s.count,
+    terminal: TERMINAL_STATUSES.includes(s.status),
   }))
 
   return (
     <ChartCard
       title="OS por status"
-      subtitle="Situação atual das OS abertas no período"
+      subtitle="Status atual das OS criadas no período — encerradas em cinza"
       loading={loading}
       error={error?.message}
       isEmpty={rows.every((r) => r.count === 0)}
@@ -112,13 +148,22 @@ export function StatusChart({ filter, reportHref }: ChartProps) {
         <BarChart data={rows} layout="vertical" margin={{ ...MARGIN, right: 32 }}>
           <CartesianGrid horizontal={false} {...GRID} />
           <XAxis type="number" allowDecimals={false} tick={TICK} axisLine={false} tickLine={false} />
-          <YAxis type="category" dataKey="label" width={104} tick={TICK} axisLine={AXIS_LINE} tickLine={false} />
+          <YAxis type="category" dataKey="label" width={104} tick={TICK_NAME} axisLine={AXIS_LINE} tickLine={false} />
           <Tooltip
             cursor={BAR_CURSOR}
             content={(props) => <ChartTooltip {...props} formatValue={formatCount} />}
           />
-          <Bar dataKey="count" name="OS" fill={SERIES_1} maxBarSize={BAR_SIZE} radius={[0, 4, 4, 0]}>
-            <LabelList dataKey="count" position="right" fill="var(--text-secondary)" fontSize="0.75rem" />
+          {/* Com `shape` próprio o recharts mantém as barras de valor 0 — e o rótulo "0" delas. */}
+          <Bar dataKey="count" name="OS" fill={SERIES_1} maxBarSize={BAR_SIZE} shape={(props) => <Rectangle {...props} />}>
+            {rows.map((row) => (
+              <Cell key={row.label} fill={row.terminal ? MUTED : SERIES_1} />
+            ))}
+            <LabelList
+              dataKey="count"
+              position="right"
+              {...VALUE_LABEL}
+              formatter={(v: unknown) => (typeof v === 'number' ? formatCount(v) : '')}
+            />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -130,6 +175,7 @@ export function StatusChart({ filter, reportHref }: ChartProps) {
 export function OpenedCompletedChart({ filter, reportHref }: ChartProps) {
   const { data, loading, error } = useMonthlyTrend(filter)
   const trend = data?.dashboardMonthlyTrend ?? []
+  const months = monthAxis(filter)
 
   return (
     <ChartCard
@@ -141,6 +187,7 @@ export function OpenedCompletedChart({ filter, reportHref }: ChartProps) {
       isEmpty={!trend.some((p) => p.opened > 0 || p.completed > 0)}
       emptyMessage="Nenhuma OS aberta ou concluída no período."
       reportHref={reportHref}
+      footnote={months.note}
       table={{
         headers: ['Mês', 'Abertas', 'Concluídas'],
         rows: trend.map((p) => [formatMonthLong(p.month), formatCount(p.opened), formatCount(p.completed)]),
@@ -149,7 +196,7 @@ export function OpenedCompletedChart({ filter, reportHref }: ChartProps) {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={trend} margin={MARGIN}>
           <CartesianGrid vertical={false} {...GRID} />
-          <XAxis dataKey="month" tickFormatter={formatMonth} tick={TICK} axisLine={AXIS_LINE} tickLine={false} />
+          <XAxis dataKey="month" tickFormatter={months.tick} tick={TICK} axisLine={AXIS_LINE} tickLine={false} />
           <YAxis allowDecimals={false} width={36} tick={TICK} axisLine={false} tickLine={false} />
           <Tooltip
             cursor={LINE_CURSOR}
@@ -169,6 +216,7 @@ export function OpenedCompletedChart({ filter, reportHref }: ChartProps) {
 export function TypeMixChart({ filter, reportHref }: ChartProps) {
   const { data, loading, error } = useMonthlyTrend(filter)
   const trend = data?.dashboardMonthlyTrend ?? []
+  const months = monthAxis(filter)
 
   return (
     <ChartCard
@@ -180,6 +228,7 @@ export function TypeMixChart({ filter, reportHref }: ChartProps) {
       isEmpty={!trend.some((p) => p.completed > 0)}
       emptyMessage="Nenhuma OS concluída no período."
       reportHref={reportHref}
+      footnote={months.note}
       table={{
         headers: ['Mês', 'Preventiva', 'Corretiva'],
         rows: trend.map((p) => [
@@ -192,14 +241,18 @@ export function TypeMixChart({ filter, reportHref }: ChartProps) {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={trend} margin={MARGIN}>
           <CartesianGrid vertical={false} {...GRID} />
-          <XAxis dataKey="month" tickFormatter={formatMonth} tick={TICK} axisLine={AXIS_LINE} tickLine={false} />
+          <XAxis dataKey="month" tickFormatter={months.tick} tick={TICK} axisLine={AXIS_LINE} tickLine={false} />
           <YAxis allowDecimals={false} width={36} tick={TICK} axisLine={false} tickLine={false} />
           <Tooltip
             cursor={BAR_CURSOR}
             content={(props) => <ChartTooltip {...props} formatLabel={formatMonthLong} formatValue={formatCount} />}
           />
-          <Bar dataKey="completedPreventive" name="Preventiva" stackId="type" fill={SERIES_1} maxBarSize={BAR_SIZE} {...BAR_GAP} />
-          <Bar dataKey="completedCorrective" name="Corretiva" stackId="type" fill={SERIES_2} maxBarSize={BAR_SIZE} radius={[4, 4, 0, 0]} {...BAR_GAP} />
+          <Bar dataKey="completedPreventive" name="Preventiva" stackId="type" fill={SERIES_1} maxBarSize={BAR_SIZE} {...BAR_GAP}>
+            {monthCells(trend, months.isPartial)}
+          </Bar>
+          <Bar dataKey="completedCorrective" name="Corretiva" stackId="type" fill={SERIES_2} maxBarSize={BAR_SIZE} {...BAR_GAP}>
+            {monthCells(trend, months.isPartial)}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -210,6 +263,13 @@ export function TypeMixChart({ filter, reportHref }: ChartProps) {
 export function SlaTrendChart({ filter, reportHref }: ChartProps) {
   const { data, loading, error } = useMonthlyTrend(filter)
   const trend = data?.dashboardMonthlyTrend ?? []
+  const months = monthAxis(filter)
+  const sample = (month: string) => {
+    const point = trend.find((p) => p.month === month)
+    return point && point.slaTotal > 0
+      ? `${formatCount(point.slaWithin)} de ${formatCount(point.slaTotal)} OS no prazo`
+      : undefined
+  }
 
   return (
     <ChartCard
@@ -220,6 +280,7 @@ export function SlaTrendChart({ filter, reportHref }: ChartProps) {
       isEmpty={!trend.some((p) => p.slaPercentage !== null)}
       emptyMessage="Nenhuma OS concluída com início registrado no período."
       reportHref={reportHref}
+      footnote={joinNotes('Meses sem OS avaliada ficam em branco.', months.note)}
       table={{
         headers: ['Mês', '% no prazo', 'OS no prazo', 'OS avaliadas'],
         rows: trend.map((p) => [
@@ -233,7 +294,7 @@ export function SlaTrendChart({ filter, reportHref }: ChartProps) {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={trend} margin={MARGIN}>
           <CartesianGrid vertical={false} {...GRID} />
-          <XAxis dataKey="month" tickFormatter={formatMonth} tick={TICK} axisLine={AXIS_LINE} tickLine={false} />
+          <XAxis dataKey="month" tickFormatter={months.tick} tick={TICK} axisLine={AXIS_LINE} tickLine={false} />
           <YAxis
             domain={[0, 100]}
             ticks={[0, 25, 50, 75, 100]}
@@ -246,7 +307,13 @@ export function SlaTrendChart({ filter, reportHref }: ChartProps) {
           <Tooltip
             cursor={LINE_CURSOR}
             content={(props) => (
-              <ChartTooltip {...props} shape="line" formatLabel={formatMonthLong} formatValue={formatPercent} />
+              <ChartTooltip
+                {...props}
+                shape="line"
+                formatLabel={formatMonthLong}
+                formatValue={formatPercent}
+                detail={sample}
+              />
             )}
           />
           <SeriesLine dataKey="slaPercentage" name="% no prazo" color={SERIES_1} />
@@ -280,6 +347,7 @@ export function MttrChart({ kpis, loading, limit, reportHref }: MttrChartProps) 
       isEmpty={ranked.length === 0}
       emptyMessage="Nenhuma OS corretiva concluída no período."
       reportHref={reportHref}
+      plotHeight={`${Math.max(10, ranked.length * ROW_HEIGHT_REM + 3)}rem`}
       table={{ headers: ['Ativo', 'MTTR'], rows: ranked.map((k) => [k.label, formatHours(k.mttr)]) }}
     >
       <ResponsiveContainer width="100%" height="100%">
@@ -292,17 +360,16 @@ export function MttrChart({ kpis, loading, limit, reportHref }: MttrChartProps) 
             axisLine={false}
             tickLine={false}
           />
-          <YAxis type="category" dataKey="label" width={136} tick={TICK} axisLine={AXIS_LINE} tickLine={false} />
+          <YAxis type="category" dataKey="label" width={136} tick={TICK_NAME} axisLine={AXIS_LINE} tickLine={false} />
           <Tooltip
             cursor={BAR_CURSOR}
             content={(props) => <ChartTooltip {...props} formatValue={formatHours} />}
           />
-          <Bar dataKey="mttr" name="MTTR" fill={SERIES_1} maxBarSize={BAR_SIZE} radius={[0, 4, 4, 0]}>
+          <Bar dataKey="mttr" name="MTTR" fill={SERIES_1} maxBarSize={BAR_SIZE}>
             <LabelList
               dataKey="mttr"
               position="right"
-              fill="var(--text-secondary)"
-              fontSize="0.75rem"
+              {...VALUE_LABEL}
               formatter={(v: unknown) => (typeof v === 'number' ? formatHours(v) : '')}
             />
           </Bar>
@@ -320,6 +387,8 @@ export function CostTrendChart({ filter, reportHref }: ChartProps) {
   })
   const costs = data?.monthlyCosts ?? []
   const incomplete = costs.reduce((sum, p) => sum + p.workOrdersWithIncompleteCost, 0)
+  const months = monthAxis(filter)
+  const costTicks = niceTicks(Math.max(0, ...costs.map((p) => p.total)))
 
   return (
     <ChartCard
@@ -331,9 +400,10 @@ export function CostTrendChart({ filter, reportHref }: ChartProps) {
       isEmpty={!costs.some((p) => p.total > 0)}
       emptyMessage="Nenhum custo realizado no período."
       reportHref={reportHref}
-      footnote={
-        incomplete > 0 ? `${incomplete} OS sem preço de peça ou taxa horária — contadas como zero.` : undefined
-      }
+      footnote={joinNotes(
+        incomplete > 0 ? `${incomplete} OS sem preço de peça ou taxa horária — contadas como zero.` : undefined,
+        months.note,
+      )}
       table={{
         headers: ['Mês', 'Preventiva', 'Corretiva', 'Total'],
         rows: costs.map((p) => [
@@ -347,8 +417,10 @@ export function CostTrendChart({ filter, reportHref }: ChartProps) {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={costs} margin={MARGIN}>
           <CartesianGrid vertical={false} {...GRID} />
-          <XAxis dataKey="month" tickFormatter={formatMonth} tick={TICK} axisLine={AXIS_LINE} tickLine={false} />
+          <XAxis dataKey="month" tickFormatter={months.tick} tick={TICK} axisLine={AXIS_LINE} tickLine={false} />
           <YAxis
+            domain={[0, costTicks[costTicks.length - 1]]}
+            ticks={costTicks}
             tickFormatter={(v: number) => BRL_COMPACT.format(v)}
             width={72}
             tick={TICK}
@@ -361,8 +433,12 @@ export function CostTrendChart({ filter, reportHref }: ChartProps) {
               <ChartTooltip {...props} formatLabel={formatMonthLong} formatValue={(v) => BRL.format(v)} />
             )}
           />
-          <Bar dataKey="preventive" name="Preventiva" stackId="cost" fill={SERIES_1} maxBarSize={BAR_SIZE} {...BAR_GAP} />
-          <Bar dataKey="corrective" name="Corretiva" stackId="cost" fill={SERIES_2} maxBarSize={BAR_SIZE} radius={[4, 4, 0, 0]} {...BAR_GAP} />
+          <Bar dataKey="preventive" name="Preventiva" stackId="cost" fill={SERIES_1} maxBarSize={BAR_SIZE} {...BAR_GAP}>
+            {monthCells(costs, months.isPartial)}
+          </Bar>
+          <Bar dataKey="corrective" name="Corretiva" stackId="cost" fill={SERIES_2} maxBarSize={BAR_SIZE} {...BAR_GAP}>
+            {monthCells(costs, months.isPartial)}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>
@@ -398,6 +474,11 @@ export default function DashboardCharts({
       {canReadCost && <CostTrendChart filter={filter} reportHref={report('costs')} />}
     </ChartGrid>
   )
+}
+
+/** Uma célula por mês: a do mês parcial fica mais clara. */
+function monthCells(points: readonly { readonly month: string }[], isPartial: (month: string) => boolean) {
+  return points.map((p) => <Cell key={p.month} fillOpacity={isPartial(p.month) ? PARTIAL_OPACITY : 1} />)
 }
 
 // ── Linha de série (2px, marcadores com anel na cor do fundo) ──

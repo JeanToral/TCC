@@ -34,7 +34,7 @@ describe('SparePartEditPage — modo criação', () => {
     expect(screen.getByLabelText('Descrição')).toBeInTheDocument()
     expect(screen.getByLabelText('Quantidade em Estoque')).toBeInTheDocument()
     expect(screen.getByLabelText('Estoque Mínimo')).toBeInTheDocument()
-    expect(screen.getByLabelText('Custo Unitário (R$)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Custo Unitário')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cadastrar peça' })).toBeInTheDocument()
   })
 
@@ -45,7 +45,7 @@ describe('SparePartEditPage — modo criação', () => {
     // Assert
     expect(screen.getByLabelText('Quantidade em Estoque')).toHaveValue(0)
     expect(screen.getByLabelText('Estoque Mínimo')).toHaveValue(0)
-    expect(screen.getByLabelText('Custo Unitário (R$)')).toHaveValue(null)
+    expect(screen.getByLabelText('Custo Unitário')).toHaveValue('')
   })
 
   // Documenta o estado atual: a obrigatoriedade é só o atributo HTML `required`,
@@ -154,7 +154,7 @@ describe('SparePartEditPage — modo criação', () => {
     // Act
     await user.type(screen.getByLabelText('Nome'), 'Correia A-52')
     await user.type(screen.getByLabelText('Código (Part Number)'), 'COR-A52')
-    await user.type(screen.getByLabelText('Custo Unitário (R$)'), '35.90')
+    await user.type(screen.getByLabelText('Custo Unitário'), '3590')
     await user.click(screen.getByRole('button', { name: 'Cadastrar peça' }))
 
     // Assert
@@ -179,7 +179,7 @@ describe('SparePartEditPage — aviso de custo', () => {
     const { user } = renderWithProviders(<SparePartEditPage />, { mocks: [sparePartsMock()] })
 
     // Act
-    await user.type(screen.getByLabelText('Custo Unitário (R$)'), '35.90')
+    await user.type(screen.getByLabelText('Custo Unitário'), '3590')
 
     // Assert
     expect(
@@ -192,7 +192,7 @@ describe('SparePartEditPage — aviso de custo', () => {
     renderWithProviders(<SparePartEditPage />, { mocks: [sparePartsMock()] })
 
     // Assert
-    expect(screen.getByLabelText('Custo Unitário (R$)')).toBeInTheDocument()
+    expect(screen.getByLabelText('Custo Unitário')).toBeInTheDocument()
   })
 })
 

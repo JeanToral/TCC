@@ -1,4 +1,17 @@
-import { differenceInCalendarDays, endOfDay, format, startOfDay, startOfMonth, subDays, subMonths } from 'date-fns'
+import {
+  addHours,
+  differenceInCalendarDays,
+  endOfDay,
+  endOfMonth,
+  format,
+  isSameDay,
+  startOfDay,
+  startOfHour,
+  startOfMinute,
+  startOfMonth,
+  subDays,
+  subMonths,
+} from 'date-fns'
 import { ptBR } from 'date-fns/locale/pt-BR'
 import type { DateRange } from 'react-day-picker'
 
@@ -35,6 +48,36 @@ export function previousPeriod(range: DateRange): DateRange | undefined {
   return { from: subDays(range.from, days), to: subDays(range.from, 1) }
 }
 
+/**
+ * Meses que o período toca sem cobrir inteiros, com o trecho coberto —
+ * `{ '2026-10' → 'até 24/10' }`. A barra desse mês não é comparável às outras.
+ */
+export function partialMonths(filter: PeriodFilter): ReadonlyMap<string, string> {
+  const partial = new Map<string, string>()
+  if (!filter.from || !filter.to) return partial
+  const from = new Date(filter.from)
+  const to = new Date(filter.to)
+  const day = (d: Date) => format(d, 'dd/MM')
+  const key = (d: Date) => format(d, 'yyyy-MM')
+  const startsLate = from.getTime() > startOfMonth(from).getTime()
+  const endsEarly = endOfDay(to).getTime() < endOfMonth(to).getTime()
+
+  if (key(from) === key(to)) {
+    if (startsLate || endsEarly) partial.set(key(from), `de ${day(from)} a ${day(to)}`)
+    return partial
+  }
+  if (startsLate) partial.set(key(from), `desde ${day(from)}`)
+  if (endsEarly) partial.set(key(to), `até ${day(to)}`)
+  return partial
+}
+
+/** Nota de rodapé dos meses parciais: `* Mês parcial: out/26 até 24/10.` */
+export function partialMonthsNote(partial: ReadonlyMap<string, string>): string | undefined {
+  if (partial.size === 0) return undefined
+  const parts = [...partial].map(([month, range]) => `${formatMonth(month)} ${range}`)
+  return `* ${partial.size > 1 ? 'Meses parciais' : 'Mês parcial'}: ${parts.join('; ')}.`
+}
+
 /** `2026-05` → `mai/26`. */
 export function formatMonth(key: string): string {
   const [year, month] = key.split('-').map(Number)
@@ -47,18 +90,72 @@ export function formatMonthLong(key: string): string {
   return format(new Date(year, month - 1, 1), "MMMM 'de' yyyy", { locale: ptBR })
 }
 
-/** Duração em horas, na maior unidade legível: `45min`, `4.4h`, `44.6d`. */
+const HOURS = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
+const HOURS_FIXED = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+
+/** Duração em horas, na maior unidade legível, com vírgula: `45 min`, `4,4 h`, `44,6 d`. */
 export function formatHours(hours: number | null): string {
   if (hours === null) return '—'
-  if (hours < 1) return `${Math.round(hours * 60)}min`
-  if (hours < 24) return `${hours.toFixed(1)}h`
-  return `${(hours / 24).toFixed(1)}d`
+  if (hours < 1) return `${Math.round(hours * 60)} min`
+  if (hours < 24) return `${HOURS_FIXED.format(hours)} h`
+  return `${HOURS_FIXED.format(hours / 24)} d`
 }
-
-const HOURS = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
 
 /** Horas → valor e unidade separados, para mostrador: `4,3` `h`; a partir de 48 h, em dias. */
 export function splitHours(hours: number | null): { readonly value: string | null; readonly unit: 'h' | 'd' } {
   if (hours === null) return { value: null, unit: 'h' }
   return hours >= 48 ? { value: HOURS.format(hours / 24), unit: 'd' } : { value: HOURS.format(hours), unit: 'h' }
+}
+
+// ── Datas de dia (sem hora) ────────────────────────────────
+/**
+ * Data sem hora vai ao backend ao meio-dia local: meia-noite viraria o dia
+ * anterior em UTC−3 (`01/10 00:00Z` = 30/09 21h em São Paulo).
+ */
+export function atLocalNoon(day: Date): Date {
+  const noon = new Date(day)
+  noon.setHours(12, 0, 0, 0)
+  return noon
+}
+
+/**
+ * Lê uma data de dia vinda do backend pelo dia em UTC — vale para as gravadas
+ * ao meio-dia local (15h UTC) e para as antigas, gravadas à meia-noite UTC.
+ */
+export function parseDayValue(iso: string): Date {
+  const date = new Date(iso)
+  return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+}
+
+// ── Agendamento ───────────────────────────────────────────
+/** Hoje: a próxima hora cheia. Outro dia: 08:00, começo do turno. */
+export function defaultScheduleStart(day: Date, now: Date = new Date()): Date {
+  if (isSameDay(day, now)) return startOfHour(addHours(now, 1))
+  const start = new Date(day)
+  start.setHours(8, 0, 0, 0)
+  return start
+}
+
+/** No dia do início: uma hora depois dele. Em outro dia: o mesmo horário do início. */
+export function defaultScheduleEnd(day: Date, start: Date | undefined): Date {
+  if (start && isSameDay(day, start)) return addHours(start, 1)
+  const end = new Date(day)
+  end.setHours(start?.getHours() ?? 8, start?.getMinutes() ?? 0, 0, 0)
+  return end
+}
+
+export interface ScheduleErrors {
+  readonly start?: string
+  readonly end?: string
+}
+
+export function validateSchedule(
+  start: Date | undefined,
+  end: Date | undefined,
+  now: Date = new Date(),
+): ScheduleErrors {
+  return {
+    ...(start && start < startOfMinute(now) ? { start: 'Início previsto não pode estar no passado.' } : {}),
+    ...(start && end && end < start ? { end: 'Fim previsto não pode ser antes do início.' } : {}),
+  }
 }

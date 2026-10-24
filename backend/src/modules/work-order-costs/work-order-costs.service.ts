@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { WorkOrderStatus } from '../../generated/prisma';
 
+import { dayKey } from '../../common/reporting/month-buckets';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import {
   type ExternalCostRecord,
@@ -88,6 +89,7 @@ export class WorkOrderCostsService {
     input: AddExternalCostInput,
     actorId: number,
   ): Promise<ExternalCostRecord> {
+    this.assertNotFuture(input.incurredAt);
     const status = await this.assertWorkOrderAcceptsCost(input.workOrderId);
 
     const created = await this.repo.create({
@@ -116,6 +118,7 @@ export class WorkOrderCostsService {
     input: UpdateExternalCostInput,
     actorId: number,
   ): Promise<ExternalCostRecord> {
+    if (input.incurredAt) this.assertNotFuture(input.incurredAt);
     const before = await this.findByIdOrFail(id);
     const status = await this.assertWorkOrderAcceptsCost(before.workOrderId);
 
@@ -155,6 +158,13 @@ export class WorkOrderCostsService {
   }
 
   // ── Internals ───────────────────────────────────────────
+  /** Custo realizado não pertence a um dia que ainda não chegou. */
+  private assertNotFuture(incurredAt: Date): void {
+    if (dayKey(incurredAt) > dayKey(new Date())) {
+      throw new BadRequestException('Data do serviço não pode ser futura');
+    }
+  }
+
   private async findByIdOrFail(id: number): Promise<ExternalCostRecord> {
     const record = await this.repo.findById(id);
     if (!record)

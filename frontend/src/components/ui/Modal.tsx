@@ -25,10 +25,14 @@ export default function Modal({ open, onClose, title, size = 'md', footer, child
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      // Esc com um calendário (popover) aberto fecha só o calendário, não o modal.
+      if (document.querySelector('[data-radix-popper-content-wrapper]')) return
+      onClose()
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    // Captura na window: roda antes do Radix (que escuta no document) fechar o popover.
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [open, onClose])
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 
 import { PreventivePlansService } from './preventive-plans.service';
@@ -8,6 +8,7 @@ import type { PreventivePlanRecord } from './preventive-plans.repository';
 
 // ─────────────────────── Fixtures ────────────────────────
 const ACTOR_ID = 99;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const makeAsset = () => ({ id: 1, name: 'Torno CNC 01', tag: 'MQ-001' });
 
@@ -98,13 +99,35 @@ describe('PreventivePlansService', () => {
         name: 'Revisão mensal do Torno',
         assetId: 1,
         intervalDays: 30,
-        nextDueAt: '2026-05-01T00:00:00.000Z',
+        nextDueAt: new Date(Date.now() + DAY_MS).toISOString(),
       });
 
       // Assert
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({ nextDueAt: expect.any(Date) }),
       );
+    });
+
+    it('deve aceitar próxima execução hoje', async () => {
+      // Arrange
+      repo.create.mockResolvedValue(makePlan());
+
+      // Act
+      await service.create({ name: 'Revisão', assetId: 1, intervalDays: 30, nextDueAt: new Date().toISOString() });
+
+      // Assert
+      expect(repo.create).toHaveBeenCalled();
+    });
+
+    it('deve rejeitar próxima execução antes de hoje', async () => {
+      // Arrange
+      const yesterday = new Date(Date.now() - DAY_MS).toISOString();
+
+      // Act & Assert
+      await expect(
+        service.create({ name: 'Revisão', assetId: 1, intervalDays: 30, nextDueAt: yesterday }),
+      ).rejects.toThrow(BadRequestException);
+      expect(repo.create).not.toHaveBeenCalled();
     });
   });
 
@@ -132,6 +155,29 @@ describe('PreventivePlansService', () => {
       // Assert
       expect(result.name).toBe('Revisão trimestral');
       expect(repo.update).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Revisão trimestral' }));
+    });
+
+    it('deve permitir editar plano atrasado sem mexer na próxima execução', async () => {
+      // Arrange
+      const overdue = makePlan({ nextDueAt: new Date(Date.now() - 10 * DAY_MS) });
+      repo.findById.mockResolvedValue(overdue);
+      repo.update.mockResolvedValue(overdue);
+
+      // Act
+      await service.update(1, { name: 'Lubrificação' });
+
+      // Assert
+      expect(repo.update).toHaveBeenCalledWith(1, { name: 'Lubrificação' });
+    });
+
+    it('deve rejeitar nova próxima execução antes de hoje', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makePlan());
+      const yesterday = new Date(Date.now() - DAY_MS).toISOString();
+
+      // Act & Assert
+      await expect(service.update(1, { nextDueAt: yesterday })).rejects.toThrow(BadRequestException);
+      expect(repo.update).not.toHaveBeenCalled();
     });
   });
 

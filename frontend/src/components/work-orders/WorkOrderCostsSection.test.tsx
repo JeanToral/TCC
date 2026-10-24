@@ -220,7 +220,7 @@ describe('WorkOrderCostsSection', () => {
 
     // Act
     await user.type(screen.getByLabelText('Descrição'), 'Retífica')
-    await user.type(screen.getByLabelText('Valor (R$)'), '0')
+    await user.type(screen.getByLabelText('Valor'), '0')
     await user.click(screen.getByRole('button', { name: 'Lançar' }))
 
     // Assert
@@ -267,7 +267,7 @@ describe('WorkOrderCostsSection', () => {
     // Act
     await user.type(screen.getByLabelText('Descrição'), 'Retífica do motor')
     await user.type(screen.getByLabelText('Fornecedor (opcional)'), 'Retificadora Oeste')
-    await user.type(screen.getByLabelText('Valor (R$)'), '4200')
+    await user.type(screen.getByLabelText('Valor'), '420000')
     await user.click(screen.getByRole('button', { name: 'Lançar' }))
 
     // Assert
@@ -278,12 +278,12 @@ describe('WorkOrderCostsSection', () => {
         description: 'Retífica do motor',
         supplier: 'Retificadora Oeste',
         amount: 4200,
-        incurredAt: '2026-03-10T00:00:00.000Z',
+        incurredAt: new Date(2026, 2, 10, 12, 0).toISOString(),
       },
     })
   })
 
-  it('deve pré-preencher a competência com a data de conclusão da OS', async () => {
+  it('deve pré-preencher a data do serviço com a data de conclusão da OS', async () => {
     // Arrange
     const { user } = renderWithProviders(
       <WorkOrderCostsSection workOrder={makeWorkOrder()} canManage />,
@@ -294,6 +294,65 @@ describe('WorkOrderCostsSection', () => {
     await user.click(await screen.findByRole('button', { name: 'Lançar serviço externo' }))
 
     // Assert
-    expect(screen.getByLabelText('Competência')).toHaveValue('2026-03-10')
+    expect(screen.getByLabelText('Data do serviço')).toHaveTextContent('10/03/2026')
+  })
+
+  it('deve explicar que a data define o mês do custo', async () => {
+    // Arrange
+    const { user } = renderWithProviders(
+      <WorkOrderCostsSection workOrder={makeWorkOrder()} canManage />,
+      { mocks: [partsMock(), workOrderMock()], permissions: ['cost.read', 'cost.manage'] },
+    )
+
+    // Act
+    await user.click(await screen.findByRole('button', { name: 'Lançar serviço externo' }))
+
+    // Assert
+    expect(screen.getByLabelText('Data do serviço')).toHaveAccessibleDescription(
+      'Entra no custo do mês desta data, não no da conclusão da OS.',
+    )
+  })
+
+  it('deve fechar só o calendário, não o modal, ao apertar Esc', async () => {
+    // Arrange
+    const { user } = renderWithProviders(
+      <WorkOrderCostsSection workOrder={makeWorkOrder()} canManage />,
+      { mocks: [partsMock(), workOrderMock()], permissions: ['cost.read', 'cost.manage'] },
+    )
+    await user.click(await screen.findByRole('button', { name: 'Lançar serviço externo' }))
+    await user.type(screen.getByLabelText('Descrição'), 'Retífica')
+    await user.click(screen.getByLabelText('Data do serviço'))
+
+    // Act
+    await user.keyboard('{Escape}')
+
+    // Assert
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByLabelText('Descrição')).toHaveValue('Retífica')
+  })
+
+  it('não deve permitir escolher data do serviço no futuro', async () => {
+    // Arrange
+    const { user } = renderWithProviders(
+      <WorkOrderCostsSection workOrder={makeWorkOrder({ completedAt: null })} canManage />,
+      { mocks: [partsMock(), workOrderMock()], permissions: ['cost.read', 'cost.manage'] },
+    )
+    await user.click(await screen.findByRole('button', { name: 'Lançar serviço externo' }))
+
+    // Act
+    await user.click(screen.getByLabelText('Data do serviço'))
+
+    // Assert — o calendário abre no mês atual; o dia seguinte a hoje está bloqueado
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tomorrowName = new RegExp(
+      `\\b${tomorrow.getDate()} de ${new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(tomorrow)}`,
+    )
+    const todayName = new RegExp(
+      `\\b${new Date().getDate()} de ${new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date())}`,
+    )
+    expect(screen.getByRole('button', { name: todayName })).toBeEnabled()
+    const tomorrowButtons = screen.queryAllByRole('button', { name: tomorrowName })
+    tomorrowButtons.forEach((button) => expect(button).toBeDisabled())
   })
 })

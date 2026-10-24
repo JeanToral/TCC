@@ -13,6 +13,7 @@ import {
   FormSection,
 } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
+import { MoneyInput } from '../../components/ui/money-input'
 import Modal from '../../components/ui/Modal'
 import MoreActions from '../../components/ui/MoreActions'
 import { SheetHeader } from '../../components/ui/Sheet'
@@ -240,16 +241,11 @@ export default function SparePartEditPage() {
               />
             </FormField>
             <FormField>
-              <Input
+              <MoneyInput
                 id="part-cost"
-                label="Custo Unitário (R$)"
-                type="number"
-                min={0}
-                step={0.01}
+                label="Custo Unitário"
                 value={form.unitCost}
-                onChange={(e) => set('unitCost', e.target.value)}
-                placeholder="0,00"
-                className="font-mono"
+                onValueChange={(v) => set('unitCost', v)}
               />
               {!form.unitCost.trim() && (
                 <p className="pb-1 text-xs text-[var(--warning-text)]" role="status">

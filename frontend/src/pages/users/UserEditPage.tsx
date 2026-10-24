@@ -15,6 +15,7 @@ import {
   FormSection,
 } from '../../components/ui/FormLayout'
 import { Input } from '../../components/ui/input'
+import { MoneyInput } from '../../components/ui/money-input'
 import { NativeSelect } from '../../components/ui/select'
 import { SheetHeader } from '../../components/ui/Sheet'
 import Skeleton from '../../components/ui/Skeleton'
@@ -111,9 +112,12 @@ export default function UserEditPage() {
   const submitting = creating || updating
 
   function handleChange(e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    const { name, value } = e.target
+    updateField(e.target.name as keyof FormState, e.target.value)
+  }
+
+  function updateField(name: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [name]: value }))
-    if (errors[name as keyof FormState]) {
+    if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }))
     }
     if (submitError) setSubmitError('')
@@ -270,16 +274,13 @@ export default function UserEditPage() {
 
           {canManageCost && (
             <FormField>
-              <Input
-                label="Taxa horária (R$)"
+              <MoneyInput
+                id="hourlyRate"
+                label="Taxa horária"
                 name="hourlyRate"
-                type="number"
-                min={0}
-                step={0.01}
                 value={form.hourlyRate}
-                onChange={handleChange}
+                onValueChange={(v) => updateField('hourlyRate', v)}
                 error={errors.hourlyRate}
-                placeholder="Ex.: 45,00"
                 hint="Usada no custo de mão de obra das OS atendidas."
                 disabled={submitting}
               />

@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@apollo/client/react'
 import { usePageCrumb } from '../../components/layout/Breadcrumbs'
 import Button from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/checkbox'
+import { DatePicker } from '../../components/ui/date-picker'
 import {
   FormActions,
   FormAlert,
@@ -29,6 +30,7 @@ import { GET_PREVENTIVE_PLAN } from '../../graphql/preventive-plans/GetPreventiv
 import { GET_PREVENTIVE_PLANS } from '../../graphql/preventive-plans/GetPreventivePlans.gql'
 import { UPDATE_PREVENTIVE_PLAN } from '../../graphql/preventive-plans/UpdatePreventivePlan.gql'
 import type { GetPreventivePlanData } from '../../graphql/preventive-plans/types'
+import { atLocalNoon, parseDayValue } from '../../lib/period'
 import { errorMessage } from '../../lib/utils'
 
 interface FormState {
@@ -36,7 +38,7 @@ interface FormState {
   description: string
   assetId: string
   intervalDays: string
-  nextDueAt: string
+  nextDueAt: Date | undefined
   isActive: boolean
 }
 
@@ -45,12 +47,8 @@ const empty: FormState = {
   description: '',
   assetId: '',
   intervalDays: '30',
-  nextDueAt: '',
+  nextDueAt: undefined,
   isActive: true,
-}
-
-function toDateInputValue(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10)
 }
 
 export default function PreventivePlanEditPage() {
@@ -83,7 +81,7 @@ export default function PreventivePlanEditPage() {
         description: p.description ?? '',
         assetId: String(p.assetId),
         intervalDays: String(p.intervalDays),
-        nextDueAt: toDateInputValue(p.nextDueAt),
+        nextDueAt: parseDayValue(p.nextDueAt),
         isActive: p.isActive,
       })
     }
@@ -118,6 +116,12 @@ export default function PreventivePlanEditPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    if (!form.nextDueAt) {
+      setError('Informe a próxima execução.')
+      return
+    }
+    const loadedDue = planData?.preventivePlan ? parseDayValue(planData.preventivePlan.nextDueAt) : undefined
+    const nextDueChanged = loadedDue?.getTime() !== form.nextDueAt.getTime()
 
     try {
       if (isNew) {
@@ -128,7 +132,7 @@ export default function PreventivePlanEditPage() {
               description: form.description.trim() || undefined,
               assetId: Number(form.assetId),
               intervalDays: parseInt(form.intervalDays, 10),
-              nextDueAt: new Date(form.nextDueAt).toISOString(),
+              nextDueAt: atLocalNoon(form.nextDueAt).toISOString(),
             },
           },
         })
@@ -140,7 +144,8 @@ export default function PreventivePlanEditPage() {
               name: form.name.trim(),
               description: form.description.trim() || undefined,
               intervalDays: parseInt(form.intervalDays, 10),
-              nextDueAt: new Date(form.nextDueAt).toISOString(),
+              // Plano atrasado continua editável: a data só vai se foi alterada.
+              ...(nextDueChanged ? { nextDueAt: atLocalNoon(form.nextDueAt).toISOString() } : {}),
               isActive: form.isActive,
             },
           },
@@ -250,14 +255,12 @@ export default function PreventivePlanEditPage() {
               />
             </FormField>
             <FormField>
-              <Input
-                id="plan-next-due"
+              <DatePicker
                 label="Próxima Execução"
                 required
-                type="date"
                 value={form.nextDueAt}
-                onChange={(e) => set('nextDueAt', e.target.value)}
-                className="font-mono"
+                onSelect={(day) => set('nextDueAt', day)}
+                fromDate={new Date()}
               />
             </FormField>
 

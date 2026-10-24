@@ -43,6 +43,8 @@ export interface ChartCardProps {
   readonly footnote?: ReactNode
   /** Leva ao relatório completo, com os mesmos filtros. */
   readonly reportHref?: string
+  /** Altura da área do gráfico quando ela depende dos dados (ex.: uma linha por ativo). Padrão: 16rem. */
+  readonly plotHeight?: string
   readonly children: ReactNode
 }
 
@@ -57,6 +59,7 @@ export function ChartCard({
   table,
   footnote,
   reportHref,
+  plotHeight,
   children,
 }: ChartCardProps) {
   const firstLoad = loading && isEmpty
@@ -84,6 +87,7 @@ export function ChartCard({
           'relative h-64 transition-opacity [&_.recharts-surface:focus]:outline-none [&_.recharts-wrapper:focus]:outline-none',
           loading && !firstLoad && 'opacity-50',
         )}
+        style={plotHeight ? { height: plotHeight } : undefined}
         aria-hidden="true"
       >
         {firstLoad && <Skeleton className="h-full" />}
@@ -158,6 +162,8 @@ export interface ChartTooltipProps {
   readonly payload?: readonly TooltipPayloadEntry[]
   readonly formatLabel?: (label: string) => string
   readonly formatValue: (value: number) => string
+  /** Contexto do ponto abaixo do valor, ex.: a amostra — "0 de 1 OS". */
+  readonly detail?: (label: string) => string | undefined
   readonly shape?: 'bar' | 'line'
 }
 
@@ -168,10 +174,12 @@ export function ChartTooltip({
   payload,
   formatLabel,
   formatValue,
+  detail,
   shape = 'bar',
 }: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
   const title = label === undefined ? '' : formatLabel ? formatLabel(String(label)) : String(label)
+  const context = label === undefined ? undefined : detail?.(String(label))
 
   return (
     <div className="min-w-32 rounded-xs border border-rule bg-sheet px-2.5 py-2 shadow-md">
@@ -187,6 +195,7 @@ export function ChartTooltip({
           </li>
         ))}
       </ul>
+      {context && <div className="mt-1 text-xs text-quiet">{context}</div>}
     </div>
   )
 }

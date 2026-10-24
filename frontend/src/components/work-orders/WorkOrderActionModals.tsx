@@ -7,6 +7,7 @@ import { Input } from '../ui/input'
 import Modal from '../ui/Modal'
 import { NativeSelect } from '../ui/select'
 import { Textarea } from '../ui/textarea'
+import { defaultScheduleEnd, defaultScheduleStart, validateSchedule } from '../../lib/period'
 
 interface ActionModalProps {
   readonly open: boolean
@@ -125,7 +126,8 @@ export function ScheduleModal({
   readonly onScheduledStartChange: (date: Date | undefined) => void
   readonly onScheduledEndChange: (date: Date | undefined) => void
 }) {
-  const canConfirm = !!form.assignedToId && !!form.scheduledStart
+  const errors = validateSchedule(form.scheduledStart, form.scheduledEnd)
+  const canConfirm = !!form.assignedToId && !!form.scheduledStart && !errors.start && !errors.end
 
   return (
     <Modal
@@ -156,6 +158,9 @@ export function ScheduleModal({
             label="Início previsto"
             value={form.scheduledStart}
             onSelect={onScheduledStartChange}
+            fromDate={new Date()}
+            defaultTime={(day) => defaultScheduleStart(day)}
+            error={errors.start}
             required
           />
         </FormField>
@@ -164,6 +169,9 @@ export function ScheduleModal({
             label="Fim previsto"
             value={form.scheduledEnd}
             onSelect={onScheduledEndChange}
+            fromDate={form.scheduledStart ?? new Date()}
+            defaultTime={(day) => defaultScheduleEnd(day, form.scheduledStart)}
+            error={errors.end}
             placeholder="Opcional"
           />
         </FormField>

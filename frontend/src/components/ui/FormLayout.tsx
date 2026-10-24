@@ -91,7 +91,7 @@ export function FormField({ span, children, className }: FormFieldProps) {
     <div
       data-span={span}
       className={cn(
-        'form-cell min-w-0 border-r border-b border-rule bg-sheet px-3 pt-2.5 pb-1.5 transition-shadow',
+        'form-cell min-w-0 border-r border-b border-rule bg-sheet px-4 pt-3 pb-2 transition-shadow',
         'focus-within:bg-primary/[0.03] focus-within:shadow-[inset_0_-2px_0_var(--primary)]',
         'has-[[aria-invalid=true]]:shadow-[inset_0_-2px_0_var(--error)]',
         span === 'full' && 'col-span-full',

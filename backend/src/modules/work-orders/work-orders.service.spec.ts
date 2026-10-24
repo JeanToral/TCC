@@ -20,6 +20,7 @@ const mockUser = {
 };
 
 const ACTOR_ID = 99;
+const HOUR_MS = 60 * 60 * 1000;
 
 const makeWorkOrder = (overrides: Partial<WorkOrderRecord> = {}): WorkOrderRecord => ({
   id: 1,
@@ -204,7 +205,7 @@ describe('WorkOrdersService', () => {
   describe('schedule', () => {
     it('deve permitir transição válida APPROVED → SCHEDULED', async () => {
       // Arrange
-      const scheduledStart = new Date('2026-05-15T08:00:00Z');
+      const scheduledStart = new Date(Date.now() + HOUR_MS);
       repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.APPROVED }));
       repo.update.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.SCHEDULED, assignedToId: 2, scheduledStart }));
 
@@ -213,6 +214,43 @@ describe('WorkOrdersService', () => {
 
       // Assert
       expect(result.status).toBe(WorkOrderStatus.SCHEDULED);
+    });
+
+    it('deve rejeitar início previsto no passado', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.APPROVED }));
+      const scheduledStart = new Date(Date.now() - HOUR_MS);
+
+      // Act & Assert
+      await expect(
+        service.schedule(1, { assignedToId: 2, scheduledStart }, ACTOR_ID),
+      ).rejects.toThrow('Início previsto não pode estar no passado');
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it('deve aceitar início alguns minutos no passado, dentro da tolerância', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.APPROVED }));
+      repo.update.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.SCHEDULED }));
+      const scheduledStart = new Date(Date.now() - 2 * 60 * 1000);
+
+      // Act
+      await service.schedule(1, { assignedToId: 2, scheduledStart }, ACTOR_ID);
+
+      // Assert
+      expect(repo.update).toHaveBeenCalled();
+    });
+
+    it('deve rejeitar fim previsto antes do início', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.APPROVED }));
+      const scheduledStart = new Date(Date.now() + 2 * HOUR_MS);
+      const scheduledEnd = new Date(Date.now() + HOUR_MS);
+
+      // Act & Assert
+      await expect(
+        service.schedule(1, { assignedToId: 2, scheduledStart, scheduledEnd }, ACTOR_ID),
+      ).rejects.toThrow('Fim previsto não pode ser antes do início');
     });
 
     it('deve rejeitar agendamento de OS não aprovada', async () => {

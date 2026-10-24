@@ -1,9 +1,12 @@
 import { type ReactNode, useState } from 'react'
 import { useMutation, useQuery } from '@apollo/client/react'
+import { format, parse } from 'date-fns'
 
 import Button from '../ui/Button'
+import { DatePicker } from '../ui/date-picker'
 import { FormAlert, FormField, FormGrid } from '../ui/FormLayout'
 import { Input } from '../ui/input'
+import { MoneyInput } from '../ui/money-input'
 import Modal from '../ui/Modal'
 import { SheetSection } from '../ui/Sheet'
 import Skeleton from '../ui/Skeleton'
@@ -21,6 +24,7 @@ import type {
   WorkOrderExternalCost,
 } from '../../graphql/work-order-costs/types'
 import type { WorkOrderDetail } from '../../graphql/work-orders/types'
+import { atLocalNoon, parseDayValue } from '../../lib/period'
 import { cn } from '../../lib/utils'
 
 // ── Helpers ────────────────────────────────────────────────
@@ -34,9 +38,11 @@ function formatDate(iso: string): string {
   return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(iso))
 }
 
-function toDateInput(iso: string): string {
-  return iso.slice(0, 10)
-}
+/** O formulário guarda o dia como `yyyy-MM-dd`, no calendário local. */
+const DAY_FORMAT = 'yyyy-MM-dd'
+
+const toDay = (date: Date) => format(date, DAY_FORMAT)
+const fromDay = (day: string) => parse(day, DAY_FORMAT, new Date())
 
 const EMPTY_FORM: ExternalCostFormValues = {
   description: '',
@@ -50,7 +56,7 @@ function validate(form: ExternalCostFormValues): string | null {
   const amount = Number(form.amount.replace(',', '.'))
   if (!form.amount.trim() || Number.isNaN(amount)) return 'Informe um valor válido.'
   if (amount <= 0) return 'O valor deve ser maior que zero.'
-  if (!form.incurredAt) return 'A data de competência é obrigatória.'
+  if (!form.incurredAt) return 'Informe a data do serviço.'
   return null
 }
 
@@ -115,28 +121,23 @@ function ExternalCostModal({
           />
         </FormField>
         <FormField>
-          <Input
+          <MoneyInput
             id="ext-amount"
-            label="Valor (R$)"
+            label="Valor"
             required
-            type="number"
-            min={0}
-            step={0.01}
             value={form.amount}
-            onChange={(e) => onChange('amount', e.target.value)}
-            placeholder="0,00"
-            className="font-mono tabular-nums"
+            onValueChange={(v) => onChange('amount', v)}
           />
         </FormField>
         <FormField>
-          <Input
+          <DatePicker
             id="ext-incurredAt"
-            label="Competência"
+            label="Data do serviço"
             required
-            type="date"
-            value={form.incurredAt}
-            onChange={(e) => onChange('incurredAt', e.target.value)}
-            hint="Mês a que o custo pertence."
+            value={form.incurredAt ? fromDay(form.incurredAt) : undefined}
+            onSelect={(day) => onChange('incurredAt', day ? toDay(day) : '')}
+            toDate={new Date()}
+            hint="Entra no custo do mês desta data, não no da conclusão da OS."
           />
         </FormField>
       </FormGrid>
@@ -199,7 +200,7 @@ export default function WorkOrderCostsSection({
     setEditing(null)
     setForm({
       ...EMPTY_FORM,
-      incurredAt: toDateInput(workOrder.completedAt ?? new Date().toISOString()),
+      incurredAt: toDay(workOrder.completedAt ? new Date(workOrder.completedAt) : new Date()),
     })
     setFormError('')
     setModalOpen(true)
@@ -211,7 +212,7 @@ export default function WorkOrderCostsSection({
       description: cost.description,
       supplier: cost.supplier ?? '',
       amount: String(cost.amount),
-      incurredAt: toDateInput(cost.incurredAt),
+      incurredAt: toDay(parseDayValue(cost.incurredAt)),
     })
     setFormError('')
     setModalOpen(true)
@@ -233,7 +234,7 @@ export default function WorkOrderCostsSection({
       description: form.description.trim(),
       supplier: form.supplier.trim() || undefined,
       amount: Number(form.amount.replace(',', '.')),
-      incurredAt: new Date(`${form.incurredAt}T00:00:00.000Z`).toISOString(),
+      incurredAt: atLocalNoon(fromDay(form.incurredAt)).toISOString(),
     }
 
     if (editing) {
@@ -307,7 +308,7 @@ export default function WorkOrderCostsSection({
             <Empty>Nenhum lançamento.</Empty>
           ) : (
             <CostTable
-              headers={['Descrição', 'Fornecedor', 'Competência', 'Valor', ...(canManage ? [''] : [])]}
+              headers={['Descrição', 'Fornecedor', 'Data do serviço', 'Valor', ...(canManage ? [''] : [])]}
               numeric={[3]}
               rows={externalCosts.map((item) => ({
                 key: item.id,

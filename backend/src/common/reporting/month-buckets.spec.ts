@@ -1,8 +1,21 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { monthKey, monthKeysBetween, resolvePeriod } from './month-buckets';
+import { dayKey, monthKey, monthKeysBetween, resolvePeriod } from './month-buckets';
 
 describe('month-buckets', () => {
+  describe('dayKey', () => {
+    it('deve devolver o dia no fuso de São Paulo, não em UTC', () => {
+      // Arrange — 24/10 às 22h em SP é 25/10 01h em UTC
+      const lateEvening = new Date('2026-10-25T01:00:00Z');
+
+      // Act
+      const key = dayKey(lateEvening);
+
+      // Assert
+      expect(key).toBe('2026-10-24');
+    });
+  });
+
   describe('monthKey', () => {
     it('deve agrupar no fuso de São Paulo, não em UTC', () => {
       // Arrange — 31/05 às 23h em SP é 01/06 02h em UTC

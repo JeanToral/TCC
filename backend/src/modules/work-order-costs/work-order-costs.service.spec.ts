@@ -145,6 +145,29 @@ describe('WorkOrderCostsService', () => {
       );
     });
 
+    it('deve rejeitar data do serviço no futuro', async () => {
+      // Arrange
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      // Act & Assert
+      await expect(
+        service.add({ ...addInput, incurredAt: tomorrow }, ACTOR_ID),
+      ).rejects.toThrow('Data do serviço não pode ser futura');
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+
+    it('deve aceitar data do serviço hoje', async () => {
+      // Arrange
+      repo.findWorkOrderStatus.mockResolvedValue(WorkOrderStatus.IN_PROGRESS);
+      repo.create.mockResolvedValue(makeCost());
+
+      // Act
+      await service.add({ ...addInput, incurredAt: new Date() }, ACTOR_ID);
+
+      // Assert
+      expect(repo.create).toHaveBeenCalled();
+    });
+
     it('deve rejeitar lançamento em OS inexistente', async () => {
       // Arrange
       repo.findWorkOrderStatus.mockResolvedValue(null);
@@ -177,6 +200,17 @@ describe('WorkOrderCostsService', () => {
         expect.objectContaining({ amount: 4200 }),
         expect.objectContaining({ amount: 4500 }),
       );
+    });
+
+    it('deve rejeitar atualização com data do serviço no futuro', async () => {
+      // Arrange
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      // Act & Assert
+      await expect(
+        service.update(1, { incurredAt: tomorrow }, ACTOR_ID),
+      ).rejects.toThrow(BadRequestException);
+      expect(repo.update).not.toHaveBeenCalled();
     });
 
     it('deve rejeitar atualização de lançamento inexistente', async () => {
