@@ -1,11 +1,13 @@
 // ─────────────────────── Imports ────────────────────────
 import { Field, Float, InputType } from '@nestjs/graphql';
 import { IsNotEmpty, IsNumber, IsOptional, Max, MaxLength, Min } from 'class-validator';
+import { Trim } from '../../../common/decorators/trim.decorator';
 
 // ─────────────────────── Input ───────────────────────────
 @InputType()
 export class CompleteWorkOrderInput {
   @Field()
+  @Trim()
   @IsNotEmpty()
   @MaxLength(2000)
   readonly closingNotes: string;

@@ -29,7 +29,7 @@ function meMock(): MockLink.MockedResponse {
   }
 }
 
-function renderMenu(logout: () => void = vi.fn()) {
+function renderMenu(logout: () => void = vi.fn(), mock: MockLink.MockedResponse = meMock()) {
   const auth = {
     isAuthenticated: true,
     email: 'tecnico@cmms.local',
@@ -41,7 +41,7 @@ function renderMenu(logout: () => void = vi.fn()) {
   }
 
   render(
-    <MockedProvider mocks={[meMock()]}>
+    <MockedProvider mocks={[mock]}>
       <AppearanceProvider>
         <AuthContext.Provider value={auth}>
           <MemoryRouter initialEntries={['/dashboard']}>
@@ -66,14 +66,22 @@ describe('UserMenu', () => {
     delete document.documentElement.dataset.size
   })
 
-  it('deve mostrar o e-mail do token enquanto o perfil carrega', () => {
+  it('não deve mostrar o e-mail do token enquanto o perfil carrega', () => {
     // Arrange / Act
     renderMenu()
 
-    // Assert
-    expect(screen.getByRole('button', { name: 'Menu do usuário' })).toHaveTextContent(
+    // Assert — esqueleto no lugar do nome, sem piscar o e-mail
+    expect(screen.getByRole('button', { name: 'Menu do usuário' })).not.toHaveTextContent(
       'tecnico@cmms.local',
     )
+  })
+
+  it('deve cair para o e-mail do token se o perfil não carregar', async () => {
+    // Arrange / Act
+    renderMenu(vi.fn(), { request: { query: GET_ME }, error: new Error('falha de rede') })
+
+    // Assert
+    expect(await screen.findByText('tecnico@cmms.local')).toBeInTheDocument()
   })
 
   it('deve mostrar o nome do usuário depois de carregar o perfil', async () => {

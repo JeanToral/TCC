@@ -1,18 +1,22 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsArray, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { Trim } from '../../../common/decorators/trim.decorator';
 
 @InputType()
 export class UpdateRoleInput {
   @Field({ nullable: true })
+  @Trim()
+  @IsNotEmpty()
   @IsOptional()
   @IsString()
   @MinLength(1)
   readonly name?: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Trim({ emptyToNull: true })
   @IsOptional()
   @IsString()
-  readonly description?: string;
+  readonly description?: string | null;
 
   @Field(() => [String], { nullable: true })
   @IsOptional()

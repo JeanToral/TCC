@@ -60,12 +60,14 @@ COPY --from=builder /app/backend/public     ./backend/public
 COPY --from=builder /app/backend/node_modules ./backend/node_modules
 COPY --from=builder /app/backend/package.json ./backend/package.json
 
-# Schema e migrations do Prisma
+# Schema, migrations SQL e o runner que as aplica
 COPY --from=builder /app/prisma             ./prisma
+COPY --from=builder /app/scripts            ./scripts
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-# Sincroniza o schema Prisma com o banco (cria tabelas se não existirem) e inicia o NestJS
-# Nota: prisma db push é usado aqui pois o projeto usa migrations SQL customizadas (não prisma migrate)
-CMD ["sh", "-c", "cd backend && npx prisma db push --schema ../prisma/schema.prisma --skip-generate --accept-data-loss && node dist/main"]
+# Aplica as migrations SQL pendentes (tabela "migrations") e só então inicia o NestJS.
+# Migration com erro desfaz a própria transação e impede o app de subir — sem perda de dados.
+# Nunca `prisma db push` aqui: ignora as migrations de dados e, com --accept-data-loss, pode apagar colunas.
+CMD ["sh", "-c", "node scripts/migrate-run.js && cd backend && node dist/main"]

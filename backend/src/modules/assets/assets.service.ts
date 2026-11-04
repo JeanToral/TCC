@@ -1,5 +1,6 @@
 // ─────────────────────── Imports ────────────────────────
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { dayKey } from '../../common/reporting/month-buckets';
 import { type AssetRecord, AssetsRepository } from './assets.repository';
 import type { CreateAssetInput } from './dto/create-asset.input';
 import type { UpdateAssetInput } from './dto/update-asset.input';
@@ -19,7 +20,8 @@ export class AssetsService {
     return asset;
   }
 
-  create(input: CreateAssetInput): Promise<AssetRecord> {
+  async create(input: CreateAssetInput): Promise<AssetRecord> {
+    this.assertInstallDateNotFuture(input.installDate);
     return this.repo.create({
       name: input.name,
       tag: input.tag,
@@ -33,6 +35,7 @@ export class AssetsService {
 
   async update(id: number, input: UpdateAssetInput): Promise<AssetRecord> {
     await this.findById(id);
+    this.assertInstallDateNotFuture(input.installDate);
     return this.repo.update(id, {
       name: input.name,
       tag: input.tag,
@@ -42,6 +45,13 @@ export class AssetsService {
       serialNumber: input.serialNumber ?? null,
       installDate: input.installDate ?? null,
     });
+  }
+
+  /** Compara por dia no fuso da planta: instalar "hoje" é sempre válido. */
+  private assertInstallDateNotFuture(installDate: Date | undefined): void {
+    if (installDate && dayKey(installDate) > dayKey(new Date())) {
+      throw new BadRequestException('Data de instalação não pode estar no futuro');
+    }
   }
 
   async softDelete(id: number): Promise<AssetRecord> {

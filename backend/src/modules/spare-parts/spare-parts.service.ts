@@ -1,5 +1,5 @@
 // ─────────────────────── Imports ────────────────────────
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationType } from '../../generated/prisma';
 
 import { NotificationsService } from '../notifications/notifications.service';
@@ -61,7 +61,12 @@ export class SparePartsService {
     sparePartId: number,
     quantityUsed: number,
   ): Promise<WorkOrderPartRecord> {
-    await this.findById(sparePartId);
+    const part = await this.findById(sparePartId);
+    if (quantityUsed > part.quantity) {
+      throw new BadRequestException(
+        `Quantidade maior que o estoque de ${part.name}: saldo ${part.quantity}, pedido ${quantityUsed}`,
+      );
+    }
     return this.repo.addWorkOrderPart(workOrderId, sparePartId, quantityUsed);
   }
 

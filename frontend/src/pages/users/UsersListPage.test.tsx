@@ -13,7 +13,7 @@ const makeUser = (overrides: Partial<UserListItem> = {}): UserListItem => ({
   email: 'ana@cmms.local',
   isActive: true,
   roleId: 4,
-  role: { id: 4, name: 'Technician' },
+  role: { id: 4, name: 'Technician', permissions: [] },
   createdAt: '2026-01-01T12:00:00.000Z',
   ...overrides,
 })

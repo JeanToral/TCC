@@ -127,9 +127,14 @@ model WorkOrder {
   parts              WorkOrderPart[]
   externalCosts      WorkOrderExternalCost[]
   notifications      Notification[]
+  /// Plano que gerou a OS. Impede gerar outra enquanto esta estiver aberta.
+  preventivePlan     PreventivePlan? @relation(fields: [preventivePlanId], references: [id], onDelete: SetNull)
+  preventivePlanId   Int?
   deletedAt          DateTime?
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
+
+  @@index([preventivePlanId])
 }
 
 model SparePart {
@@ -208,6 +213,7 @@ model PreventivePlan {
   lastGeneratedAt DateTime?
   nextDueAt       DateTime
   isActive        Boolean   @default(true)
+  workOrders      WorkOrder[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }

@@ -12,6 +12,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  type YAxisTickContentProps,
 } from 'recharts'
 
 import { ChartCard, ChartGrid, ChartTooltip, type LegendItem } from '../../components/charts/ChartCard'
@@ -26,7 +27,8 @@ import type {
 import { GET_MONTHLY_COSTS } from '../../graphql/finance/GetMonthlyCosts.gql'
 import type { GetMonthlyCostsData } from '../../graphql/finance/types'
 import type { WorkOrderStatus } from '../../graphql/work-orders/types'
-import { formatHours, formatMonth, formatMonthLong, partialMonths, partialMonthsNote } from '../../lib/period'
+import { formatHours, formatMonth, formatMonthLong, hoursAxis, partialMonths, partialMonthsNote } from '../../lib/period'
+import { niceTicks, truncate } from '../../lib/utils'
 
 // ── Aparência compartilhada (cores vêm dos tokens do tema) ──
 const SERIES_1 = 'var(--chart-1)'
@@ -73,15 +75,18 @@ const INTEGER = new Intl.NumberFormat('pt-BR')
 const formatCount = (value: number) => INTEGER.format(value)
 const formatPercent = (value: number) => `${value}%`
 
-/** Marcas redondas para o eixo: 0, 1 mil, 2 mil… em vez de 850, 1,7 mil, 2,6 mil. */
-function niceTicks(max: number, count = 4): number[] {
-  if (max <= 0) return [0]
-  const raw = max / count
-  const magnitude = 10 ** Math.floor(Math.log10(raw))
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((candidate) => candidate >= raw) ?? raw
-  const ticks = [0]
-  while (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + step)
-  return ticks
+/** Nome de ativo no eixo: cortado com reticências; o nome inteiro fica no <title> e no tooltip. */
+const ASSET_AXIS_WIDTH = 140
+const ASSET_NAME_MAX_CHARS = 20
+
+function AssetNameTick({ x, y, payload }: YAxisTickContentProps) {
+  const name = String(payload?.value ?? '')
+  return (
+    <text x={x} y={y} dy="0.32em" textAnchor="end" {...TICK_NAME}>
+      <title>{name}</title>
+      {truncate(name, ASSET_NAME_MAX_CHARS)}
+    </text>
+  )
 }
 
 /** Eixo e rodapé dos gráficos mensais: `out/26*` e a nota do trecho coberto. */
@@ -338,6 +343,7 @@ export function MttrChart({ kpis, loading, limit, reportHref }: MttrChartProps) 
     .sort((a, b) => b.mttr - a.mttr)
     .slice(0, limit ?? kpis.length)
     .map((k) => ({ label: k.assetName, mttr: k.mttr }))
+  const axis = hoursAxis(Math.max(0, ...ranked.map((k) => k.mttr)))
 
   return (
     <ChartCard
@@ -355,12 +361,21 @@ export function MttrChart({ kpis, loading, limit, reportHref }: MttrChartProps) 
           <CartesianGrid horizontal={false} {...GRID} />
           <XAxis
             type="number"
-            tickFormatter={(h: number) => (h === 0 ? '0' : formatHours(h))}
+            ticks={axis.ticks}
+            domain={[0, axis.ticks[axis.ticks.length - 1]]}
+            tickFormatter={axis.format}
             tick={TICK}
             axisLine={false}
             tickLine={false}
           />
-          <YAxis type="category" dataKey="label" width={136} tick={TICK_NAME} axisLine={AXIS_LINE} tickLine={false} />
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={ASSET_AXIS_WIDTH}
+            tick={(props: YAxisTickContentProps) => <AssetNameTick {...props} />}
+            axisLine={AXIS_LINE}
+            tickLine={false}
+          />
           <Tooltip
             cursor={BAR_CURSOR}
             content={(props) => <ChartTooltip {...props} formatValue={formatHours} />}

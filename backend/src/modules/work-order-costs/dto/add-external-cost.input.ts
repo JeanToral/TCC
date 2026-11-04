@@ -10,6 +10,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import { Trim } from '../../../common/decorators/trim.decorator';
 
 // ─────────────────────── Input ───────────────────────────
 @InputType()
@@ -20,6 +21,7 @@ export class AddExternalCostInput {
   readonly workOrderId: number;
 
   @Field()
+  @Trim()
   @IsString()
   @IsNotEmpty()
   @MaxLength(300)

@@ -43,6 +43,7 @@ describe('PreventivePlansService', () => {
             findAll: jest.fn(),
             findById: jest.fn(),
             findDue: jest.fn(),
+            hasOpenWorkOrder: jest.fn().mockResolvedValue(false),
             create: jest.fn(),
             update: jest.fn(),
             delete: jest.fn(),
@@ -211,7 +212,17 @@ describe('PreventivePlansService', () => {
   // ── generateDueWorkOrders ────────────────────────────────
 
   describe('generateDueWorkOrders', () => {
-    it('deve criar uma OS preventiva para cada plano vencido', async () => {
+    const NOW = new Date('2026-06-15T12:00:00.000Z');
+
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(NOW);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('deve criar uma OS preventiva vinculada ao plano para cada plano vencido', async () => {
       // Arrange
       const plans = [makePlan({ id: 1 }), makePlan({ id: 2, name: 'Revisão prensa' })];
       repo.findDue.mockResolvedValue(plans);
@@ -219,17 +230,18 @@ describe('PreventivePlansService', () => {
       repo.update.mockResolvedValue(makePlan());
 
       // Act
-      const count = await service.generateDueWorkOrders(ACTOR_ID);
+      const result = await service.generateDueWorkOrders(ACTOR_ID);
 
       // Assert
+      expect(result).toEqual({ generated: 2, skipped: 0, failedPlans: [] });
       expect(workOrdersService.create).toHaveBeenCalledTimes(2);
-      expect(count).toBe(2);
+      expect(workOrdersService.create).toHaveBeenCalledWith(expect.anything(), ACTOR_ID, 1);
+      expect(workOrdersService.create).toHaveBeenCalledWith(expect.anything(), ACTOR_ID, 2);
     });
 
-    it('deve avançar nextDueAt em intervalDays após gerar a OS', async () => {
+    it('deve avançar nextDueAt em intervalDays quando um ciclo basta para passar de hoje', async () => {
       // Arrange
-      const nextDueAt = new Date('2026-05-01T00:00:00.000Z');
-      const plan = makePlan({ intervalDays: 30, nextDueAt });
+      const plan = makePlan({ intervalDays: 30, nextDueAt: new Date('2026-06-01T00:00:00.000Z') });
       repo.findDue.mockResolvedValue([plan]);
       workOrdersService.create.mockResolvedValue({} as never);
       repo.update.mockResolvedValue(makePlan());
@@ -238,14 +250,64 @@ describe('PreventivePlansService', () => {
       await service.generateDueWorkOrders(ACTOR_ID);
 
       // Assert
-      const expectedNext = new Date('2026-05-31T00:00:00.000Z');
-      expect(repo.update).toHaveBeenCalledWith(
-        plan.id,
-        expect.objectContaining({
-          nextDueAt: expectedNext,
-          lastGeneratedAt: expect.any(Date),
-        }),
-      );
+      expect(repo.update).toHaveBeenCalledWith(plan.id, {
+        nextDueAt: new Date('2026-07-01T00:00:00.000Z'),
+        lastGeneratedAt: NOW,
+      });
+    });
+
+    it('deve avançar nextDueAt em vários ciclos até passar de hoje, gerando uma única OS', async () => {
+      // Arrange — vencido há ~3 ciclos de 30 dias
+      const plan = makePlan({ intervalDays: 30, nextDueAt: new Date('2026-03-01T00:00:00.000Z') });
+      repo.findDue.mockResolvedValue([plan]);
+      workOrdersService.create.mockResolvedValue({} as never);
+      repo.update.mockResolvedValue(makePlan());
+
+      // Act
+      const result = await service.generateDueWorkOrders(ACTOR_ID);
+
+      // Assert — 03-01 → 03-31 → 04-30 → 05-30 → 06-29
+      expect(result.generated).toBe(1);
+      expect(workOrdersService.create).toHaveBeenCalledTimes(1);
+      const { nextDueAt } = repo.update.mock.calls[0][1];
+      expect(nextDueAt).toEqual(new Date('2026-06-29T00:00:00.000Z'));
+      expect(nextDueAt!.getTime()).toBeGreaterThan(NOW.getTime());
+    });
+
+    it('não deve gerar OS quando o plano já tiver uma OS aberta, mas deve contá-lo como pulado e avançar nextDueAt', async () => {
+      // Arrange
+      const plan = makePlan({ intervalDays: 30, nextDueAt: new Date('2026-06-01T00:00:00.000Z') });
+      repo.findDue.mockResolvedValue([plan]);
+      repo.hasOpenWorkOrder.mockResolvedValue(true);
+      repo.update.mockResolvedValue(makePlan());
+
+      // Act
+      const result = await service.generateDueWorkOrders(ACTOR_ID);
+
+      // Assert
+      expect(result).toEqual({ generated: 0, skipped: 1, failedPlans: [] });
+      expect(workOrdersService.create).not.toHaveBeenCalled();
+      expect(repo.update).toHaveBeenCalledWith(plan.id, {
+        nextDueAt: new Date('2026-07-01T00:00:00.000Z'),
+      });
+    });
+
+    it('não deve duplicar OS ao gerar duas vezes seguidas', async () => {
+      // Arrange — na segunda rodada a OS da primeira já está aberta
+      const plan = makePlan({ nextDueAt: new Date('2026-06-01T00:00:00.000Z') });
+      repo.findDue.mockResolvedValue([plan]);
+      repo.hasOpenWorkOrder.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      workOrdersService.create.mockResolvedValue({} as never);
+      repo.update.mockResolvedValue(makePlan());
+
+      // Act
+      const first = await service.generateDueWorkOrders(ACTOR_ID);
+      const second = await service.generateDueWorkOrders(ACTOR_ID);
+
+      // Assert
+      expect(first.generated).toBe(1);
+      expect(second).toEqual({ generated: 0, skipped: 1, failedPlans: [] });
+      expect(workOrdersService.create).toHaveBeenCalledTimes(1);
     });
 
     it('deve continuar gerando OS dos demais planos quando um falhar', async () => {
@@ -261,10 +323,50 @@ describe('PreventivePlansService', () => {
       repo.update.mockResolvedValue(makePlan());
 
       // Act
-      const count = await service.generateDueWorkOrders(ACTOR_ID);
+      const result = await service.generateDueWorkOrders(ACTOR_ID);
 
-      // Assert — apenas o segundo plano gerou OS com sucesso
-      expect(count).toBe(1);
+      // Assert — o primeiro falha e é reportado; o segundo gera
+      expect(result).toEqual({ generated: 1, skipped: 0, failedPlans: ['Plano que falha'] });
+    });
+
+    it('deve reportar a falha em vez de dizer que não há plano vencido', async () => {
+      // Arrange — ex.: coluna ausente por migration não aplicada
+      repo.findDue.mockResolvedValue([makePlan({ name: 'Lubrificação mensal' })]);
+      repo.hasOpenWorkOrder.mockRejectedValue(new Error('column "preventivePlanId" does not exist'));
+
+      // Act
+      const result = await service.generateDueWorkOrders(ACTOR_ID);
+
+      // Assert
+      expect(result).toEqual({ generated: 0, skipped: 0, failedPlans: ['Lubrificação mensal'] });
+    });
+
+    it('deve considerar vencido o plano de hoje gravado ao meio-dia, mesmo gerando antes desse horário', async () => {
+      // Arrange — agora 15/06 09:00 em Brasília; vence 15/06 meio-dia local (15:00Z)
+      jest.setSystemTime(new Date('2026-06-15T12:00:00.000Z'));
+      const plan = makePlan({ nextDueAt: new Date('2026-06-15T15:00:00.000Z') });
+      repo.findDue.mockResolvedValue([plan]);
+      workOrdersService.create.mockResolvedValue({} as never);
+      repo.update.mockResolvedValue(makePlan());
+
+      // Act
+      const result = await service.generateDueWorkOrders(ACTOR_ID);
+
+      // Assert
+      expect(result.generated).toBe(1);
+    });
+
+    it('não deve considerar vencido o plano de amanhã', async () => {
+      // Arrange — o repositório traz até amanhã; o corte por dia é do service
+      const plan = makePlan({ nextDueAt: new Date('2026-06-16T15:00:00.000Z') });
+      repo.findDue.mockResolvedValue([plan]);
+
+      // Act
+      const result = await service.generateDueWorkOrders(ACTOR_ID);
+
+      // Assert
+      expect(result).toEqual({ generated: 0, skipped: 0, failedPlans: [] });
+      expect(workOrdersService.create).not.toHaveBeenCalled();
     });
 
     it('deve retornar 0 quando não houver planos vencidos', async () => {
@@ -272,10 +374,10 @@ describe('PreventivePlansService', () => {
       repo.findDue.mockResolvedValue([]);
 
       // Act
-      const count = await service.generateDueWorkOrders(ACTOR_ID);
+      const result = await service.generateDueWorkOrders(ACTOR_ID);
 
       // Assert
-      expect(count).toBe(0);
+      expect(result).toEqual({ generated: 0, skipped: 0, failedPlans: [] });
       expect(workOrdersService.create).not.toHaveBeenCalled();
     });
   });

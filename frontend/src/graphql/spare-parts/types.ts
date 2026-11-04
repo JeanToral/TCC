@@ -46,3 +46,7 @@ export interface DeleteSparePartData {
 export interface AddWorkOrderPartData {
   readonly addWorkOrderPart: WorkOrderPart
 }
+
+export interface RemoveWorkOrderPartData {
+  readonly removeWorkOrderPart: boolean
+}

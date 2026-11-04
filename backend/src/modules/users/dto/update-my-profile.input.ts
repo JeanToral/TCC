@@ -1,6 +1,7 @@
 // ─────────────────────── Imports ────────────────────────
 import { Field, InputType } from '@nestjs/graphql';
 import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { Trim } from '../../../common/decorators/trim.decorator';
 
 // ─────────────────────── Input ───────────────────────────
 /**
@@ -10,6 +11,7 @@ import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-valid
 @InputType()
 export class UpdateMyProfileInput {
   @Field({ nullable: true })
+  @Trim()
   @IsOptional()
   @IsString()
   @MinLength(2)

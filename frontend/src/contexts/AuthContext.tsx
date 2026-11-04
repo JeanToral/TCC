@@ -1,6 +1,7 @@
 // ─────────────────────── Imports ────────────────────────
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { LoaderCircle } from 'lucide-react'
 
 import { apolloClient, setAccessToken } from '../lib/apollo'
 import { REFRESH_TOKEN } from '../graphql/auth/RefreshToken.gql'
@@ -114,7 +115,15 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
     [permissions],
   )
 
-  if (initializing) return null
+  // Enquanto a sessão é restaurada pelo refresh token: tela no fundo do app, nunca vazia
+  if (initializing) {
+    return (
+      <div role="status" className="flex min-h-screen items-center justify-center gap-2 bg-canvas text-sm text-quiet">
+        <LoaderCircle className="size-[1.125rem] animate-spin" aria-hidden="true" />
+        Carregando…
+      </div>
+    )
+  }
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, email, permissions, hasPermission, login, logout, refreshSession: silentRefresh }}>

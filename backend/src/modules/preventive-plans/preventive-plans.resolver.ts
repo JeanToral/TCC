@@ -7,11 +7,11 @@ import { RequiresPermission } from '../../common/decorators/requires-permission.
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import type { JwtUser } from '../auth/jwt.strategy';
-import { PreventivePlanType } from './dto/preventive-plan.type';
+import { PreventiveGenerationResultType, PreventivePlanType } from './dto/preventive-plan.type';
 import { CreatePreventivePlanInput } from './dto/create-preventive-plan.input';
 import { UpdatePreventivePlanInput } from './dto/update-preventive-plan.input';
 import type { PreventivePlanRecord } from './preventive-plans.repository';
-import { PreventivePlansService } from './preventive-plans.service';
+import { type PreventiveGenerationResult, PreventivePlansService } from './preventive-plans.service';
 
 // ─────────────────────── Resolver ────────────────────────
 @Resolver(() => PreventivePlanType)
@@ -60,9 +60,9 @@ export class PreventivePlansResolver {
     return this.preventivePlansService.delete(id);
   }
 
-  @Mutation(() => Int)
+  @Mutation(() => PreventiveGenerationResultType)
   @RequiresPermission('workorder.create')
-  generateDuePreventiveWorkOrders(@CurrentUser() user: JwtUser): Promise<number> {
+  generateDuePreventiveWorkOrders(@CurrentUser() user: JwtUser): Promise<PreventiveGenerationResult> {
     return this.preventivePlansService.generateDueWorkOrders(user.id);
   }
 }

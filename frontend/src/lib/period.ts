@@ -15,6 +15,8 @@ import {
 import { ptBR } from 'date-fns/locale/pt-BR'
 import type { DateRange } from 'react-day-picker'
 
+import { niceTicks } from './utils'
+
 /** Dashboard e Relatórios abrem nos últimos 6 meses, com o mês corrente inteiro. */
 export const DEFAULT_PERIOD_MONTHS = 6
 
@@ -92,6 +94,7 @@ export function formatMonthLong(key: string): string {
 
 const HOURS = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
 const HOURS_FIXED = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+const AXIS_NUMBER = new Intl.NumberFormat('pt-BR')
 
 /** Duração em horas, na maior unidade legível, com vírgula: `45 min`, `4,4 h`, `44,6 d`. */
 export function formatHours(hours: number | null): string {
@@ -99,6 +102,26 @@ export function formatHours(hours: number | null): string {
   if (hours < 1) return `${Math.round(hours * 60)} min`
   if (hours < 24) return `${HOURS_FIXED.format(hours)} h`
   return `${HOURS_FIXED.format(hours / 24)} d`
+}
+
+/**
+ * Eixo de horas em marcas redondas na unidade que cabe: minutos abaixo de 1 h,
+ * horas até 48 h, dias acima. Evita rótulos repetidos como "0 min, 0 min, 1 min".
+ */
+export function hoursAxis(maxHours: number): { readonly ticks: number[]; readonly format: (hours: number) => string } {
+  if (maxHours < 1) {
+    return {
+      ticks: niceTicks(maxHours * 60).map((minutes) => minutes / 60),
+      format: (h) => (h === 0 ? '0' : `${Math.round(h * 60)} min`),
+    }
+  }
+  if (maxHours < 48) {
+    return { ticks: niceTicks(maxHours), format: (h) => (h === 0 ? '0' : `${AXIS_NUMBER.format(h)} h`) }
+  }
+  return {
+    ticks: niceTicks(maxHours / 24).map((days) => days * 24),
+    format: (h) => (h === 0 ? '0' : `${AXIS_NUMBER.format(h / 24)} d`),
+  }
 }
 
 /** Horas → valor e unidade separados, para mostrador: `4,3` `h`; a partir de 48 h, em dias. */
@@ -125,6 +148,18 @@ export function atLocalNoon(day: Date): Date {
 export function parseDayValue(iso: string): Date {
   const date = new Date(iso)
   return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+}
+
+const DAY = new Intl.DateTimeFormat('pt-BR')
+
+/** Data de dia (vencimento, instalação) em `dd/mm/aaaa`, pelo mesmo critério de `parseDayValue`. */
+export function formatDay(iso: string): string {
+  return DAY.format(parseDayValue(iso))
+}
+
+/** Dia já passou (antes de hoje). O próprio dia de hoje não conta como atraso. */
+export function isPastDay(iso: string, now: Date = new Date()): boolean {
+  return parseDayValue(iso) < startOfDay(now)
 }
 
 // ── Agendamento ───────────────────────────────────────────

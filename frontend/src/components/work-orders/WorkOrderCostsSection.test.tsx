@@ -1,9 +1,12 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import type { MockLink } from '@apollo/client/testing'
 import { describe, expect, it } from 'vitest'
 
-import WorkOrderCostsSection from './WorkOrderCostsSection'
+import WorkOrderCostsSection, { WorkOrderPartsSection } from './WorkOrderCostsSection'
 import { ADD_WORK_ORDER_EXTERNAL_COST } from '../../graphql/work-order-costs/AddWorkOrderExternalCost.gql'
+import { REMOVE_WORK_ORDER_EXTERNAL_COST } from '../../graphql/work-order-costs/RemoveWorkOrderExternalCost.gql'
+import { ADD_WORK_ORDER_PART, REMOVE_WORK_ORDER_PART } from '../../graphql/spare-parts/AddWorkOrderPart.gql'
+import { GET_SPARE_PARTS } from '../../graphql/spare-parts/GetSpareParts.gql'
 import { GET_WORK_ORDER_PARTS } from '../../graphql/work-order-costs/GetWorkOrderParts.gql'
 import { GET_WORK_ORDER } from '../../graphql/work-orders/GetWorkOrder.gql'
 import type { WorkOrderDetail } from '../../graphql/work-orders/types'
@@ -79,6 +82,26 @@ function partsMock(unitCostSnapshot: number | null = 100): MockLink.MockedRespon
   }
 }
 
+function sparePartsMock(): MockLink.MockedResponse {
+  const part = (id: number, name: string, partNumber: string, quantity: number) => ({
+    id, name, partNumber, quantity,
+    description: null, minimumStock: 1, unitCost: 50, updatedAt: '2026-03-01T00:00:00.000Z',
+  })
+  return {
+    request: { query: GET_SPARE_PARTS },
+    maxUsageCount: Number.POSITIVE_INFINITY,
+    result: {
+      data: {
+        spareParts: [
+          part(5, 'Rolamento 6205', 'ROL-6205', 10),
+          part(6, 'Correia V A-42', 'COR-A42', 3),
+          part(7, 'Retentor 40x62', 'RET-4062', 0),
+        ],
+      },
+    },
+  }
+}
+
 function workOrderMock(): MockLink.MockedResponse {
   return {
     request: { query: GET_WORK_ORDER, variables: { id: 10 } },
@@ -100,30 +123,6 @@ describe('WorkOrderCostsSection', () => {
     expect(await screen.findByText('R$ 715,00')).toBeInTheDocument()
     // R$ 380,00 aparece duas vezes: na linha do lançamento e no total da categoria
     expect(screen.getAllByText('R$ 380,00')).toHaveLength(2)
-  })
-
-  it('deve listar as peças com o preço congelado e o subtotal', async () => {
-    // Arrange / Act
-    renderWithProviders(
-      <WorkOrderCostsSection workOrder={makeWorkOrder()} canManage={false} />,
-      { mocks: [partsMock(100), workOrderMock()], permissions: ['cost.read'] },
-    )
-
-    // Assert — 2 × R$ 100,00 = R$ 200,00
-    expect(await screen.findByText('Rolamento 6205')).toBeInTheDocument()
-    expect(screen.getByText('R$ 100,00')).toBeInTheDocument()
-  })
-
-  it('deve exibir traço para peça sem preço congelado', async () => {
-    // Arrange / Act
-    renderWithProviders(
-      <WorkOrderCostsSection workOrder={makeWorkOrder()} canManage={false} />,
-      { mocks: [partsMock(null), workOrderMock()], permissions: ['cost.read'] },
-    )
-
-    // Assert
-    await screen.findByText('Rolamento 6205')
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 
   it('deve exibir as horas apontadas separadas do custo de mão de obra', async () => {
@@ -148,8 +147,8 @@ describe('WorkOrderCostsSection', () => {
       { mocks: [partsMock(), workOrderMock()], permissions: ['cost.read'] },
     )
 
-    // Assert — espera as peças carregarem antes de procurar o aviso (role="status")
-    await screen.findByText('Rolamento 6205')
+    // Assert
+    await screen.findByText('Frete da retificadora')
     expect(screen.getByRole('status')).toHaveTextContent('Custo incompleto')
   })
 
@@ -161,7 +160,7 @@ describe('WorkOrderCostsSection', () => {
     )
 
     // Assert
-    await screen.findByText('Rolamento 6205')
+    await screen.findByText('Frete da retificadora')
     expect(screen.queryByText(/Custo incompleto/)).not.toBeInTheDocument()
   })
 
@@ -178,7 +177,7 @@ describe('WorkOrderCostsSection', () => {
       screen.queryByRole('button', { name: 'Lançar serviço externo' }),
     ).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Remover' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Remover/ })).not.toBeInTheDocument()
   })
 
   it('deve oferecer as ações de lançamento com cost.manage', async () => {
@@ -193,6 +192,40 @@ describe('WorkOrderCostsSection', () => {
       await screen.findByRole('button', { name: 'Lançar serviço externo' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument()
+  })
+
+  it('deve pedir confirmação antes de remover um serviço externo', async () => {
+    // Arrange
+    const sent: Record<string, unknown>[] = []
+    const removeMock: MockLink.MockedResponse = {
+      request: {
+        query: REMOVE_WORK_ORDER_EXTERNAL_COST,
+        variables: (vars) => {
+          sent.push(vars)
+          return true
+        },
+      },
+      result: { data: { removeWorkOrderExternalCost: true } },
+    }
+    const { user } = renderWithProviders(
+      <WorkOrderCostsSection workOrder={makeWorkOrder()} canManage />,
+      { mocks: [removeMock, workOrderMock()], permissions: ['cost.read', 'cost.manage'] },
+    )
+
+    // Act
+    await user.click(await screen.findByRole('button', { name: 'Remover Frete da retificadora' }))
+
+    // Assert — nada enviado até confirmar
+    const dialog = screen.getByRole('dialog', { name: 'Remover serviço externo' })
+    expect(dialog).toHaveTextContent('Frete da retificadora')
+    expect(sent).toHaveLength(0)
+
+    // Act
+    await user.click(within(dialog).getByRole('button', { name: 'Remover' }))
+
+    // Assert
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toEqual({ id: 1 })
   })
 
   it('deve exigir descrição, valor e competência no lançamento', async () => {
@@ -354,5 +387,219 @@ describe('WorkOrderCostsSection', () => {
     expect(screen.getByRole('button', { name: todayName })).toBeEnabled()
     const tomorrowButtons = screen.queryAllByRole('button', { name: tomorrowName })
     tomorrowButtons.forEach((button) => expect(button).toBeDisabled())
+  })
+})
+
+describe('WorkOrderPartsSection', () => {
+  const inProgress = () => makeWorkOrder({ status: 'IN_PROGRESS', completedAt: null, closingNotes: null })
+
+  it('deve listar as peças com o preço congelado e o subtotal com cost.read', async () => {
+    // Arrange / Act
+    renderWithProviders(
+      <WorkOrderPartsSection workOrder={makeWorkOrder()} canEdit={false} showCost />,
+      { mocks: [partsMock(100), workOrderMock()], permissions: ['workorder.read', 'cost.read'] },
+    )
+
+    // Assert — 2 × R$ 100,00 = R$ 200,00
+    expect(await screen.findByText('Rolamento 6205')).toBeInTheDocument()
+    expect(screen.getByText('R$ 100,00')).toBeInTheDocument()
+    expect(screen.getByText('R$ 200,00')).toBeInTheDocument()
+  })
+
+  it('deve exibir traço para peça sem preço congelado', async () => {
+    // Arrange / Act
+    renderWithProviders(
+      <WorkOrderPartsSection workOrder={makeWorkOrder()} canEdit={false} showCost />,
+      { mocks: [partsMock(null), workOrderMock()], permissions: ['workorder.read', 'cost.read'] },
+    )
+
+    // Assert
+    await screen.findByText('Rolamento 6205')
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  })
+
+  it('deve esconder as colunas de preço sem cost.read', async () => {
+    // Arrange / Act
+    renderWithProviders(
+      <WorkOrderPartsSection workOrder={makeWorkOrder()} canEdit={false} showCost={false} />,
+      { mocks: [partsMock(null), workOrderMock()], permissions: ['workorder.read'] },
+    )
+
+    // Assert
+    await screen.findByText('Rolamento 6205')
+    expect(screen.queryByText('Preço congelado')).not.toBeInTheDocument()
+    expect(screen.queryByText('Subtotal')).not.toBeInTheDocument()
+  })
+
+  it.each(['APPROVED', 'SCHEDULED', 'IN_PROGRESS'] as const)(
+    'deve oferecer adicionar e remover peça em OS %s',
+    async (status) => {
+      // Arrange / Act
+      renderWithProviders(
+        <WorkOrderPartsSection workOrder={makeWorkOrder({ status })} canEdit showCost={false} />,
+        { mocks: [partsMock(), workOrderMock()], permissions: ['workorder.update'] },
+      )
+
+      // Assert
+      expect(await screen.findByRole('button', { name: 'Remover Rolamento 6205' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Adicionar peça' })).toBeInTheDocument()
+    },
+  )
+
+  it.each(['REQUESTED', 'COMPLETED', 'REJECTED', 'CANCELLED'] as const)(
+    'não deve oferecer adicionar nem remover peça em OS %s',
+    async (status) => {
+      // Arrange / Act
+      renderWithProviders(
+        <WorkOrderPartsSection workOrder={makeWorkOrder({ status })} canEdit showCost={false} />,
+        { mocks: [partsMock(), workOrderMock()], permissions: ['workorder.update'] },
+      )
+
+      // Assert
+      await screen.findByText('Rolamento 6205')
+      expect(screen.queryByRole('button', { name: 'Adicionar peça' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Remover/ })).not.toBeInTheDocument()
+    },
+  )
+
+  it('não deve oferecer ações sem workorder.update', async () => {
+    // Arrange / Act
+    renderWithProviders(
+      <WorkOrderPartsSection workOrder={inProgress()} canEdit={false} showCost={false} />,
+      { mocks: [partsMock(), workOrderMock()], permissions: ['workorder.read'] },
+    )
+
+    // Assert
+    await screen.findByText('Rolamento 6205')
+    expect(screen.queryByRole('button', { name: 'Adicionar peça' })).not.toBeInTheDocument()
+  })
+
+  it('deve listar no modal só as peças que ainda não estão na OS, com o estoque', async () => {
+    // Arrange
+    const { user } = renderWithProviders(
+      <WorkOrderPartsSection workOrder={inProgress()} canEdit showCost={false} />,
+      { mocks: [partsMock(), sparePartsMock(), workOrderMock()], permissions: ['workorder.update'] },
+    )
+
+    // Act
+    await user.click(await screen.findByRole('button', { name: 'Adicionar peça' }))
+
+    // Assert
+    expect(await screen.findByRole('option', { name: 'Correia V A-42 (COR-A42) — estoque: 3' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Retentor 40x62 (RET-4062) — estoque: 0' })).toBeDisabled()
+    expect(screen.queryByRole('option', { name: /Rolamento 6205/ })).not.toBeInTheDocument()
+  })
+
+  it('deve rejeitar quantidade maior que o estoque', async () => {
+    // Arrange
+    const { user } = renderWithProviders(
+      <WorkOrderPartsSection workOrder={inProgress()} canEdit showCost={false} />,
+      { mocks: [partsMock(), sparePartsMock(), workOrderMock()], permissions: ['workorder.update'] },
+    )
+    await user.click(await screen.findByRole('button', { name: 'Adicionar peça' }))
+    await screen.findByRole('option', { name: /Correia V A-42/ })
+
+    // Act
+    await user.selectOptions(screen.getByLabelText('Peça'), '6')
+    await user.clear(screen.getByLabelText('Quantidade'))
+    await user.type(screen.getByLabelText('Quantidade'), '4')
+    await user.click(screen.getByRole('button', { name: 'Adicionar' }))
+
+    // Assert
+    expect(await screen.findByText('Quantidade maior que o estoque (3 un.).')).toBeInTheDocument()
+  })
+
+  it('deve enviar ADD_WORK_ORDER_PART com a peça e a quantidade escolhidas', async () => {
+    // Arrange
+    const sent: Record<string, unknown>[] = []
+    const addMock: MockLink.MockedResponse = {
+      request: {
+        query: ADD_WORK_ORDER_PART,
+        variables: (vars) => {
+          sent.push(vars)
+          return true
+        },
+      },
+      result: {
+        data: {
+          addWorkOrderPart: {
+            id: 2, workOrderId: 10, sparePartId: 6, quantityUsed: 2, createdAt: '2026-03-10T00:00:00.000Z',
+            sparePart: { id: 6, name: 'Correia V A-42', partNumber: 'COR-A42' },
+          },
+        },
+      },
+    }
+    const { user } = renderWithProviders(
+      <WorkOrderPartsSection workOrder={inProgress()} canEdit showCost={false} />,
+      { mocks: [partsMock(), sparePartsMock(), addMock, workOrderMock()], permissions: ['workorder.update'] },
+    )
+    await user.click(await screen.findByRole('button', { name: 'Adicionar peça' }))
+    await screen.findByRole('option', { name: /Correia V A-42/ })
+
+    // Act
+    await user.selectOptions(screen.getByLabelText('Peça'), '6')
+    await user.clear(screen.getByLabelText('Quantidade'))
+    await user.type(screen.getByLabelText('Quantidade'), '2')
+    await user.click(screen.getByRole('button', { name: 'Adicionar' }))
+
+    // Assert
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toEqual({ input: { workOrderId: 10, sparePartId: 6, quantityUsed: 2 } })
+  })
+
+  it('deve enviar REMOVE_WORK_ORDER_PART ao remover uma linha', async () => {
+    // Arrange
+    const sent: Record<string, unknown>[] = []
+    const removeMock: MockLink.MockedResponse = {
+      request: {
+        query: REMOVE_WORK_ORDER_PART,
+        variables: (vars) => {
+          sent.push(vars)
+          return true
+        },
+      },
+      result: { data: { removeWorkOrderPart: true } },
+    }
+    const { user } = renderWithProviders(
+      <WorkOrderPartsSection workOrder={inProgress()} canEdit showCost={false} />,
+      { mocks: [partsMock(), removeMock, workOrderMock()], permissions: ['workorder.update'] },
+    )
+
+    // Act
+    await user.click(await screen.findByRole('button', { name: 'Remover Rolamento 6205' }))
+    const dialog = screen.getByRole('dialog', { name: 'Remover peça' })
+    expect(dialog).toHaveTextContent('Remover Rolamento 6205 (2 un.) desta OS?')
+    await user.click(within(dialog).getByRole('button', { name: 'Remover' }))
+
+    // Assert
+    await waitFor(() => expect(sent).toHaveLength(1))
+    expect(sent[0]).toEqual({ workOrderId: 10, sparePartId: 5 })
+  })
+
+  it('não deve remover a peça quando a confirmação é cancelada', async () => {
+    // Arrange
+    const sent: Record<string, unknown>[] = []
+    const removeMock: MockLink.MockedResponse = {
+      request: {
+        query: REMOVE_WORK_ORDER_PART,
+        variables: (vars) => {
+          sent.push(vars)
+          return true
+        },
+      },
+      result: { data: { removeWorkOrderPart: true } },
+    }
+    const { user } = renderWithProviders(
+      <WorkOrderPartsSection workOrder={inProgress()} canEdit showCost={false} />,
+      { mocks: [partsMock(), removeMock, workOrderMock()], permissions: ['workorder.update'] },
+    )
+
+    // Act
+    await user.click(await screen.findByRole('button', { name: 'Remover Rolamento 6205' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }))
+
+    // Assert
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(sent).toHaveLength(0)
   })
 })

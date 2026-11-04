@@ -99,6 +99,18 @@ export interface WorkOrderExportRow {
   readonly externalCosts: readonly { readonly amount: number }[];
 }
 
+/** Lançada dentro da transação de conclusão; desfaz tudo. O service traduz para 400. */
+export class InsufficientStockError extends Error {
+  constructor(
+    readonly partName: string,
+    readonly partNumber: string,
+    readonly available: number,
+    readonly required: number,
+  ) {
+    super(`Estoque insuficiente para ${partName}`);
+  }
+}
+
 export interface CompleteWorkOrderResult {
   readonly workOrder: WorkOrderRecord;
   readonly decrementedParts: readonly DecrementedPartRecord[];
@@ -111,6 +123,7 @@ export interface CreateWorkOrderData {
   readonly priority: Priority;
   readonly assetId: number;
   readonly requestedById: number;
+  readonly preventivePlanId?: number;
 }
 
 export interface UpdateWorkOrderData {
@@ -252,6 +265,9 @@ export class WorkOrdersRepository {
         priority: data.priority,
         asset: { connect: { id: data.assetId } },
         requestedBy: { connect: { id: data.requestedById } },
+        ...(data.preventivePlanId !== undefined
+          ? { preventivePlan: { connect: { id: data.preventivePlanId } } }
+          : {}),
       },
       select: WORK_ORDER_SELECT,
     }) as Promise<WorkOrderRecord>;
@@ -338,6 +354,20 @@ export class WorkOrdersRepository {
    * Taxa horária de um usuário, lida por consulta dedicada para não entrar no
    * WORK_ORDER_SELECT — hourlyRate é dado salarial (ADR 0001).
    */
+  async findAssignee(
+    userId: number,
+  ): Promise<{ readonly isActive: boolean; readonly permissions: string[] } | null> {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { isActive: true, role: { select: { permissions: true } } },
+    });
+    if (!user) return null;
+    const permissions = Array.isArray(user.role.permissions)
+      ? user.role.permissions.filter((p): p is string => typeof p === 'string')
+      : [];
+    return { isActive: user.isActive, permissions };
+  }
+
   async findHourlyRate(userId: number): Promise<number | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -362,7 +392,7 @@ export class WorkOrdersRepository {
           id: true,
           sparePartId: true,
           quantityUsed: true,
-          sparePart: { select: { unitCost: true } },
+          sparePart: { select: { unitCost: true, name: true, partNumber: true } },
         },
       });
 
@@ -378,9 +408,14 @@ export class WorkOrdersRepository {
           data: { unitCostSnapshot: unitCost },
         });
 
-        const updated = await tx.sparePart.update({
-          where: { id: part.sparePartId },
+        // Baixa condicional: nunca deixa o saldo negativo, mesmo com OS concorrentes.
+        const { count } = await tx.sparePart.updateMany({
+          where: { id: part.sparePartId, quantity: { gte: part.quantityUsed } },
           data: { quantity: { decrement: part.quantityUsed } },
+        });
+
+        const updated = await tx.sparePart.findUniqueOrThrow({
+          where: { id: part.sparePartId },
           select: {
             id: true,
             name: true,
@@ -389,6 +424,15 @@ export class WorkOrdersRepository {
             minimumStock: true,
           },
         });
+
+        if (count === 0) {
+          throw new InsufficientStockError(
+            updated.name,
+            updated.partNumber,
+            updated.quantity,
+            part.quantityUsed,
+          );
+        }
         decrementedParts.push(updated);
       }
 

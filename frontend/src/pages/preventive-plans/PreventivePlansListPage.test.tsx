@@ -66,22 +66,45 @@ describe('PreventivePlansListPage', () => {
     expect(screen.queryByRole('button', { name: 'Gerar OS vencidas' })).toBeNull()
   })
 
-  it('deve gerar as OS vencidas e informar quantas', async () => {
-    // Arrange
+  async function generateWith(result: { generated: number; skipped: number; failedPlans: string[] }) {
     const generated: MockLink.MockedResponse = {
       request: { query: GENERATE_DUE_PREVENTIVE_WORK_ORDERS },
-      result: { data: { generateDuePreventiveWorkOrders: 2 } },
+      result: { data: { generateDuePreventiveWorkOrders: result } },
     }
     const { user } = renderWithProviders(<PreventivePlansListPage />, {
       permissions: ['preventiveplan.read', 'workorder.create'],
       mocks: [plansMock(), generated],
     })
     await screen.findByText('Lubrificação mensal')
-
-    // Act
     await user.click(screen.getByRole('button', { name: 'Gerar OS vencidas' }))
+  }
+
+  it('deve gerar as OS vencidas e informar geradas e puladas', async () => {
+    // Arrange / Act
+    await generateWith({ generated: 2, skipped: 1, failedPlans: [] })
 
     // Assert
-    expect(await screen.findByRole('status')).toHaveTextContent('2 OS preventivas geradas com sucesso.')
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '2 OS preventivas geradas · 1 plano pulado por já ter OS aberta.',
+    )
+  })
+
+  it('deve informar quando não há plano vencido', async () => {
+    // Arrange / Act
+    await generateWith({ generated: 0, skipped: 0, failedPlans: [] })
+
+    // Assert
+    expect(await screen.findByRole('status')).toHaveTextContent('Nenhum plano vencido.')
+  })
+
+  it('deve mostrar as falhas como erro, sem dizer que não há plano vencido', async () => {
+    // Arrange / Act
+    await generateWith({ generated: 0, skipped: 0, failedPlans: ['Lubrificação mensal', 'Troca de filtro'] })
+
+    // Assert
+    expect(
+      await screen.findByText('Falha ao gerar OS de: Lubrificação mensal, Troca de filtro. Veja o log do servidor.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Nenhum plano vencido.')).toBeNull()
   })
 })

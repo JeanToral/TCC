@@ -12,13 +12,37 @@ import { Sheet, SheetHeader } from '../../components/ui/Sheet'
 import { useAuth } from '../../contexts/AuthContext'
 import { GENERATE_DUE_PREVENTIVE_WORK_ORDERS } from '../../graphql/preventive-plans/GenerateDuePreventiveWorkOrders.gql'
 import { GET_PREVENTIVE_PLANS } from '../../graphql/preventive-plans/GetPreventivePlans.gql'
-import type { GenerateDuePreventiveWorkOrdersData, GetPreventivePlansData, PreventivePlan } from '../../graphql/preventive-plans/types'
+import { GET_WORK_ORDERS } from '../../graphql/work-orders/GetWorkOrders.gql'
+import type {
+  GenerateDuePreventiveWorkOrdersData,
+  GetPreventivePlansData,
+  PreventiveGenerationResult,
+  PreventivePlan,
+} from '../../graphql/preventive-plans/types'
+import { formatDay, isPastDay } from '../../lib/period'
 import { errorMessage } from '../../lib/utils'
 
-const DATE = new Intl.DateTimeFormat('pt-BR')
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+/** Resumo de "Gerar OS vencidas": geradas e puladas viram aviso; falhas viram erro. */
+function generationSummary({ generated, skipped, failedPlans }: PreventiveGenerationResult): {
+  readonly message: string | null
+  readonly error: string | null
+} {
+  const parts = [
+    generated > 0 && plural(generated, 'OS preventiva gerada', 'OS preventivas geradas'),
+    skipped > 0 && `${plural(skipped, 'plano pulado', 'planos pulados')} por já ter OS aberta`,
+  ].filter(Boolean)
+  const message = parts.length > 0 ? `${parts.join(' · ')}.` : failedPlans.length === 0 ? 'Nenhum plano vencido.' : null
+  const error =
+    failedPlans.length > 0
+      ? `Falha ao gerar OS de: ${failedPlans.join(', ')}. Veja o log do servidor.`
+      : null
+  return { message, error }
+}
 
 function isOverdue(plan: PreventivePlan): boolean {
-  return new Date(plan.nextDueAt) < new Date()
+  return isPastDay(plan.nextDueAt)
 }
 
 const COLUMNS: readonly DataTableColumn<PreventivePlan>[] = [
@@ -58,7 +82,7 @@ const COLUMNS: readonly DataTableColumn<PreventivePlan>[] = [
     cell: (p) => (
       <span className="inline-flex items-center gap-2">
         {isOverdue(p) && <Badge variant="error">Vencido</Badge>}
-        <span className={isOverdue(p) ? 'font-mono text-error' : 'font-mono'}>{DATE.format(new Date(p.nextDueAt))}</span>
+        <span className={isOverdue(p) ? 'font-mono text-error' : 'font-mono'}>{formatDay(p.nextDueAt)}</span>
       </span>
     ),
   },
@@ -87,13 +111,11 @@ export default function PreventivePlansListPage() {
   const [generate, { loading: generating }] = useMutation<GenerateDuePreventiveWorkOrdersData>(
     GENERATE_DUE_PREVENTIVE_WORK_ORDERS,
     {
+      refetchQueries: [GET_PREVENTIVE_PLANS, GET_WORK_ORDERS],
       onCompleted: (d) => {
-        const n = d.generateDuePreventiveWorkOrders
-        setGenerateMsg(
-          n === 0
-            ? 'Nenhuma OS vencida encontrada.'
-            : `${n} OS preventiva${n > 1 ? 's' : ''} gerada${n > 1 ? 's' : ''} com sucesso.`,
-        )
+        const { message, error } = generationSummary(d.generateDuePreventiveWorkOrders)
+        setGenerateMsg(message)
+        setGenerateError(error)
       },
       onError: (err) => setGenerateError(errorMessage(err)),
     },

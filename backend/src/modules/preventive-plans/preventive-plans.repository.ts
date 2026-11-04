@@ -1,5 +1,6 @@
 // ─────────────────────── Imports ────────────────────────
 import { Injectable } from '@nestjs/common';
+import { WorkOrderStatus } from '../../generated/prisma';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // ─────────────────────── Types ───────────────────────────
@@ -19,7 +20,7 @@ export interface PreventivePlanRecord {
 
 export interface CreatePreventivePlanData {
   readonly name: string;
-  readonly description?: string;
+  readonly description?: string | null;
   readonly assetId: number;
   readonly intervalDays: number;
   readonly nextDueAt: Date;
@@ -27,7 +28,7 @@ export interface CreatePreventivePlanData {
 
 export interface UpdatePreventivePlanData {
   name?: string;
-  description?: string;
+  description?: string | null;
   intervalDays?: number;
   nextDueAt?: Date;
   isActive?: boolean;
@@ -49,6 +50,13 @@ const PLAN_SELECT = {
   updatedAt: true,
 } as const;
 
+const OPEN_WORK_ORDER_STATUSES: WorkOrderStatus[] = [
+  WorkOrderStatus.REQUESTED,
+  WorkOrderStatus.APPROVED,
+  WorkOrderStatus.SCHEDULED,
+  WorkOrderStatus.IN_PROGRESS,
+];
+
 // ─────────────────────── Repository ─────────────────────
 @Injectable()
 export class PreventivePlansRepository {
@@ -62,11 +70,23 @@ export class PreventivePlansRepository {
     }) as Promise<PreventivePlanRecord[]>;
   }
 
-  findDue(): Promise<PreventivePlanRecord[]> {
+  /** Planos ativos com vencimento até `until`; o corte por dia fica no service. */
+  findDue(until: Date): Promise<PreventivePlanRecord[]> {
     return this.prisma.preventivePlan.findMany({
-      where: { isActive: true, nextDueAt: { lte: new Date() } },
+      where: { isActive: true, nextDueAt: { lte: until } },
       select: PLAN_SELECT,
     }) as Promise<PreventivePlanRecord[]>;
+  }
+
+  async hasOpenWorkOrder(planId: number): Promise<boolean> {
+    const count = await this.prisma.workOrder.count({
+      where: {
+        preventivePlanId: planId,
+        status: { in: OPEN_WORK_ORDER_STATUSES },
+        deletedAt: null,
+      },
+    });
+    return count > 0;
   }
 
   findById(id: number): Promise<PreventivePlanRecord | null> {

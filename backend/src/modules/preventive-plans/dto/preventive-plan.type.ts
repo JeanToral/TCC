@@ -39,3 +39,16 @@ export class PreventivePlanType {
   @Field()
   readonly updatedAt: Date;
 }
+
+/** Resultado de "Gerar OS vencidas": cada plano vencido cai em exatamente um grupo. */
+@ObjectType('PreventiveGenerationResult')
+export class PreventiveGenerationResultType {
+  @Field(() => Int, { description: 'Planos que geraram OS nesta rodada' })
+  readonly generated: number;
+
+  @Field(() => Int, { description: 'Planos pulados por já terem OS aberta' })
+  readonly skipped: number;
+
+  @Field(() => [String], { description: 'Nomes dos planos em que a geração falhou' })
+  readonly failedPlans: string[];
+}

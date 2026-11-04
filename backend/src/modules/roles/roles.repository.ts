@@ -13,13 +13,13 @@ export interface RoleRecord {
 
 export interface CreateRoleData {
   readonly name: string;
-  readonly description?: string;
+  readonly description?: string | null;
   readonly permissions: string[];
 }
 
 export interface UpdateRoleData {
   name?: string;
-  description?: string;
+  description?: string | null;
   permissions?: string[];
 }
 

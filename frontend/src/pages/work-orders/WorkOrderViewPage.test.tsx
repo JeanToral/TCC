@@ -6,6 +6,7 @@ import WorkOrderViewPage from './WorkOrderViewPage'
 import { APPROVE_WORK_ORDER } from '../../graphql/work-orders/ApproveWorkOrder.gql'
 import { GET_WORK_ORDER } from '../../graphql/work-orders/GetWorkOrder.gql'
 import { GET_WORK_ORDERS } from '../../graphql/work-orders/GetWorkOrders.gql'
+import { GET_USERS } from '../../graphql/users/GetUsers.gql'
 import type { WorkOrderDetail, WorkOrderStatus } from '../../graphql/work-orders/types'
 import { renderWithProviders } from '../../test/renderWithProviders'
 
@@ -170,5 +171,39 @@ describe('WorkOrderViewPage', () => {
       'href',
       '/dashboard/work-orders',
     )
+  })
+
+  it('deve listar como técnico responsável só usuários ativos com workorder.execute', async () => {
+    // Arrange
+    const user = (id: number, name: string, isActive: boolean, permissions: string[]) => ({
+      id, name, email: `u${id}@cmms.local`, isActive, roleId: id, createdAt: '2026-01-01T00:00:00.000Z',
+      role: { id, name: `Perfil ${id}`, permissions },
+    })
+    const usersMock: MockLink.MockedResponse = {
+      request: { query: GET_USERS },
+      maxUsageCount: Number.POSITIVE_INFINITY,
+      result: {
+        data: {
+          users: [
+            user(1, 'Técnico Ativo', true, ['workorder.read', 'workorder.execute']),
+            user(2, 'Técnico Inativo', false, ['workorder.execute']),
+            user(3, 'Gerente', true, ['workorder.approve']),
+            user(4, 'Sysadmin', true, ['*']),
+          ],
+        },
+      },
+    }
+    const { user: actor } = renderPage(['*'], [workOrderMock({ status: 'APPROVED' }), usersMock])
+    await screen.findByRole('heading', { level: 1, name: 'Troca de rolamento' })
+
+    // Act
+    await actor.click(screen.getByRole('button', { name: 'Agendar' }))
+
+    // Assert
+    const select = await screen.findByLabelText('Técnico responsável')
+    expect(await within(select).findByRole('option', { name: 'Técnico Ativo' })).toBeInTheDocument()
+    expect(within(select).queryByRole('option', { name: 'Técnico Inativo' })).not.toBeInTheDocument()
+    expect(within(select).queryByRole('option', { name: 'Gerente' })).not.toBeInTheDocument()
+    expect(within(select).queryByRole('option', { name: 'Sysadmin' })).not.toBeInTheDocument()
   })
 })

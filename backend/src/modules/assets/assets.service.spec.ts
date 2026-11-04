@@ -108,6 +108,28 @@ describe('AssetsService', () => {
       expect(result).toEqual(asset);
       expect(repo.create).toHaveBeenCalledTimes(1);
     });
+
+    it('deve rejeitar data de instalação no futuro', async () => {
+      // Arrange
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      // Act & Assert
+      await expect(
+        service.create({ name: 'Torno CNC 01', tag: 'MQ-001', installDate: tomorrow }),
+      ).rejects.toThrow(BadRequestException);
+      expect(repo.create).not.toHaveBeenCalled();
+    });
+
+    it('deve aceitar data de instalação hoje', async () => {
+      // Arrange
+      repo.create.mockResolvedValue(makeAsset());
+
+      // Act
+      await service.create({ name: 'Torno CNC 01', tag: 'MQ-001', installDate: new Date() });
+
+      // Assert
+      expect(repo.create).toHaveBeenCalledTimes(1);
+    });
   });
 
   // ── update ───────────────────────────────────────────────
@@ -134,6 +156,16 @@ describe('AssetsService', () => {
       // Assert
       expect(result.name).toBe('Torno CNC 02');
       expect(repo.update).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Torno CNC 02' }));
+    });
+
+    it('deve rejeitar data de instalação no futuro ao atualizar', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeAsset());
+      const nextYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+      // Act & Assert
+      await expect(service.update(1, { installDate: nextYear })).rejects.toThrow(BadRequestException);
+      expect(repo.update).not.toHaveBeenCalled();
     });
   });
 

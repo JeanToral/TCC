@@ -1,16 +1,19 @@
 // ─────────────────────── Imports ────────────────────────
 import { Field, InputType } from '@nestjs/graphql';
 import { IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
+import { Trim } from '../../../common/decorators/trim.decorator';
 
 // ─────────────────────── Input ───────────────────────────
 @InputType()
 export class CreateAssetInput {
   @Field()
+  @Trim()
   @IsNotEmpty()
   @MaxLength(200)
   readonly name: string;
 
   @Field()
+  @Trim()
   @IsNotEmpty()
   @MaxLength(100)
   readonly tag: string;
