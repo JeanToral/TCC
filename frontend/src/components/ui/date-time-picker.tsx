@@ -98,6 +98,7 @@ export function DateTimePicker({
             onSelect={handleDaySelect}
             locale={ptBR}
             defaultMonth={value ?? fromDate}
+            startMonth={fromDate}
             disabled={fromDate ? { before: startOfDay(fromDate) } : undefined}
             autoFocus
           />

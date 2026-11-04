@@ -32,6 +32,13 @@ export interface DeletePreventivePlanData {
   readonly deletePreventivePlan: PreventivePlan
 }
 
+export interface PreventiveGenerationResult {
+  readonly generated: number
+  /** Planos vencidos que já tinham OS aberta. */
+  readonly skipped: number
+  readonly failedPlans: readonly string[]
+}
+
 export interface GenerateDuePreventiveWorkOrdersData {
-  readonly generateDuePreventiveWorkOrders: number
+  readonly generateDuePreventiveWorkOrders: PreventiveGenerationResult
 }

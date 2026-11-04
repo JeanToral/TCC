@@ -18,10 +18,11 @@ import {
   StartModal,
   type ScheduleForm,
 } from '../../components/work-orders/WorkOrderActionModals'
-import WorkOrderCostsSection from '../../components/work-orders/WorkOrderCostsSection'
+import WorkOrderCostsSection, { WorkOrderPartsSection } from '../../components/work-orders/WorkOrderCostsSection'
 import WorkOrderFlow from '../../components/work-orders/WorkOrderFlow'
 import { useAuth } from '../../contexts/AuthContext'
 import { GET_USERS } from '../../graphql/users/GetUsers.gql'
+import { GET_WORK_ORDER_PARTS } from '../../graphql/work-order-costs/GetWorkOrderParts.gql'
 import type { GetUsersData } from '../../graphql/users/types'
 import { APPROVE_WORK_ORDER } from '../../graphql/work-orders/ApproveWorkOrder.gql'
 import { CANCEL_WORK_ORDER } from '../../graphql/work-orders/CancelWorkOrder.gql'
@@ -115,7 +116,12 @@ export default function WorkOrderViewPage() {
   const [scheduleForm, setScheduleForm] = useState<ScheduleForm>(EMPTY_SCHEDULE)
   const [actionError, setActionError] = useState('')
 
-  const refetchList = [{ query: GET_WORK_ORDERS }]
+  // Peças entram junto: a conclusão congela o preço delas (ADR 0001)
+  const refetchDetail = [
+    { query: GET_WORK_ORDER, variables: { id: Number(id) } },
+    { query: GET_WORK_ORDER_PARTS, variables: { workOrderId: Number(id) } },
+    { query: GET_WORK_ORDERS },
+  ]
 
   const { data, loading, error } = useQuery<GetWorkOrderData>(GET_WORK_ORDER, {
     variables: { id: Number(id) },
@@ -128,38 +134,38 @@ export default function WorkOrderViewPage() {
 
   const [approveWorkOrder, { loading: approving }] = useMutation<ApproveWorkOrderData>(APPROVE_WORK_ORDER, {
     variables: { id: Number(id) },
-    refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
+    refetchQueries: refetchDetail,
     onCompleted: () => setApproveOpen(false),
     onError: (e) => setActionError(errorMessage(e)),
   })
 
   const [rejectWorkOrder, { loading: rejecting }] = useMutation<RejectWorkOrderData>(REJECT_WORK_ORDER, {
-    refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
+    refetchQueries: refetchDetail,
     onCompleted: () => { setRejectOpen(false); setRejectReason('') },
     onError: (e) => setActionError(errorMessage(e)),
   })
 
   const [scheduleWorkOrder, { loading: scheduling }] = useMutation<ScheduleWorkOrderData>(SCHEDULE_WORK_ORDER, {
-    refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
+    refetchQueries: refetchDetail,
     onCompleted: () => { setScheduleOpen(false); setScheduleForm(EMPTY_SCHEDULE) },
     onError: (e) => setActionError(errorMessage(e)),
   })
 
   const [startWorkOrder, { loading: starting }] = useMutation<StartWorkOrderData>(START_WORK_ORDER, {
     variables: { id: Number(id) },
-    refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
+    refetchQueries: refetchDetail,
     onCompleted: () => setStartOpen(false),
     onError: (e) => setActionError(errorMessage(e)),
   })
 
   const [completeWorkOrder, { loading: completing }] = useMutation<CompleteWorkOrderData>(COMPLETE_WORK_ORDER, {
-    refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
+    refetchQueries: refetchDetail,
     onCompleted: () => { setCompleteOpen(false); setClosingNotes(''); setLaborHours('') },
     onError: (e) => setActionError(errorMessage(e)),
   })
 
   const [cancelWorkOrder, { loading: cancelling }] = useMutation<CancelWorkOrderData>(CANCEL_WORK_ORDER, {
-    refetchQueries: [{ query: GET_WORK_ORDER, variables: { id: Number(id) } }, ...refetchList],
+    refetchQueries: refetchDetail,
     onCompleted: () => { setCancelOpen(false); setCancelReason('') },
     onError: (e) => setActionError(errorMessage(e)),
   })
@@ -190,7 +196,10 @@ export default function WorkOrderViewPage() {
     })
     setScheduleOpen(true)
   }
-  const users = usersData?.users ?? []
+  // Responsável: usuário ativo com workorder.execute explícita (o "*" do Sysadmin não conta)
+  const users = (usersData?.users ?? []).filter(
+    (u) => u.isActive && u.role.permissions.includes('workorder.execute'),
+  )
 
   const canCancel = ['REQUESTED', 'APPROVED', 'SCHEDULED', 'IN_PROGRESS'].includes(wo.status)
 
@@ -270,6 +279,12 @@ export default function WorkOrderViewPage() {
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-body">{wo.closingNotes}</p>
               </SheetSection>
             )}
+
+            <WorkOrderPartsSection
+              workOrder={wo}
+              canEdit={hasPermission('workorder.update')}
+              showCost={hasPermission('cost.read')}
+            />
 
             {/* Custos — só para quem tem cost.read (ver ADR 0001) */}
             {hasPermission('cost.read') && (

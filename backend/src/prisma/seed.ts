@@ -80,6 +80,7 @@ async function main() {
   const engineerPermissions = [
     'asset.read', 'asset.update',
     'workorder.create', 'workorder.read', 'workorder.update', 'workorder.delete',
+    'workorder.execute',
     'sparepart.read', 'sparepart.update',
     'preventiveplan.create', 'preventiveplan.read', 'preventiveplan.update', 'preventiveplan.delete',
     'dashboard.read',
@@ -99,7 +100,7 @@ async function main() {
 
   const techPermissions = [
     'asset.read',
-    'workorder.read', 'workorder.update',
+    'workorder.read', 'workorder.update', 'workorder.execute',
     'sparepart.read',
     'preventiveplan.read',
   ]

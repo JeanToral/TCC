@@ -18,3 +18,19 @@ export function errorMessage(err: unknown, networkFallback?: string): string {
   if (networkFallback) return networkFallback
   return err instanceof Error && err.message ? err.message : 'Erro inesperado.'
 }
+
+/** Marcas redondas para o eixo: 0, 1 mil, 2 mil… em vez de 850, 1,7 mil, 2,6 mil. */
+export function niceTicks(max: number, count = 4): number[] {
+  if (max <= 0) return [0]
+  const raw = max / count
+  const magnitude = 10 ** Math.floor(Math.log10(raw))
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((candidate) => candidate >= raw) ?? raw
+  const ticks = [0]
+  while (ticks[ticks.length - 1] < max) ticks.push(ticks[ticks.length - 1] + step)
+  return ticks
+}
+
+/** Corta o texto em `max` caracteres, terminando em reticências. */
+export function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
+}

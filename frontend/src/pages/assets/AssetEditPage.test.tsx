@@ -151,3 +151,48 @@ describe('AssetEditPage — modo edição', () => {
     expect(screen.getByDisplayValue('Romi')).toBeInTheDocument()
   })
 })
+
+describe('AssetEditPage — data de instalação', () => {
+  async function openInstallDatePicker() {
+    const result = renderWithProviders(<AssetEditPage />, { mocks: [assetsMock()] })
+    await result.user.click(screen.getByLabelText('Data de instalação'))
+    const [monthSelect, yearSelect] = screen.getAllByRole('combobox') as HTMLSelectElement[]
+    return { ...result, monthSelect, yearSelect }
+  }
+
+  it('deve oferecer anos de 1990 até o ano atual, sem anos futuros', async () => {
+    // Arrange / Act
+    const { yearSelect } = await openInstallDatePicker()
+
+    // Assert
+    const years = Array.from(yearSelect.options, (o) => Number(o.value))
+    const currentYear = new Date().getFullYear()
+    expect(Math.min(...years)).toBe(1990)
+    expect(Math.max(...years)).toBe(currentYear)
+  })
+
+  it('deve trocar de mês pelas setas de navegação', async () => {
+    // Arrange
+    const { user, monthSelect } = await openInstallDatePicker()
+    const before = Number(monthSelect.value)
+
+    // Act
+    await user.click(screen.getByRole('button', { name: /previous|anterior/i }))
+
+    // Assert
+    const [monthAfter] = screen.getAllByRole('combobox') as HTMLSelectElement[]
+    expect(Number(monthAfter.value)).toBe((before + 11) % 12)
+  })
+
+  it('deve permitir escolher o ano pelo seletor', async () => {
+    // Arrange
+    const { user, yearSelect } = await openInstallDatePicker()
+
+    // Act
+    await user.selectOptions(yearSelect, '1995')
+
+    // Assert
+    const [, yearAfter] = screen.getAllByRole('combobox') as HTMLSelectElement[]
+    expect(yearAfter.value).toBe('1995')
+  })
+})

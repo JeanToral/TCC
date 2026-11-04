@@ -11,8 +11,8 @@ import { Sheet, SheetHeader } from '../../components/ui/Sheet'
 import { useAuth } from '../../contexts/AuthContext'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import type { Asset, GetAssetsData } from '../../graphql/assets/types'
+import { formatDay } from '../../lib/period'
 
-const DATE = new Intl.DateTimeFormat('pt-BR')
 
 const COLUMNS: readonly DataTableColumn<Asset>[] = [
   {
@@ -40,7 +40,7 @@ const COLUMNS: readonly DataTableColumn<Asset>[] = [
     header: 'Instalação',
     align: 'right',
     mobile: 'hidden',
-    cell: (a) => <span className="font-mono text-quiet">{a.installDate ? DATE.format(new Date(a.installDate)) : '—'}</span>,
+    cell: (a) => <span className="font-mono text-quiet">{a.installDate ? formatDay(a.installDate) : '—'}</span>,
   },
 ]
 

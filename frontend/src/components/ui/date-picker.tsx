@@ -21,6 +21,8 @@ interface DatePickerProps {
   fromDate?: Date
   /** Último dia selecionável. */
   toDate?: Date
+  /** Primeiro mês do seletor de mês/ano, quando não há fromDate. Padrão: ano atual − 5. */
+  startMonth?: Date
   error?: string
   hint?: string
   className?: string
@@ -36,6 +38,7 @@ export function DatePicker({
   required,
   fromDate,
   toDate,
+  startMonth,
   error,
   hint,
   className,
@@ -78,6 +81,8 @@ export function DatePicker({
             }}
             locale={ptBR}
             defaultMonth={value ?? fromDate ?? toDate}
+            startMonth={fromDate ?? startMonth}
+            endMonth={toDate}
             disabled={[
               ...(fromDate ? [{ before: startOfDay(fromDate) }] : []),
               ...(toDate ? [{ after: startOfDay(toDate) }] : []),

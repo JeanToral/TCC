@@ -244,7 +244,7 @@ type Mutation {
   deletePreventivePlan(id: Int!): PreventivePlan!
   deleteRole(id: Int!): RoleType!
   deleteSparePart(id: Int!): SparePart!
-  generateDuePreventiveWorkOrders: Int!
+  generateDuePreventiveWorkOrders: PreventiveGenerationResult!
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
   markAllNotificationsRead: Boolean!
@@ -280,6 +280,17 @@ type Notification {
 enum NotificationType {
   LOW_STOCK
   OVERDUE_WORK_ORDER
+}
+
+type PreventiveGenerationResult {
+  """Nomes dos planos em que a geração falhou"""
+  failedPlans: [String!]!
+
+  """Planos que geraram OS nesta rodada"""
+  generated: Int!
+
+  """Planos pulados por já terem OS aberta"""
+  skipped: Int!
 }
 
 type PreventivePlan {

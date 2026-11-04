@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { NotificationType } from '../../generated/prisma';
 
@@ -165,6 +165,29 @@ describe('SparePartsService', () => {
 
       // Assert
       expect(notifications.notify).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ── addWorkOrderPart ─────────────────────────────────
+  describe('addWorkOrderPart', () => {
+    it('deve rejeitar quantidade maior que o saldo em estoque', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makePart({ quantity: 3 }));
+
+      // Act & Assert
+      await expect(service.addWorkOrderPart(1, 1, 4)).rejects.toThrow(BadRequestException);
+      expect(repo.addWorkOrderPart).not.toHaveBeenCalled();
+    });
+
+    it('deve aceitar quantidade igual ao saldo em estoque', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makePart({ quantity: 3 }));
+
+      // Act
+      await service.addWorkOrderPart(1, 1, 3);
+
+      // Assert
+      expect(repo.addWorkOrderPart).toHaveBeenCalledWith(1, 1, 3);
     });
   });
 });

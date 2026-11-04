@@ -1,19 +1,23 @@
 // ─────────────────────── Imports ────────────────────────
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsBoolean, IsDateString, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
+import { Trim } from '../../../common/decorators/trim.decorator';
 
 // ─────────────────────── Input ───────────────────────────
 @InputType()
 export class UpdatePreventivePlanInput {
   @Field({ nullable: true })
+  @Trim()
+  @IsNotEmpty()
   @IsString()
   @IsOptional()
   readonly name?: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Trim({ emptyToNull: true })
   @IsString()
   @IsOptional()
-  readonly description?: string;
+  readonly description?: string | null;
 
   @Field(() => Int, { nullable: true })
   @IsInt()

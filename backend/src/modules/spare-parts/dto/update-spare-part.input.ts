@@ -1,19 +1,23 @@
 // ─────────────────────── Imports ────────────────────────
 import { Field, Float, InputType, Int } from '@nestjs/graphql';
-import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { Trim } from '../../../common/decorators/trim.decorator';
 
 // ─────────────────────── Input ───────────────────────────
 @InputType()
 export class UpdateSparePartInput {
   @Field({ nullable: true })
+  @Trim()
+  @IsNotEmpty()
   @IsString()
   @IsOptional()
   readonly name?: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @Trim({ emptyToNull: true })
   @IsString()
   @IsOptional()
-  readonly description?: string;
+  readonly description?: string | null;
 
   @Field(() => Int, { nullable: true })
   @IsInt()

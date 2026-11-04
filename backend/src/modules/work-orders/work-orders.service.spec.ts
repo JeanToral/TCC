@@ -7,7 +7,7 @@ import { WorkOrdersRepository } from './work-orders.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SparePartsService } from '../spare-parts/spare-parts.service';
-import type { WorkOrderRecord } from './work-orders.repository';
+import { InsufficientStockError, type WorkOrderRecord } from './work-orders.repository';
 import type { DecrementedPartRecord } from '../spare-parts/spare-parts.repository';
 
 // ─────────────────────── Fixtures ────────────────────────
@@ -75,6 +75,9 @@ describe('WorkOrdersService', () => {
             create: jest.fn(),
             update: jest.fn(),
             findHourlyRate: jest.fn().mockResolvedValue(null),
+            findAssignee: jest
+              .fn()
+              .mockResolvedValue({ isActive: true, permissions: ['workorder.execute'] }),
             completeWithCostSnapshot: jest.fn(),
           } satisfies Partial<jest.Mocked<WorkOrdersRepository>>,
         },
@@ -251,6 +254,35 @@ describe('WorkOrdersService', () => {
       await expect(
         service.schedule(1, { assignedToId: 2, scheduledStart, scheduledEnd }, ACTOR_ID),
       ).rejects.toThrow('Fim previsto não pode ser antes do início');
+    });
+
+    it.each([
+      ['inativo', { isActive: false, permissions: ['workorder.execute'] }, 'O técnico responsável está inativo'],
+      ['sem workorder.execute', { isActive: true, permissions: ['workorder.read'] }, 'permissão para executar OS'],
+      ['só com wildcard (Sysadmin)', { isActive: true, permissions: ['*'] }, 'permissão para executar OS'],
+    ])('deve rejeitar responsável %s', async (_label, assignee, message) => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.APPROVED }));
+      repo.findAssignee.mockResolvedValue(assignee);
+      const scheduledStart = new Date(Date.now() + HOUR_MS);
+
+      // Act & Assert
+      await expect(
+        service.schedule(1, { assignedToId: 2, scheduledStart }, ACTOR_ID),
+      ).rejects.toThrow(message);
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it('deve rejeitar responsável inexistente', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.APPROVED }));
+      repo.findAssignee.mockResolvedValue(null);
+      const scheduledStart = new Date(Date.now() + HOUR_MS);
+
+      // Act & Assert
+      await expect(
+        service.schedule(1, { assignedToId: 2, scheduledStart }, ACTOR_ID),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('deve rejeitar agendamento de OS não aprovada', async () => {
@@ -458,23 +490,54 @@ describe('WorkOrdersService', () => {
     });
   });
 
-  // ── addWorkOrderPart (status check) ──────────────────
-  describe('addWorkOrderPart', () => {
-    it('deve rejeitar adição de WorkOrderPart em OS com status COMPLETED', async () => {
+  // ── complete (estoque insuficiente) ─────────────────
+  describe('complete — estoque insuficiente', () => {
+    it('deve traduzir InsufficientStockError em BadRequest com peça, saldo e necessário', async () => {
       // Arrange
-      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.COMPLETED }));
+      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS }));
+      repo.completeWithCostSnapshot.mockRejectedValue(
+        new InsufficientStockError('Rolamento 6204', 'ROL-6204', 1, 3),
+      );
+
+      // Act
+      const result = service.complete(1, { closingNotes: 'Trocado' }, ACTOR_ID);
+
+      // Assert
+      await expect(result).rejects.toThrow(BadRequestException);
+      await expect(result).rejects.toThrow(
+        'Estoque insuficiente para Rolamento 6204 (ROL-6204): saldo 1, necessário 3',
+      );
+      expect(spareParts.notifyLowStock).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── addWorkOrderPart / removeWorkOrderPart (status check) ──
+  describe('addWorkOrderPart', () => {
+    it.each([
+      WorkOrderStatus.REQUESTED,
+      WorkOrderStatus.COMPLETED,
+      WorkOrderStatus.REJECTED,
+      WorkOrderStatus.CANCELLED,
+    ])('deve rejeitar adição de WorkOrderPart em OS com status %s', async (status) => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeWorkOrder({ status }));
 
       // Act & Assert
       await expect(service.addWorkOrderPart(1, 1, 2)).rejects.toThrow(BadRequestException);
+      expect(spareParts.addWorkOrderPart).not.toHaveBeenCalled();
     });
 
-    it('deve permitir adição de WorkOrderPart em OS não concluída', async () => {
+    it.each([
+      WorkOrderStatus.APPROVED,
+      WorkOrderStatus.SCHEDULED,
+      WorkOrderStatus.IN_PROGRESS,
+    ])('deve permitir adição de WorkOrderPart em OS com status %s', async (status) => {
       // Arrange
-      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS }));
+      repo.findById.mockResolvedValue(makeWorkOrder({ status }));
       spareParts.addWorkOrderPart.mockResolvedValue({
         id: 1, workOrderId: 1, sparePartId: 1,
         sparePart: { id: 1, name: 'Rolamento', partNumber: 'ROL-01' },
-        quantityUsed: 2, createdAt: new Date(),
+        quantityUsed: 2, unitCostSnapshot: null, createdAt: new Date(),
       });
 
       // Act
@@ -482,6 +545,34 @@ describe('WorkOrdersService', () => {
 
       // Assert
       expect(result.quantityUsed).toBe(2);
+    });
+  });
+
+  describe('removeWorkOrderPart', () => {
+    it.each([
+      WorkOrderStatus.REQUESTED,
+      WorkOrderStatus.COMPLETED,
+      WorkOrderStatus.REJECTED,
+      WorkOrderStatus.CANCELLED,
+    ])('deve rejeitar remoção de WorkOrderPart em OS com status %s', async (status) => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeWorkOrder({ status }));
+
+      // Act & Assert
+      await expect(service.removeWorkOrderPart(1, 1)).rejects.toThrow(BadRequestException);
+      expect(spareParts.removeWorkOrderPart).not.toHaveBeenCalled();
+    });
+
+    it('deve permitir remoção de WorkOrderPart em OS em andamento', async () => {
+      // Arrange
+      repo.findById.mockResolvedValue(makeWorkOrder({ status: WorkOrderStatus.IN_PROGRESS }));
+      spareParts.removeWorkOrderPart.mockResolvedValue(undefined);
+
+      // Act
+      await service.removeWorkOrderPart(1, 1);
+
+      // Assert
+      expect(spareParts.removeWorkOrderPart).toHaveBeenCalledWith(1, 1);
     });
   });
 

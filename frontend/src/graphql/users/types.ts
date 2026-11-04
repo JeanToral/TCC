@@ -11,13 +11,18 @@ export interface RoleFull {
   readonly isSystem: boolean
 }
 
+/** Perfil na listagem: as permissões filtram quem pode ser técnico responsável. */
+export interface UserListRole extends RoleBasic {
+  readonly permissions: readonly string[]
+}
+
 export interface UserListItem {
   readonly id: number
   readonly name: string
   readonly email: string
   readonly isActive: boolean
   readonly roleId: number
-  readonly role: RoleBasic
+  readonly role: UserListRole
   readonly createdAt: string
 }
 

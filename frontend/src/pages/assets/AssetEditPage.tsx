@@ -21,6 +21,7 @@ import { GET_ASSET } from '../../graphql/assets/GetAsset.gql'
 import { GET_ASSETS } from '../../graphql/assets/GetAssets.gql'
 import { UPDATE_ASSET } from '../../graphql/assets/UpdateAsset.gql'
 import type { CreateAssetData, GetAssetData, UpdateAssetData } from '../../graphql/assets/types'
+import { atLocalNoon, parseDayValue } from '../../lib/period'
 import { errorMessage } from '../../lib/utils'
 
 interface FormState {
@@ -45,6 +46,9 @@ const EMPTY_FORM: FormState = {
   model: '',
   serialNumber: '',
 }
+
+/** Ativos antigos: o seletor de ano da instalação começa em 1990. */
+const INSTALL_DATE_START_MONTH = new Date(1990, 0, 1)
 
 export default function AssetEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -77,7 +81,7 @@ export default function AssetEditPage() {
         model: asset.model ?? '',
         serialNumber: asset.serialNumber ?? '',
       })
-      setInstallDate(asset.installDate ? new Date(asset.installDate) : undefined)
+      setInstallDate(asset.installDate ? parseDayValue(asset.installDate) : undefined)
     }
   }
 
@@ -123,7 +127,7 @@ export default function AssetEditPage() {
       manufacturer: form.manufacturer.trim() || undefined,
       model: form.model.trim() || undefined,
       serialNumber: form.serialNumber.trim() || undefined,
-      installDate: installDate ? installDate.toISOString() : undefined,
+      installDate: installDate ? atLocalNoon(installDate).toISOString() : undefined,
     }
 
     if (isEdit) {
@@ -239,6 +243,7 @@ export default function AssetEditPage() {
               onSelect={setInstallDate}
               disabled={submitting}
               toDate={new Date()}
+              startMonth={INSTALL_DATE_START_MONTH}
             />
           </FormField>
         </FormGrid>

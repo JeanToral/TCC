@@ -1,6 +1,7 @@
 // ─────────────────────── Imports ────────────────────────
 import { join } from 'node:path';
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver } from '@nestjs/apollo';
@@ -8,6 +9,10 @@ import type { ApolloDriverConfig } from '@nestjs/apollo';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ServeStaticModule } from '@nestjs/serve-static';
 
+import {
+  formatGraphQLError,
+  PrismaExceptionFilter,
+} from './common/filters/prisma-exception.filter';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -53,6 +58,7 @@ import { PreventivePlansModule } from './modules/preventive-plans/preventive-pla
       sortSchema: true,
       playground: true,
       context: ({ req, res }: { req: unknown; res: unknown }) => ({ req, res }),
+      formatError: formatGraphQLError,
     }),
     PrismaModule,
     AuthModule,
@@ -69,5 +75,6 @@ import { PreventivePlansModule } from './modules/preventive-plans/preventive-pla
     SparePartsModule,
     PreventivePlansModule,
   ],
+  providers: [{ provide: APP_FILTER, useClass: PrismaExceptionFilter }],
 })
 export class AppModule {}

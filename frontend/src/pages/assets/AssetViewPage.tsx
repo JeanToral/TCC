@@ -20,14 +20,13 @@ import { GET_DASHBOARD_KPIS } from '../../graphql/dashboard/GetDashboardKpis.gql
 import type { GetDashboardKpisData } from '../../graphql/dashboard/types'
 import { GET_ASSET_COSTS } from '../../graphql/finance/GetAssetCosts.gql'
 import type { GetAssetCostsData } from '../../graphql/finance/types'
-import { splitHours } from '../../lib/period'
+import { formatDay, splitHours } from '../../lib/period'
 import { errorMessage } from '../../lib/utils'
 
 const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-const DATE = new Intl.DateTimeFormat('pt-BR')
 const DATE_TIME = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 function formatDate(iso: string | null): string {
-  return iso ? DATE.format(new Date(iso)) : '—'
+  return iso ? formatDay(iso) : '—'
 }
 
 // ── Indicadores (dashboard.read) ───────────────────────────

@@ -13,11 +13,13 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { Trim } from '../../../common/decorators/trim.decorator';
 
 // ─────────────────────── Input ───────────────────────────
 @InputType()
 export class UpdateUserInput {
   @Field({ nullable: true })
+  @Trim()
   @IsOptional()
   @IsString()
   @MinLength(2)

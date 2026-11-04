@@ -49,7 +49,7 @@ export interface SparePartExportFilter {
 export interface CreateSparePartData {
   readonly name: string;
   readonly partNumber: string;
-  readonly description?: string;
+  readonly description?: string | null;
   readonly quantity?: number;
   readonly minimumStock?: number;
   readonly unitCost?: number;
@@ -57,7 +57,7 @@ export interface CreateSparePartData {
 
 export interface UpdateSparePartData {
   name?: string;
-  description?: string;
+  description?: string | null;
   quantity?: number;
   minimumStock?: number;
   unitCost?: number;

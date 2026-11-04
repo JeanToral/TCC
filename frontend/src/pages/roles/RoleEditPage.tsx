@@ -38,7 +38,7 @@ const PERM_GROUPS: readonly PermGroup[] = [
   { label: 'Usuários',          perms: ['user.create', 'user.read', 'user.update', 'user.delete'] },
   { label: 'Perfis de acesso',  perms: ['role.create', 'role.read', 'role.update', 'role.delete'] },
   { label: 'Ativos',            perms: ['asset.create', 'asset.read', 'asset.update', 'asset.delete'] },
-  { label: 'Ordens de Serviço', perms: ['workorder.create', 'workorder.read', 'workorder.update', 'workorder.delete', 'workorder.approve'] },
+  { label: 'Ordens de Serviço', perms: ['workorder.create', 'workorder.read', 'workorder.update', 'workorder.delete', 'workorder.approve', 'workorder.execute'] },
   { label: 'Peças de Reposição',perms: ['sparepart.create', 'sparepart.read', 'sparepart.update', 'sparepart.delete'] },
   { label: 'Planos Preventivos',perms: ['preventiveplan.create', 'preventiveplan.read', 'preventiveplan.update', 'preventiveplan.delete'] },
   { label: 'Custos',            perms: ['cost.read', 'cost.manage'] },
@@ -56,6 +56,7 @@ const ACTION_COLUMNS = [
 
 const OTHER_LABELS: Record<string, string> = {
   approve: 'Aprovar',
+  execute: 'Executar',
   manage: 'Gerenciar',
 }
 

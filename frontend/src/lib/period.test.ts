@@ -4,7 +4,10 @@ import {
   atLocalNoon,
   defaultScheduleEnd,
   defaultScheduleStart,
+  formatDay,
   formatHours,
+  hoursAxis,
+  isPastDay,
   parseDayValue,
   partialMonths,
   partialMonthsNote,
@@ -13,6 +16,7 @@ import {
   toPeriodFilter,
   validateSchedule,
 } from './period'
+import { truncate } from './utils'
 
 describe('previousPeriod', () => {
   it('deve devolver o intervalo de mesma duração imediatamente anterior', () => {
@@ -157,5 +161,68 @@ describe('partialMonths', () => {
   it('deve descrever o trecho quando o período cabe num único mês', () => {
     const filter = toPeriodFilter({ from: new Date(2026, 9, 5), to: new Date(2026, 9, 20) })
     expect([...partialMonths(filter)]).toEqual([['2026-10', 'de 05/10 a 20/10']])
+  })
+})
+
+describe('hoursAxis', () => {
+  it('deve usar minutos sem rótulos repetidos quando o máximo é menor que 1 h', () => {
+    // Arrange / Act
+    const axis = hoursAxis(0.75)
+    const labels = axis.ticks.map(axis.format)
+
+    // Assert
+    expect(labels).toEqual(['0', '20 min', '40 min', '60 min'])
+    expect(new Set(labels).size).toBe(labels.length)
+  })
+
+  it('deve usar horas redondas entre 1 h e 48 h', () => {
+    // Arrange / Act
+    const axis = hoursAxis(30)
+
+    // Assert
+    expect(axis.ticks.map(axis.format)).toEqual(['0', '10 h', '20 h', '30 h'])
+  })
+
+  it('deve passar para dias a partir de 48 h', () => {
+    // Arrange / Act
+    const axis = hoursAxis(100)
+
+    // Assert
+    expect(axis.ticks.map(axis.format)).toEqual(['0', '2 d', '4 d', '6 d'])
+  })
+})
+
+describe('truncate', () => {
+  it('deve cortar texto longo com reticências e manter o curto', () => {
+    // Arrange / Act / Assert
+    expect(truncate('Injetora hidráulica de alta pressão 03', 20)).toBe('Injetora hidráulica…')
+    expect(truncate('Torno CNC 01', 20)).toBe('Torno CNC 01')
+  })
+})
+
+describe('formatDay', () => {
+  it('deve mostrar o dia gravado à meia-noite UTC sem voltar um dia (dado antigo)', () => {
+    // Arrange / Act / Assert — 24/08 00:00Z é 23/08 21h em Brasília
+    expect(formatDay('2026-08-24T00:00:00.000Z')).toBe('24/08/2026')
+  })
+
+  it('deve mostrar o dia gravado ao meio-dia local (dado novo)', () => {
+    // Arrange / Act / Assert
+    expect(formatDay('2026-08-24T15:00:00.000Z')).toBe('24/08/2026')
+  })
+})
+
+describe('isPastDay', () => {
+  const now = new Date(2026, 7, 24, 9, 0)
+
+  it('não deve marcar como atrasado o dia de hoje', () => {
+    // Arrange / Act / Assert
+    expect(isPastDay('2026-08-24T00:00:00.000Z', now)).toBe(false)
+    expect(isPastDay('2026-08-24T15:00:00.000Z', now)).toBe(false)
+  })
+
+  it('deve marcar como atrasado o dia anterior', () => {
+    // Arrange / Act / Assert
+    expect(isPastDay('2026-08-23T15:00:00.000Z', now)).toBe(true)
   })
 })

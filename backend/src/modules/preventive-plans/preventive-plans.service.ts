@@ -8,6 +8,16 @@ import { type PreventivePlanRecord, PreventivePlansRepository } from './preventi
 import type { CreatePreventivePlanInput } from './dto/create-preventive-plan.input';
 import type { UpdatePreventivePlanInput } from './dto/update-preventive-plan.input';
 
+// ─────────────────────── Constants ──────────────────────
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// ─────────────────────── Types ──────────────────────────
+export interface PreventiveGenerationResult {
+  readonly generated: number;
+  readonly skipped: number;
+  readonly failedPlans: string[];
+}
+
 // ─────────────────────── Service ────────────────────────
 @Injectable()
 export class PreventivePlansService {
@@ -58,12 +68,34 @@ export class PreventivePlansService {
     return this.repo.delete(id);
   }
 
-  async generateDueWorkOrders(actorId: number): Promise<number> {
-    const duePlans = await this.repo.findDue();
+  /**
+   * Gera uma OS por plano vencido, salvo se o plano já tiver OS aberta.
+   * Em ambos os casos nextDueAt avança em ciclos de intervalDays até passar
+   * de agora: o calendário do plano é fixo e atrasos não viram OS acumuladas.
+   * Falha num plano não interrompe os demais, mas é devolvida — nunca some.
+   */
+  async generateDueWorkOrders(actorId: number): Promise<PreventiveGenerationResult> {
+    const now = new Date();
+    // Vencido = dia do vencimento (fuso da planta) até hoje, não o instante:
+    // o plano de hoje gravado ao meio-dia também entra se gerado às 8h.
+    const today = dayKey(now);
+    const duePlans = (await this.repo.findDue(new Date(now.getTime() + DAY_MS))).filter(
+      (plan) => dayKey(plan.nextDueAt) <= today,
+    );
     let generated = 0;
+    let skipped = 0;
+    const failedPlans: string[] = [];
 
     for (const plan of duePlans) {
       try {
+        const nextDueAt = nextDueAfter(plan.nextDueAt, plan.intervalDays, now);
+
+        if (await this.repo.hasOpenWorkOrder(plan.id)) {
+          await this.repo.update(plan.id, { nextDueAt });
+          skipped++;
+          continue;
+        }
+
         await this.workOrdersService.create(
           {
             title: `[Preventivo] ${plan.name}`,
@@ -73,22 +105,25 @@ export class PreventivePlansService {
             assetId: plan.assetId,
           },
           actorId,
+          plan.id,
         );
 
-        const nextDueAt = new Date(plan.nextDueAt);
-        nextDueAt.setDate(nextDueAt.getDate() + plan.intervalDays);
-
-        await this.repo.update(plan.id, {
-          lastGeneratedAt: new Date(),
-          nextDueAt,
-        });
-
+        await this.repo.update(plan.id, { lastGeneratedAt: now, nextDueAt });
         generated++;
       } catch (err: unknown) {
         this.logger.error(`Falha ao gerar OS preventiva para plano ${plan.id}`, err);
+        failedPlans.push(plan.name);
       }
     }
 
-    return generated;
+    return { generated, skipped, failedPlans };
   }
+}
+
+function nextDueAfter(from: Date, intervalDays: number, now: Date): Date {
+  const next = new Date(from);
+  do {
+    next.setDate(next.getDate() + intervalDays);
+  } while (next <= now);
+  return next;
 }

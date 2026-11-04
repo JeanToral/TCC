@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, redirect } from 'react-router-dom'
 import DashboardShell from './components/layout/DashboardShell'
 import RequireAuth from './components/auth/RequireAuth'
 import LoginPage from './pages/login/LoginPage'
+import NotFoundPage from './pages/NotFoundPage'
 import UsersListPage from './pages/users/UsersListPage'
 import UserViewPage from './pages/users/UserViewPage'
 import UserEditPage from './pages/users/UserEditPage'
@@ -28,11 +29,12 @@ const lazyReports = () =>
   import('./pages/reports/ReportsPage').then((m) => ({ Component: m.default }))
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/login" replace /> },
+  { path: '/', element: <Navigate to="/login" replace />, errorElement: <NotFoundPage /> },
   { path: '/login', element: <LoginPage /> },
   {
     path: '/dashboard',
     element: <RequireAuth><DashboardShell /></RequireAuth>,
+    errorElement: <NotFoundPage />,
     children: [
       { index: true, lazy: lazyDashboard },
       { path: 'users',                element: <UsersListPage /> },
@@ -66,4 +68,5 @@ export const router = createBrowserRouter([
       { path: 'preventive-plans/:id/edit',  element: <PreventivePlanEditPage /> },
     ],
   },
+  { path: '*', element: <NotFoundPage /> },
 ])

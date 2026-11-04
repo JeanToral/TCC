@@ -9,11 +9,13 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import { Trim } from '../../../common/decorators/trim.decorator';
 
 // ─────────────────────── Input ───────────────────────────
 @InputType()
 export class UpdateExternalCostInput {
   @Field({ nullable: true })
+  @Trim()
   @IsOptional()
   @IsString()
   @IsNotEmpty()

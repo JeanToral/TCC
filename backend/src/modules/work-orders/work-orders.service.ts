@@ -8,6 +8,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { SparePartsService } from '../spare-parts/spare-parts.service';
 import { encodeCursor } from '../../common/pagination/page-args';
 import {
+  InsufficientStockError,
   type WorkOrderExportFilter,
   type WorkOrderExportRow,
   type WorkOrderRecord,
@@ -37,6 +38,16 @@ const SLA_HOURS: Record<Priority, number> = {
   [Priority.MEDIUM]: 48,
   [Priority.LOW]: 168,
 };
+
+/** Peça só entra ou sai da OS entre a aprovação e a conclusão. */
+const PARTS_EDITABLE_STATUSES: readonly WorkOrderStatus[] = [
+  WorkOrderStatus.APPROVED,
+  WorkOrderStatus.SCHEDULED,
+  WorkOrderStatus.IN_PROGRESS,
+];
+
+/** Quem pode ser responsável pela OS. Exigida explicitamente: o wildcard do Sysadmin não conta. */
+const EXECUTE_PERMISSION = 'workorder.execute';
 
 /** Folga para quem escolhe "agora" e demora a confirmar o agendamento. */
 const SCHEDULE_PAST_TOLERANCE_MS = 5 * 60 * 1000;
@@ -84,7 +95,11 @@ export class WorkOrdersService {
     return workOrder;
   }
 
-  async create(input: CreateWorkOrderInput, requestedById: number): Promise<WorkOrderRecord> {
+  async create(
+    input: CreateWorkOrderInput,
+    requestedById: number,
+    preventivePlanId?: number,
+  ): Promise<WorkOrderRecord> {
     const wo = await this.repo.create({
       title: input.title,
       description: input.description,
@@ -92,6 +107,7 @@ export class WorkOrdersService {
       priority: input.priority,
       assetId: input.assetId,
       requestedById,
+      preventivePlanId,
     });
 
     this.audit.log(requestedById, 'workorder.create', 'WorkOrder', wo.id, null, {
@@ -134,6 +150,7 @@ export class WorkOrdersService {
     if (input.scheduledEnd && input.scheduledEnd < input.scheduledStart) {
       throw new BadRequestException('Fim previsto não pode ser antes do início');
     }
+    await this.assertCanExecute(input.assignedToId);
     const updated = await this.repo.update(id, {
       status: WorkOrderStatus.SCHEDULED,
       assignedToId: input.assignedToId,
@@ -175,13 +192,23 @@ export class WorkOrdersService {
     const laborHours = input.laborHours ?? workOrder.laborHours;
     const laborCostIsComplete = !laborHours || laborHours <= 0 || laborRateSnapshot !== null;
 
-    const { workOrder: updated, decrementedParts } = await this.repo.completeWithCostSnapshot(id, {
-      closingNotes: input.closingNotes,
-      completedAt: new Date(),
-      laborHours,
-      laborRateSnapshot,
-      laborCostIsComplete,
-    });
+    const { workOrder: updated, decrementedParts } = await this.repo
+      .completeWithCostSnapshot(id, {
+        closingNotes: input.closingNotes,
+        completedAt: new Date(),
+        laborHours,
+        laborRateSnapshot,
+        laborCostIsComplete,
+      })
+      .catch((err: unknown) => {
+        if (err instanceof InsufficientStockError) {
+          throw new BadRequestException(
+            `Estoque insuficiente para ${err.partName} (${err.partNumber}): ` +
+              `saldo ${err.available}, necessário ${err.required}`,
+          );
+        }
+        throw err;
+      });
 
     this.audit.log(actorId, 'workorder.complete', 'WorkOrder', id,
       { status: workOrder.status }, { status: WorkOrderStatus.COMPLETED });
@@ -205,18 +232,33 @@ export class WorkOrdersService {
 
   async addWorkOrderPart(workOrderId: number, sparePartId: number, quantityUsed: number) {
     const wo = await this.findById(workOrderId);
-    if (wo.status === WorkOrderStatus.COMPLETED) {
-      throw new BadRequestException('Não é possível adicionar peças a uma OS já concluída');
-    }
+    this.assertPartsEditable(wo.status);
     return this.spareParts.addWorkOrderPart(workOrderId, sparePartId, quantityUsed);
   }
 
   async removeWorkOrderPart(workOrderId: number, sparePartId: number): Promise<void> {
     const wo = await this.findById(workOrderId);
-    if (wo.status === WorkOrderStatus.COMPLETED) {
-      throw new BadRequestException('Não é possível remover peças de uma OS já concluída');
-    }
+    this.assertPartsEditable(wo.status);
     return this.spareParts.removeWorkOrderPart(workOrderId, sparePartId);
+  }
+
+  private async assertCanExecute(userId: number): Promise<void> {
+    const assignee = await this.repo.findAssignee(userId);
+    if (!assignee) throw new BadRequestException(`Usuário ${userId} não encontrado`);
+    if (!assignee.isActive) {
+      throw new BadRequestException('O técnico responsável está inativo');
+    }
+    if (!assignee.permissions.includes(EXECUTE_PERMISSION)) {
+      throw new BadRequestException('O responsável precisa ter permissão para executar OS');
+    }
+  }
+
+  private assertPartsEditable(status: WorkOrderStatus): void {
+    if (!PARTS_EDITABLE_STATUSES.includes(status)) {
+      throw new BadRequestException(
+        'Peças só podem ser lançadas ou removidas em OS aprovada, agendada ou em andamento',
+      );
+    }
   }
 
   private assertValidTransition(from: WorkOrderStatus, to: WorkOrderStatus): void {

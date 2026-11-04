@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 import { ChevronDown, CircleUserRound, LogOut } from 'lucide-react'
 
+import Skeleton from '../ui/Skeleton'
 import { useAuth } from '../../contexts/AuthContext'
 import { useAppearance } from '../../contexts/AppearanceContext'
 import { GET_ME } from '../../graphql/users/GetMe.gql'
@@ -60,7 +61,7 @@ export default function UserMenu() {
   const navigate = useNavigate()
   const { email, logout } = useAuth()
   const { theme, size, setTheme, setSize } = useAppearance()
-  const { data } = useQuery<GetMeData>(GET_ME)
+  const { data, loading } = useQuery<GetMeData>(GET_ME)
   const containerRef = useRef<HTMLDivElement>(null)
   const [isOpen, setIsOpen] = useState(false)
 
@@ -93,6 +94,8 @@ export default function UserMenu() {
   }
 
   const me = data?.me
+  // O e-mail do token só serve de reserva se GET_ME falhar; enquanto carrega, esqueleto
+  const loadingName = loading && !me
   const displayName = me?.name ?? email ?? 'Usuário'
   const displayEmail = me?.email ?? email ?? ''
 
@@ -109,7 +112,11 @@ export default function UserMenu() {
         onClick={() => setIsOpen((o) => !o)}
       >
         <CircleUserRound className="size-6 shrink-0 text-faint" aria-hidden="true" />
-        <span className="truncate max-sm:hidden">{displayName}</span>
+        {loadingName ? (
+          <Skeleton className="w-24 max-sm:hidden" />
+        ) : (
+          <span className="truncate max-sm:hidden">{displayName}</span>
+        )}
         <ChevronDown
           className={cn('size-3.5 shrink-0 text-faint transition-transform', isOpen && 'rotate-180')}
           aria-hidden="true"
