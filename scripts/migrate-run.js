@@ -13,16 +13,21 @@ const MIGRATIONS_DIR = join(__dirname, "..", "prisma", "migrations");
 const BASELINE_UNTIL = "20260927000000-add-cost-model.sql";
 
 /**
- * Banco criado pelo db push: tem as tabelas, mas não a tabela "migrations".
- * Registra como aplicadas as migrations até BASELINE_UNTIL (o schema delas já
- * existe) para que só as posteriores rodem. Banco vazio ou já controlado por
- * "migrations" não é tocado.
+ * Banco criado pelo db push: tem as tabelas, mas nenhuma migration registrada
+ * (tabela "migrations" ausente ou vazia — uma execução antiga pode tê-la criado
+ * sem conseguir aplicar nada). Registra como aplicadas as migrations até
+ * BASELINE_UNTIL (o schema delas já existe) para que só as posteriores rodem.
+ * Banco vazio ou com migrations registradas não é tocado.
  */
 async function baselineLegacyDatabase(client, files) {
   const { rows } = await client.query(
     `SELECT to_regclass('public.migrations') AS migrations, to_regclass('public."User"') AS users`
   );
-  if (rows[0].migrations !== null || rows[0].users === null) return;
+  if (rows[0].users === null) return;
+  if (rows[0].migrations !== null) {
+    const { rows: count } = await client.query("SELECT count(*)::int AS n FROM migrations");
+    if (count[0].n > 0) return;
+  }
 
   const baseline = files.filter((f) => f <= BASELINE_UNTIL);
   console.log(`Banco legado (db push) sem controle de migrations: baseline de ${baseline.length} migrations até ${BASELINE_UNTIL}.`);
